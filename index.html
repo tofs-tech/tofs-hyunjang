@@ -722,6 +722,18 @@ function compressImage(file,max,png){return new Promise(res=>{const img=new Imag
     try{res(usePng?cv.toDataURL('image/png'):cv.toDataURL('image/jpeg',.72));}catch(e){res(null);}};
   img.onerror=()=>{URL.revokeObjectURL(img.src);res(null);};
   img.src=URL.createObjectURL(file);});}
+/* 마감재·자재 사진 규격화 — 항상 동일 사이즈(720×540, 4:3) 중앙 크롭. 홈페이지 캡쳐가 들쭉날쭉해도 통일됨 */
+function normSpecImage(file){return new Promise(res=>{const img=new Image();
+  img.onload=()=>{const W=720,H=540;
+    const cv=document.createElement('canvas');cv.width=W;cv.height=H;
+    const k=Math.max(W/img.naturalWidth,H/img.naturalHeight);
+    const w=img.naturalWidth*k,h=img.naturalHeight*k;
+    const ctx=cv.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+    ctx.drawImage(img,(W-w)/2,(H-h)/2,w,h);
+    URL.revokeObjectURL(img.src);
+    try{res(cv.toDataURL('image/jpeg',.78));}catch(e){res(null);}};
+  img.onerror=()=>{URL.revokeObjectURL(img.src);res(null);};
+  img.src=URL.createObjectURL(file);});}
 
 const SCH_ST={'예정':'neutral','진행중':'accent','완료':'good','지연':'bad'};
 const ORD_ST={'발주전':'neutral','발주완료':'warn','입고완료':'good'};
@@ -3383,14 +3395,14 @@ const FORMS={
     {k:'group',l:'그룹',req:1,hint:'예: 거실, 주방, 바닥'},{k:'phase',l:'공정',dl:'trades',hint:'기본 공정에서 선택'},
     {k:'name',l:'품명',req:1,full:1},{k:'brand',l:'브랜드'},{k:'spec',l:'규격'},
     {k:'unit',l:'단위',hint:'예: 박스, ㎡, 개'},{k:'qty',l:'수량'},{k:'status',l:'상태',t:'select',opt:Object.keys(MAT_ST)},
-    {k:'img',l:'사진',t:'image',full:1},{k:'note',l:'비고',full:1}]},
+    {k:'img',l:'사진',t:'image',fix:1,full:1},{k:'note',l:'비고',full:1}]},
   price:{title:'단가 · 마감재 DB',sub:'마감재/시공자재/시공단가로 구분해 정리합니다. 마감재는 사진·브랜드·구입처를 넣으면 견적서 스펙북에 자동으로 들어갑니다.',fields:[
     {k:'kind',l:'구분',t:'select',opt:PRICE_KINDS},{k:'cat',l:'분류',t:'select',opt:PRICE_CATS},
     {k:'name',l:'품명',req:1},{k:'brand',l:'브랜드·모델',hint:'마감재 스펙북에 표시'},
     {k:'spec',l:'규격',full:1},{k:'unit',l:'단위',hint:'예: EA, ㎡, 인'},
     {k:'mp',l:'자재·구입 단가',t:'number',money:1},{k:'lp',l:'노무·시공 단가',t:'number',money:1},
     {k:'vendor',l:'구입처',dl:'vendors',hint:'업체 탭에서 선택 가능'},{k:'note',l:'비고'},
-    {k:'img',l:'사진 (마감재 — 스펙북에 사용)',t:'image',full:1}]},
+    {k:'img',l:'사진 (마감재 — 스펙북에 사용)',t:'image',fix:1,full:1}]},
   orders:{title:'발주 품목',sub:'같은 발주번호로 입력하면 하나의 발주서로 묶입니다.',fields:[
     {k:'po',l:'발주번호',req:1,hint:'예: PO-2026-003'},{k:'supplier',l:'공급처',req:1,dl:'vendors',hint:'업체 탭에 등록한 업체에서 선택'},{k:'item',l:'품목',req:1,full:1},
     {k:'spec',l:'규격'},{k:'qty',l:'수량',t:'number'},{k:'unit',l:'단위'},{k:'price',l:'단가',t:'number',money:1},
@@ -3455,8 +3467,9 @@ function openForm(type,existing,preset){
       <label class="btn sm">${svg(IC.camera)} 사진 추가<input type="file" accept="image/*" multiple hidden data-imgsadd="${f.k}"></label></div>`;
     else if(f.t==='image')input=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <input type="hidden" name="${f.k}" value="${esc(val)}">
-      <img data-imgprev="${f.k}" src="${esc(val)}" style="width:64px;height:64px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:#fff;${val?'':'display:none'}">
-      <label class="btn sm">사진 선택<input type="file" accept="image/*" hidden data-imgpick="${f.k}"></label>
+      <img data-imgprev="${f.k}" src="${esc(val)}" style="${f.fix?'width:80px;height:60px;object-fit:cover':'width:64px;height:64px;object-fit:contain'};border:1px solid var(--line);border-radius:8px;background:#fff;${val?'':'display:none'}">
+      <label class="btn sm">사진 선택<input type="file" accept="image/*" hidden data-imgpick="${f.k}" ${f.fix?'data-imgfix="1"':''}></label>
+      <button type="button" class="btn sm" data-imgpaste="${f.k}" ${f.fix?'data-imgfix="1"':''} title="홈페이지에서 이미지 복사(캡쳐) 후 누르세요 — Ctrl+V도 됩니다">${svg(IC.copy)}캡쳐 붙여넣기</button>
       <button type="button" class="btn sm ghost" data-imgclear="${f.k}" style="color:var(--bad);${val?'':'display:none'}">삭제</button></div>`;
     else input=`<input name="${f.k}" type="${f.t||'text'}" value="${esc(val)}" ${f.dl?`list="dl-${f.dl}"`:''} ${f.t==='number'?'step="any"':''}>`;
     return`<div class="field ${f.full?'full':''} ${f.money?'money':''}"><label>${f.l}${f.req?' <span class="req">*</span>':''}</label>${input}${f.hint&&f.t!=='textarea'?`<span class="hint">${f.hint}</span>`:''}</div>`;
@@ -3471,14 +3484,37 @@ function openForm(type,existing,preset){
   overlayEl.addEventListener('mousedown',e=>{if(e.target===overlayEl)close();});
   document.addEventListener('keydown',function k(e){if(e.key==='Escape'){close();document.removeEventListener('keydown',k);}});
   overlayEl.querySelector('#cancelBtn').onclick=close;
-  /* 이미지 필드 처리 */
-  overlayEl.querySelectorAll('[data-imgpick]').forEach(fi=>fi.onchange=async e=>{
-    const k=fi.dataset.imgpick,f=e.target.files[0];if(!f)return;
-    const du=await compressImage(f,f.type==='image/png'?900:640);
-    if(!du){alert('이미지를 읽지 못했습니다.');return;}
+  /* 이미지 필드 처리 — fix 필드(마감재·자재 사진)는 항상 동일 규격(720×540)으로 크롭 */
+  const setFieldImg=async(k,file,fix)=>{
+    const du=await(fix?normSpecImage(file):compressImage(file,file.type==='image/png'?900:640));
+    if(!du){alert('이미지를 읽지 못했습니다.');return false;}
     overlayEl.querySelector(`input[name="${k}"]`).value=du;
     const pv=overlayEl.querySelector(`[data-imgprev="${k}"]`);pv.src=du;pv.style.display='';
     overlayEl.querySelector(`[data-imgclear="${k}"]`).style.display='';
+    return true;
+  };
+  overlayEl.querySelectorAll('[data-imgpick]').forEach(fi=>fi.onchange=async e=>{
+    const f=e.target.files[0];if(!f)return;
+    await setFieldImg(fi.dataset.imgpick,f,!!fi.dataset.imgfix);
+  });
+  /* 캡쳐 붙여넣기 — 홈페이지에서 이미지 복사 후 버튼 클릭(또는 Ctrl+V) */
+  overlayEl.querySelectorAll('[data-imgpaste]').forEach(b=>b.onclick=async()=>{
+    const k=b.dataset.imgpaste,fix=!!b.dataset.imgfix;
+    try{
+      const items=await navigator.clipboard.read();
+      for(const it of items){
+        const t=it.types.find(x=>x.startsWith('image/'));
+        if(t){const blob=await it.getType(t);if(await setFieldImg(k,blob,fix))toast('캡쳐 이미지가 등록되었습니다');return;}
+      }
+      toast('클립보드에 이미지가 없습니다 — 홈페이지에서 이미지를 복사한 뒤 다시 눌러주세요');
+    }catch(e){toast('클립보드 접근이 막혀 있습니다 — 이 창에서 Ctrl+V를 눌러보세요');}
+  });
+  overlayEl.addEventListener('paste',e=>{
+    const f=[...((e.clipboardData||{}).files||[])].find(x=>x.type.startsWith('image/'));
+    if(!f)return;
+    const pb=overlayEl.querySelector('[data-imgpaste]');if(!pb)return;
+    e.preventDefault();
+    setFieldImg(pb.dataset.imgpaste,f,!!pb.dataset.imgfix).then(ok=>{if(ok)toast('캡쳐 이미지가 등록되었습니다');});
   });
   overlayEl.querySelectorAll('[data-imgclear]').forEach(b=>b.onclick=()=>{
     const k=b.dataset.imgclear;
