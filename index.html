@@ -1876,7 +1876,7 @@ const xtn=`style="${XB}padding:4px 7px;${XNUM}"`;
 /* ── 견적서 엑셀 — 앱 견적서(갑지+내역서)와 동일한 레이아웃 ── */
 function exportEstXlsx(est){
   const p=proj(),cal=estCalc(est),co=CO(),isCon=est.type==='construction';
-  const W=isCon?10:7;
+  const W=isCon?11:8;
   const band=t=>`<tr><td colspan="${W}" style="background:#3E5A43;color:#ffffff;font-weight:bold;letter-spacing:6px;padding:5px 9px">${t}</td></tr>`;
   const srow=(label,amt,bold,green)=>`<tr><td colspan="${W-2}" style="${XB}padding:4px 9px;${bold?'font-weight:bold;':''}${green?'background:#EFF3EE;':''}">${label}</td><td style="${XB}text-align:center;${green?'background:#EFF3EE;':''}">₩</td><td style="${XB}padding:4px 7px;${XNUM}${bold?'font-weight:bold;':''}${green?'background:#EFF3EE;':''}">${amt}</td></tr>`;
   /* 상단 정보 — 앱과 같은 좌(Client) / 우(Supplier) 구성 */
@@ -1910,23 +1910,23 @@ function exportEstXlsx(est){
   /* 내역서 — 앱 상세표와 같은 2줄 헤더 */
   h+=`<tr><td colspan="${W}" style="padding:10px 0 2px;font-size:13pt;font-weight:bold;color:#171C26">내 역 서</td></tr>`;
   if(isCon){
-    h+=`<tr><td ${xth} rowspan="2">Description</td><td ${xth} rowspan="2">Size</td><td ${xth} rowspan="2">Unit</td><td ${xth} rowspan="2">Qty</td><td ${xth} colspan="2">Material (자재)</td><td ${xth} colspan="2">Labor (노무)</td><td ${xth} rowspan="2">합 계</td><td ${xth} rowspan="2">TOTAL</td></tr>`;
+    h+=`<tr><td ${xth} rowspan="2">Description</td><td ${xth} rowspan="2">세부내역</td><td ${xth} rowspan="2">Size</td><td ${xth} rowspan="2">Unit</td><td ${xth} rowspan="2">Qty</td><td ${xth} colspan="2">Material (자재)</td><td ${xth} colspan="2">Labor (노무)</td><td ${xth} rowspan="2">합 계</td><td ${xth} rowspan="2">TOTAL</td></tr>`;
     h+=`<tr><td ${xth}>단가</td><td ${xth}>금액</td><td ${xth}>단가</td><td ${xth}>금액</td></tr>`;
     est.sections.forEach((sec,si)=>{
       h+=`<tr><td colspan="${W}" style="${XB}background:#EFF3EE;font-weight:bold;padding:4px 8px">Section ${String(si+1).padStart(2,'0')}: ${esc(sec.name||'-')}</td></tr>`;
       (sec.items||[]).forEach(it=>{
         const q=+it.qty||0,mp=+it.mp||0,lp=+it.lp||0;
         if(!it.name&&!q)return;
-        h+=`<tr><td ${xtd}>${esc(it.name)}</td><td ${xtd}>${esc(it.spec)}</td><td ${xtc}>${esc(it.unit)}</td><td ${xtn}>${q||''}</td><td ${xtn}>${mp||''}</td><td ${xtn}>${mp*q||''}</td><td ${xtn}>${lp||''}</td><td ${xtn}>${lp*q||''}</td><td ${xtn}>${(mp+lp)||''}</td><td ${xtn}>${(mp+lp)*q||''}</td></tr>`;
+        h+=`<tr><td ${xtd}>${esc(it.name)}</td><td ${xtd}>${esc(it.detail||'')}</td><td ${xtd}>${esc(it.spec)}</td><td ${xtc}>${esc(it.unit)}</td><td ${xtn}>${q||''}</td><td ${xtn}>${mp||''}</td><td ${xtn}>${mp*q||''}</td><td ${xtn}>${lp||''}</td><td ${xtn}>${lp*q||''}</td><td ${xtn}>${(mp+lp)||''}</td><td ${xtn}>${(mp+lp)*q||''}</td></tr>`;
       });
       h+=`<tr><td colspan="${W-1}" style="${XB}font-weight:bold;padding:4px 8px;text-align:right">Section ${si+1} TOTAL</td><td style="${XB}font-weight:bold;${XNUM}">${cal.secs[si].total}</td></tr>`;
     });
   }else{
-    h+=`<tr><td ${xth}>NO</td><td ${xth}>품명</td><td ${xth}>규격</td><td ${xth}>단위</td><td ${xth}>수량</td><td ${xth}>단가</td><td ${xth}>금액</td></tr>`;
+    h+=`<tr><td ${xth}>NO</td><td ${xth}>품명</td><td ${xth}>세부내역</td><td ${xth}>규격</td><td ${xth}>단위</td><td ${xth}>수량</td><td ${xth}>단가</td><td ${xth}>금액</td></tr>`;
     const items=(est.sections[0]?est.sections[0].items:[]).filter(it=>it.name||+it.qty);
     items.forEach((it,idx)=>{const q=+it.qty||0,a=(+it.mp||0)*q;
-      h+=`<tr><td ${xtc}>${idx+1}</td><td ${xtd}>${esc(it.name)}</td><td ${xtd}>${esc(it.spec)}</td><td ${xtc}>${esc(it.unit)}</td><td ${xtn}>${q||''}</td><td ${xtn}>${+it.mp||''}</td><td ${xtn}>${a||''}</td></tr>`;});
-    h+=`<tr><td colspan="6" style="${XB}font-weight:bold;padding:4px 8px;text-align:right">합계${cal.discount?' (할인 −₩'+numf(cal.discount)+' 반영)':''}</td><td style="${XB}font-weight:bold;${XNUM}">${cal.grand}</td></tr>`;
+      h+=`<tr><td ${xtc}>${idx+1}</td><td ${xtd}>${esc(it.name)}</td><td ${xtd}>${esc(it.detail||'')}</td><td ${xtd}>${esc(it.spec)}</td><td ${xtc}>${esc(it.unit)}</td><td ${xtn}>${q||''}</td><td ${xtn}>${+it.mp||''}</td><td ${xtn}>${a||''}</td></tr>`;});
+    h+=`<tr><td colspan="7" style="${XB}font-weight:bold;padding:4px 8px;text-align:right">합계${cal.discount?' (할인 −₩'+numf(cal.discount)+' 반영)':''}</td><td style="${XB}font-weight:bold;${XNUM}">${cal.grand}</td></tr>`;
   }
   h+=`</table>`;
   downloadExcelHtml(`견적서_${safeName(p.info.name||est.client||'현장')}_${est.date||todayStr()}.xls`,h);
@@ -2428,7 +2428,7 @@ function nextEstNo(p){
   const n=(nums.length?Math.max(...nums):0)+1;
   return`EST-${yr}-${String(n).padStart(3,'0')}`;
 }
-function newEstItem(){return{id:uid(),name:'',spec:'',unit:'',qty:'',mp:'',lp:''};}
+function newEstItem(){return{id:uid(),name:'',detail:'',spec:'',unit:'',qty:'',mp:'',lp:''};}
 function newEstimate(type){
   const p=proj(),i=p.info;
   const est={id:uid(),no:nextEstNo(p),type,date:todayStr(),
@@ -2484,8 +2484,9 @@ function estField(k,label,type,val){return`<div class="field"><label>${label}</l
 function estRate(k,label,val){return`<div class="field"><label>${label} %</label><input data-rate="${k}" type="number" step="any" value="${esc(val)}"></div>`;}
 function estRow(it,idx,isCon){
   return`<tr data-eit="${it.id}">
-    <td class="c sub num">${idx+1}</td>
+    <td class="c sub num drag-h" title="끌어서 순서 변경" style="cursor:grab;user-select:none">⠿ ${idx+1}</td>
     <td><input class="ci" data-ef="name" value="${esc(it.name)}" placeholder="품명"></td>
+    <td><input class="ci" data-ef="detail" value="${esc(it.detail||'')}" placeholder="세부내역 (설명)"></td>
     <td><input class="ci" data-ef="spec" value="${esc(it.spec)}" placeholder="규격"></td>
     <td><input class="ci" data-ef="unit" value="${esc(it.unit)}" placeholder="EA"></td>
     <td><input class="ci r num" data-ef="qty" type="number" step="any" value="${esc(it.qty)}"></td>
@@ -2503,7 +2504,7 @@ function estSectionCard(s,si,isCon){
       ${isCon?`<button class="icon-btn no-print" data-del-sec title="공종 삭제">${svg(IC.trash)}</button>`:''}
     </div>
     <div class="tbl-wrap"><table class="ordtable"><thead><tr>
-      <th style="width:30px" class="c">#</th><th>품명</th><th style="width:150px">규격</th><th style="width:62px">단위</th><th style="width:72px" class="r">수량</th>
+      <th style="width:44px" class="c">#</th><th style="width:150px">품명</th><th>세부내역</th><th style="width:120px">규격</th><th style="width:62px">단위</th><th style="width:72px" class="r">수량</th>
       ${isCon?`<th style="width:96px" class="r">자재 단가</th><th style="width:96px" class="r">노무 단가</th>`:`<th style="width:106px" class="r">단가</th>`}
       <th style="width:106px" class="r">금액</th><th style="width:60px"></th></tr></thead>
       <tbody>${s.items.map((it,idx)=>estRow(it,idx,isCon)).join('')}</tbody></table></div>
@@ -2599,6 +2600,20 @@ function estEditor(c,p,est){
         save();toast((r==='added'?'단가 DB에 추가: ':'단가 DB 가격 갱신: ')+it.name);};
       tr.querySelector('[data-delrow-est]').onclick=()=>{sec.items=sec.items.filter(x=>x.id!==it.id);save();render();};
     });
+    /* 품목 행 드래그 순서 변경 — 같은 공종 안에서만 */
+    const tb=card.querySelector('tbody');
+    let dragTr=null;
+    card.querySelectorAll('tr[data-eit]').forEach(tr=>{
+      tr.querySelector('.drag-h').onmousedown=()=>{tr.draggable=true;};
+      tr.onmouseup=()=>{if(!dragTr)tr.draggable=false;};
+      tr.ondragstart=e=>{dragTr=tr;tr.style.opacity='.35';e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain','');}catch(_){}};
+      tr.ondragover=e=>{if(!dragTr||dragTr===tr)return;e.preventDefault();
+        const r=tr.getBoundingClientRect();
+        tb.insertBefore(dragTr,(e.clientY-r.top)>r.height/2?tr.nextSibling:tr);};
+      tr.ondragend=()=>{tr.draggable=false;tr.style.opacity='';if(!dragTr)return;dragTr=null;
+        const ids=[...tb.querySelectorAll('tr[data-eit]')].map(x=>x.dataset.eit);
+        sec.items.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));save();render();};
+    });
   });
   const asBtn=document.getElementById('addSection');
   if(asBtn)asBtn.onclick=()=>{est.sections.push({id:uid(),name:'',items:[newEstItem()]});save();render();};
@@ -2628,8 +2643,8 @@ function estInfoTables(est){
   </div>`;
 }
 const colBand=()=>`<table class="dhd"><thead>
-  <tr><th rowspan="2" style="width:14%">Description</th><th rowspan="2" style="width:17%">Size</th><th rowspan="2" style="width:7%">Unit</th><th rowspan="2" style="width:6%">Qty</th>
-  <th colspan="2" style="width:17%">Material (자재)</th><th colspan="2" style="width:17%">Labor (노무)</th><th rowspan="2" style="width:15%">TOTAL</th><th rowspan="2" style="width:7%">Etc.</th></tr>
+  <tr><th rowspan="2" style="width:12%">Description</th><th rowspan="2" style="width:14%">세부내역</th><th rowspan="2" style="width:12%">Size</th><th rowspan="2" style="width:6%">Unit</th><th rowspan="2" style="width:5%">Qty</th>
+  <th colspan="2" style="width:16%">Material (자재)</th><th colspan="2" style="width:16%">Labor (노무)</th><th rowspan="2" style="width:13%">TOTAL</th><th rowspan="2" style="width:6%">Etc.</th></tr>
   <tr><th>단가</th><th>금액</th><th>단가</th><th>금액</th></tr></thead></table>`;
 function estRemarkHtml(est){
   const co=CO();
@@ -2682,21 +2697,21 @@ function estGapjiHtml(est,cal){
 function estDetailHtml(est,cal){
   let body='';
   est.sections.forEach((sec,si)=>{
-    body+=`<tr class="dt2-sec"><td colspan="10">Section ${String(si+1).padStart(2,'0')}: ${esc(sec.name||'-')}</td></tr>`;
+    body+=`<tr class="dt2-sec"><td colspan="11">Section ${String(si+1).padStart(2,'0')}: ${esc(sec.name||'-')}</td></tr>`;
     sec.items.forEach(it=>{
       const q=+it.qty||0,m=(+it.mp||0)*q,l=(+it.lp||0)*q,u=(+it.mp||0)+(+it.lp||0);
       if(!it.name&&!q)return;
-      body+=`<tr><td>${esc(it.name)}</td><td>${esc(it.spec)}</td><td class="c">${esc(it.unit)}</td><td class="n">${q?numf(q):''}</td>
+      body+=`<tr><td>${esc(it.name)}</td><td>${esc(it.detail||'')}</td><td>${esc(it.spec)}</td><td class="c">${esc(it.unit)}</td><td class="n">${q?numf(q):''}</td>
         <td class="n">${+it.mp?numf(+it.mp):'-'}</td><td class="n">${m?numf(m):'-'}</td>
         <td class="n">${+it.lp?numf(+it.lp):'-'}</td><td class="n">${l?numf(l):'-'}</td>
         <td class="n">${u?numf(u):''}</td><td class="n">${numf(m+l)}</td></tr>`;
     });
-    body+=`<tr class="dt2-tot"><td colspan="9">Section ${si+1} TOTAL</td><td class="n"><span class="wn"><i>₩</i><b>${numf(cal.secs[si].total)}</b></span></td></tr>`;
+    body+=`<tr class="dt2-tot"><td colspan="10">Section ${si+1} TOTAL</td><td class="n"><span class="wn"><i>₩</i><b>${numf(cal.secs[si].total)}</b></span></td></tr>`;
   });
   return`<div><table class="dt2"><thead>
-    <tr><th rowspan="2" style="width:13%">Description</th><th rowspan="2" style="width:19%">Size</th><th rowspan="2" style="width:6%">Unit</th><th rowspan="2" style="width:6%">Qty</th>
-    <th colspan="2">Material (자재)</th><th colspan="2">Labor (노무)</th><th rowspan="2" style="width:9%">합 계</th><th rowspan="2" style="width:12%">TOTAL</th></tr>
-    <tr><th style="width:8%">단가</th><th style="width:9%">금액</th><th style="width:8%">단가</th><th style="width:9%">금액</th></tr>
+    <tr><th rowspan="2" style="width:12%">Description</th><th rowspan="2" style="width:15%">세부내역</th><th rowspan="2" style="width:12%">Size</th><th rowspan="2" style="width:5%">Unit</th><th rowspan="2" style="width:5%">Qty</th>
+    <th colspan="2">Material (자재)</th><th colspan="2">Labor (노무)</th><th rowspan="2" style="width:8%">합 계</th><th rowspan="2" style="width:11%">TOTAL</th></tr>
+    <tr><th style="width:7%">단가</th><th style="width:8%">금액</th><th style="width:7%">단가</th><th style="width:8%">금액</th></tr>
     </thead><tbody>${body}</tbody></table></div>`;
 }
 function estAggHtml(est,cal){
@@ -2720,11 +2735,11 @@ function estItemSheetHtml(est,cal){
     <div class="eg-h1">견 적 서 <span>ESTIMATE</span></div>
     ${estInfoTables(est)}
     <table class="dt2" style="margin-top:16px"><thead><tr>
-      <th style="width:6%">NO</th><th>품명</th><th style="width:22%">규격</th><th style="width:8%">단위</th><th style="width:9%">수량</th><th style="width:13%">단가</th><th style="width:15%">금액</th>
+      <th style="width:5%">NO</th><th style="width:18%">품명</th><th>세부내역</th><th style="width:14%">규격</th><th style="width:6%">단위</th><th style="width:7%">수량</th><th style="width:11%">단가</th><th style="width:13%">금액</th>
     </tr></thead><tbody>
     ${items.map((it,idx)=>{const q=+it.qty||0,a=(+it.mp||0)*q;
-      return`<tr><td class="c">${idx+1}</td><td>${esc(it.name)}</td><td>${esc(it.spec)}</td><td class="c">${esc(it.unit)}</td><td class="n">${q?numf(q):''}</td><td class="n">${+it.mp?numf(+it.mp):''}</td><td class="n">${numf(a)}</td></tr>`;}).join('')}
-    <tr class="dt2-tot"><td colspan="6">합계 ${cal.discount?'(할인 −₩'+numf(cal.discount)+' 반영)':''}</td><td class="n"><span class="wn"><i>₩</i><b>${numf(cal.grand)}</b></span></td></tr>
+      return`<tr><td class="c">${idx+1}</td><td>${esc(it.name)}</td><td>${esc(it.detail||'')}</td><td>${esc(it.spec)}</td><td class="c">${esc(it.unit)}</td><td class="n">${q?numf(q):''}</td><td class="n">${+it.mp?numf(+it.mp):''}</td><td class="n">${numf(a)}</td></tr>`;}).join('')}
+    <tr class="dt2-tot"><td colspan="7">합계 ${cal.discount?'(할인 −₩'+numf(cal.discount)+' 반영)':''}</td><td class="n"><span class="wn"><i>₩</i><b>${numf(cal.grand)}</b></span></td></tr>
     </tbody></table>
     <div class="eg-grand" style="margin-top:16px"><span>GRAND TOTAL <small style="font-weight:600;opacity:.7">(VAT ${esc(est.vat||'별도')})</small></span><span class="wn"><i>₩</i><b>${numf(cal.grand)}</b></span></div>
     ${estRemarkHtml(est)}
