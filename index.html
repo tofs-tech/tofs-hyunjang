@@ -311,6 +311,8 @@
   .login-card .err{color:var(--bad);font-size:12.5px;min-height:18px;margin-top:10px;}
   .login-card .btn{width:100%;justify-content:center;margin-top:6px;padding:11px;font-size:14px;}
   .sync{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--muted);padding:5px 10px;border-radius:100px;background:var(--surface);border:1px solid var(--line);white-space:nowrap;}
+  .verchip{font-size:10.5px;font-weight:600;color:var(--muted);padding:5px 9px;border-radius:100px;background:none;border:1px solid var(--line);cursor:pointer;white-space:nowrap;font-family:inherit;}
+  .verchip.upd{background:var(--primary);color:#fff;border-color:var(--primary);}
   .sync::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--neutral);flex:none;}
   .sync.ok{color:var(--good);} .sync.ok::before{background:var(--good);}
   .sync.busy{color:var(--accent-ink);} .sync.busy::before{background:var(--accent);animation:syncpulse 1s infinite;}
@@ -327,7 +329,7 @@
     .appbar{padding:9px 10px;gap:7px;}
     .logo{font-size:13px;gap:7px;} .logo .sub{display:none;} .logo .m{width:26px;height:26px;font-size:11px;flex:none;} .logo>div{display:none;}
     .psel select{max-width:132px;font-size:12px;padding:7px 26px 7px 10px;}
-    .npx{display:none;} .sync .tx{display:none;} .sync{padding:5px 7px;}
+    .npx{display:none;} .sync .tx{display:none;} .sync{padding:5px 7px;} .verchip{padding:4px 6px;font-size:9.5px;}
     .icon-btn{width:31px;height:31px;}
     .wrap{padding:12px 10px 56px;}
     .phead{padding:15px 14px;} .phead h1{font-size:17px;}
@@ -521,6 +523,7 @@
   <div class="psel"><select id="projSelect"></select></div>
   <button class="btn sm" id="newProjBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14" stroke-linecap="round" stroke-width="2"/></svg><span class="npx">새 프로젝트</span></button>
   <span class="sync" id="syncChip" hidden><span class="tx"></span></span>
+  <button class="verchip" id="verChip" title="앱 버전 — 눌러서 업데이트 확인"></button>
   <button class="icon-btn" id="themeBtn" title="테마" aria-label="테마 전환"></button>
   <button class="icon-btn" id="logoutBtn" title="로그아웃" aria-label="로그아웃" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M15 12H4m0 0l4-4m-4 4l4 4" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 4h8a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-8" stroke-linecap="round"/></svg></button>
 </div>
@@ -682,9 +685,35 @@ async function enterApp(){
   render();
 }
 
-/* 다른 기기에서 수정한 내용을 화면 복귀 시 자동 반영 */
+/* ===== 앱 버전 표시 + 새 버전 확인 ===== */
+const APP_VERSION='7.17.2';
+let verCheckedAt=0, verNew=null;
+async function fetchAppVersion(){
+  const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
+  const m=(await r.text()).match(/APP_VERSION='([^']+)'/);
+  return m?m[1]:null;
+}
+async function checkAppUpdate(manual){
+  if(!/^https?:$/.test(location.protocol)){if(manual)toast('로컬 파일 실행 중 — 온라인 버전에서만 확인됩니다');return;}
+  verCheckedAt=Date.now();
+  try{const rv=await fetchAppVersion();
+    const el=document.getElementById('verChip');
+    if(rv&&rv!==APP_VERSION){verNew=rv;
+      if(el){el.textContent='새 버전 v'+rv+' ↺';el.classList.add('upd');el.title='눌러서 업데이트 적용';}
+      if(manual)toast('새 버전(v'+rv+')이 있습니다 — 버튼을 누르면 적용됩니다');}
+    else if(manual)toast('최신 버전입니다 (v'+APP_VERSION+')');
+  }catch(e){if(manual)toast('버전 확인 실패 — 네트워크를 확인하세요');}
+}
+{const el=document.getElementById('verChip');
+ el.textContent='v'+APP_VERSION;
+ el.onclick=()=>{verNew?location.reload():checkAppUpdate(true);};}
+setTimeout(()=>checkAppUpdate(false),2500);
+
+/* 다른 기기에서 수정한 내용을 화면 복귀 시 자동 반영 (+10분 지나면 버전도 재확인) */
 document.addEventListener('visibilitychange',async()=>{
-  if(document.visibilityState!=='visible'||!session||!DB||syncBusy||syncDirty)return;
+  if(document.visibilityState!=='visible')return;
+  if(Date.now()-verCheckedAt>600000)checkAppUpdate(false);
+  if(!session||!DB||syncBusy||syncDirty)return;
   try{const row=await sbLoad();
     if(row&&row.updated_at&&(!lastSyncedAt||row.updated_at>lastSyncedAt)&&row.data&&row.data.projects){
       DB=row.data;lastSyncedAt=row.updated_at;render();setSync('ok','저장됨');}}catch(e){}});
