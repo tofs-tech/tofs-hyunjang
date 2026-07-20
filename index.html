@@ -686,7 +686,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.17.2';
+const APP_VERSION='7.18.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1301,37 +1301,51 @@ function printSchedule(){
 }
 
 /* ===== 마감재 ===== */
+/* 단가×수량 — 수량은 자유 입력이라 앞쪽 숫자만 취함(예: "3㎡" → 3) */
+const matQty=m=>parseFloat(String(m.qty||'').replace(/,/g,''))||0;
+const matAmt=m=>Math.round((+m.price||0)*matQty(m));
+const matTotal=p=>(p.materials||[]).reduce((s,m)=>s+matAmt(m),0);
 function vMaterials(c){
   const p=proj();
   const groups=[...new Set(p.materials.map(m=>m.group))];
   c.innerHTML=`
   <div class="vhead"><div><div class="t">마감재 리스트</div><div class="d">공간·공정별 그룹으로 이 현장의 마감재 사양을 정리합니다.</div></div><div class="spacer"></div>
+    <label class="sub no-print" style="display:flex;align-items:center;gap:6px;margin-right:10px;cursor:pointer;white-space:nowrap"><input type="checkbox" id="sbPriceT" ${state.sbPrice?'checked':''}>스펙북에 단가 표시</label>
     <button class="btn accent no-print" id="specbookBtn">${svg(IC.print)}스펙북 PDF</button>${addBtn('materials','마감재 추가')}</div>
   <div class="tip">💡 <b>활용 팁</b> — 그룹은 <b>거실·주방</b>처럼 공간으로 나눠도 되고 <b>목공·도배</b>처럼 공정으로 나눠도 됩니다. 상태를 <b>확정</b>으로 바꾸면 발주 탭에서 발주로 연결하기 좋습니다.</div>
   ${p.materials.length?groups.map(g=>{const items=p.materials.filter(m=>m.group===g);
-    return`<div class="card"><div class="card-h"><span class="ct">${esc(g)}</span><span class="cs">${items.length}개 품목</span></div>
-    <div class="tbl-wrap"><table><thead><tr><th style="width:64px">사진</th><th>공정</th><th>품명</th><th>브랜드</th><th>규격</th><th class="c">단위</th><th class="r">수량</th><th>상태</th><th>비고</th><th></th></tr></thead>
+    const sub=items.reduce((s,m)=>s+matAmt(m),0);
+    return`<div class="card"><div class="card-h"><span class="ct">${esc(g)}</span><span class="cs">${items.length}개 품목${sub?` · 소계 ${won(sub)}`:''}</span></div>
+    <div class="tbl-wrap"><table><thead><tr><th style="width:64px">사진</th><th>공정</th><th>품명</th><th>브랜드</th><th>규격</th><th class="c">단위</th><th class="r">수량</th><th class="r">단가</th><th class="r">금액</th><th>상태</th><th>비고</th><th></th></tr></thead>
     <tbody>${items.map(m=>`<tr><td>${m.img?`<img src="${m.img}" data-imgzoom style="width:48px;height:48px;object-fit:cover;border-radius:7px;cursor:zoom-in;display:block">`:'<span class="sub">—</span>'}</td>
       <td><span class="tag">${esc(m.phase||'—')}</span></td><td class="strong">${esc(m.name)}</td><td>${esc(m.brand||'—')}</td>
-      <td class="num sub">${esc(m.spec||'—')}</td><td class="c sub">${esc(m.unit||'')}</td><td class="r num">${esc(m.qty||'—')}</td><td>${pill(m.status||'미정',MAT_ST)}</td><td class="sub">${esc(m.note||'—')}</td>${rowAct('materials',m.id)}</tr>`).join('')}</tbody></table></div></div>`;
-  }).join(''):`<div class="card">${emptyB('등록된 마감재가 없습니다.',addBtn('materials','마감재 추가'))}</div>`}`;
+      <td class="num sub">${esc(m.spec||'—')}</td><td class="c sub">${esc(m.unit||'')}</td><td class="r num">${esc(m.qty||'—')}</td>
+      <td class="r num">${+m.price?numf(m.price):'<span class="sub">—</span>'}</td><td class="r num strong">${matAmt(m)?numf(matAmt(m)):'<span class="sub">—</span>'}</td>
+      <td>${pill(m.status||'미정',MAT_ST)}</td><td class="sub">${esc(m.note||'—')}</td>${rowAct('materials',m.id)}</tr>`).join('')}</tbody>
+    ${sub?`<tfoot><tr><td colspan="8" class="r strong">소계</td><td class="r num strong">${numf(sub)}</td><td colspan="3"></td></tr></tfoot>`:''}</table></div></div>`;
+  }).join(''):`<div class="card">${emptyB('등록된 마감재가 없습니다.',addBtn('materials','마감재 추가'))}</div>`}
+  ${matTotal(p)?`<div class="card"><div class="card-h"><span class="ct">마감재 총계</span><span class="cs">${p.materials.length}개 품목</span><div class="spacer"></div><span class="ct" style="font-size:17px">${won(matTotal(p))}</span></div></div>`:''}`;
   c.querySelectorAll('[data-imgzoom]').forEach(img=>img.onclick=()=>{
     const ov=document.createElement('div');ov.className='overlay';ov.style.cursor='zoom-out';
     ov.innerHTML=`<img src="${img.src}" style="max-width:92vw;max-height:88vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.4)">`;
     ov.onclick=()=>ov.remove();document.body.appendChild(ov);
   });
+  c.querySelector('#sbPriceT').onchange=e=>{state.sbPrice=e.target.checked;};
   c.querySelector('#specbookBtn').onclick=openSpecbook;
   wire(c);
 }
 /* ── 마감재 스펙북 — 표지 + 그룹별 사양표를 A4 여러 장으로 자동 분할 ── */
-function specbookPages(p){
+function specbookPages(p,sp){
   const i=p.info, mats=p.materials||[];
   const groups=[...new Set(mats.map(m=>m.group))];
   const cover=`<div class="ecov"><div class="ecov-title">${esc(i.name||'')} 마감재 스펙북</div><div class="ecov-logo">${coLogo(300)}</div><div class="ecov-date">${todayStr()}</div></div>`;
   const pageHead=`<div style="display:flex;align-items:baseline;justify-content:space-between;border-bottom:2.5px solid #3E5A43;padding-bottom:10px;margin-bottom:18px">
     <div style="font-size:20px;font-weight:800;letter-spacing:6px;color:#1d241e">마감재 스펙북 <span style="font-size:10px;letter-spacing:3px;color:#4A7C50;font-weight:700">FINISH SPEC BOOK</span></div>
     <div style="font-size:11px;color:#666">${esc(i.name||'')}</div></div>`;
-  const thRow=`<tr>${['사진','공정','품명 · 브랜드','규격 / 컬러','수량','비고'].map((h,ix)=>`<th style="background:#3E5A43;color:#f0f4ef;padding:6px 9px;font-size:9.5px;font-weight:600;text-align:left;-webkit-print-color-adjust:exact;print-color-adjust:exact;${ix===0?'width:64px':ix===1?'width:11%':ix===3?'width:22%':ix===4?'width:9%':ix===5?'width:16%':''}">${h}</th>`).join('')}</tr>`;
+  const cols=[{h:'사진',w:'width:64px'},{h:'공정',w:'width:11%'},{h:'품명 · 브랜드',w:''},{h:'규격 / 컬러',w:'width:22%'},{h:'수량',w:'width:9%'},
+    ...(sp?[{h:'단가',w:'width:11%',r:1},{h:'금액',w:'width:12%',r:1}]:[]),
+    {h:'비고',w:sp?'width:12%':'width:16%'}];
+  const thRow=`<tr>${cols.map(cl=>`<th style="background:#3E5A43;color:#f0f4ef;padding:6px 9px;font-size:9.5px;font-weight:600;text-align:${cl.r?'right':'left'};-webkit-print-color-adjust:exact;print-color-adjust:exact;${cl.w}">${cl.h}</th>`).join('')}</tr>`;
   const td='padding:7px 9px;border-bottom:1px solid #edf0ec;vertical-align:middle';
   const rowHtml=m=>`<tr>
     <td style="${td};padding:6px">${m.img?`<img src="${m.img}" style="width:52px;height:52px;object-fit:cover;border-radius:6px;display:block">`:`<div style="width:52px;height:52px;border-radius:6px;background:#f2f4f1;-webkit-print-color-adjust:exact;print-color-adjust:exact"></div>`}</td>
@@ -1339,6 +1353,8 @@ function specbookPages(p){
     <td style="${td}"><b style="font-size:11.5px;color:#20241f">${esc(m.name)}</b>${m.brand?`<div style="font-size:9.5px;color:#98a099;margin-top:2px">${esc(m.brand)}</div>`:''}</td>
     <td style="${td};font-size:10px;color:#333">${esc(m.spec||'—')}</td>
     <td style="${td};font-size:10px;color:#333">${m.qty?esc(m.qty)+' '+esc(m.unit||''):'—'}</td>
+    ${sp?`<td style="${td};font-size:10px;color:#333;text-align:right">${+m.price?numf(m.price):'—'}</td>
+    <td style="${td};font-size:10.5px;color:#20241f;text-align:right;font-weight:700">${matAmt(m)?numf(matAmt(m)):'—'}</td>`:''}
     <td style="${td};font-size:10px;color:#666">${esc(m.note||'')}</td></tr>`;
   const MAXH=930; const pages=[]; let cur='',used=80,openTbl=false;
   const openT=()=>{cur+=`<table style="width:100%;border-collapse:collapse">${thRow}`;openTbl=true;used+=30;};
@@ -1358,13 +1374,21 @@ function specbookPages(p){
     });
     closeT();
   });
+  if(sp&&matTotal(p)){
+    closeT();
+    if(used+44>MAXH)flush();
+    cur+=`<div style="display:flex;align-items:baseline;justify-content:flex-end;gap:14px;margin-top:14px;padding-top:10px;border-top:2px solid #3E5A43">
+      <span style="font-size:11px;letter-spacing:3px;color:#4A7C50;font-weight:700">합계 TOTAL</span>
+      <span style="font-size:16px;font-weight:800;color:#20241f">${won(matTotal(p))}</span></div>`;
+    used+=44;
+  }
   flush();
   return [cover,...pages];
 }
 function openSpecbook(){
   const p=proj();
   if(!(p.materials||[]).length){toast('등록된 마감재가 없습니다');return;}
-  showPreview('마감재 스펙북',specbookPages(p),false);
+  showPreview('마감재 스펙북',specbookPages(p,!!state.sbPrice),false);
 }
 
 /* ===== 발주 (inline-editable multi-row) ===== */
@@ -3438,7 +3462,8 @@ const FORMS={
   materials:{title:'마감재',sub:'그룹·공정별 마감재를 입력합니다.',fields:[
     {k:'group',l:'그룹',req:1,hint:'예: 거실, 주방, 바닥'},{k:'phase',l:'공정',dl:'trades',hint:'기본 공정에서 선택'},
     {k:'name',l:'품명',req:1,full:1},{k:'brand',l:'브랜드'},{k:'spec',l:'규격'},
-    {k:'unit',l:'단위',hint:'예: 박스, ㎡, 개'},{k:'qty',l:'수량'},{k:'status',l:'상태',t:'select',opt:Object.keys(MAT_ST)},
+    {k:'unit',l:'단위',hint:'예: 박스, ㎡, 개'},{k:'qty',l:'수량'},
+    {k:'price',l:'단가',t:'number',money:1,hint:'수량을 넣으면 금액이 자동 계산됩니다'},{k:'status',l:'상태',t:'select',opt:Object.keys(MAT_ST)},
     {k:'img',l:'사진',t:'image',fix:1,full:1},{k:'note',l:'비고',full:1}]},
   price:{title:'단가 · 마감재 DB',sub:'마감재/시공자재/시공단가로 구분해 정리합니다. 마감재는 사진·브랜드·구입처를 넣으면 견적서 스펙북에 자동으로 들어갑니다.',fields:[
     {k:'kind',l:'구분',t:'select',opt:PRICE_KINDS},{k:'cat',l:'분류',t:'select',opt:PRICE_CATS},
