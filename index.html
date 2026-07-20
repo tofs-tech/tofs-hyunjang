@@ -522,6 +522,8 @@
   <div class="spacer"></div>
   <div class="psel"><select id="projSelect"></select></div>
   <button class="btn sm" id="newProjBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14" stroke-linecap="round" stroke-width="2"/></svg><span class="npx">새 프로젝트</span></button>
+  <button class="btn sm green" id="saveNowBtn" title="지금 바로 클라우드에 저장">저장</button>
+  <button class="btn sm" id="backupBtn" title="백업 파일 내보내기 · 복원">백업</button>
   <span class="sync" id="syncChip" hidden><span class="tx"></span></span>
   <button class="verchip" id="verChip" title="앱 버전 — 눌러서 업데이트 확인"></button>
   <button class="icon-btn" id="themeBtn" title="테마" aria-label="테마 전환"></button>
@@ -686,7 +688,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.19.0';
+const APP_VERSION='7.20.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -3722,6 +3724,96 @@ function newProject(){const id=uid();
   DB.projects.push({id,info:{name:'새 프로젝트',client:'',contact:'',address:'',area:'',siteInfo:'',manager:'',entryNo:'',amount:0,vat:'별도',start:'',end:'',status:'진행중',statusMemo:'',memo:''},todos:[],schedule:[],payments:[],materials:[],orders:[],logs:[],photos:[],expenses:[],workers:[],as:[],files:[]});
   DB.active=id;state.tab='schedule';save();render();openForm('info',proj().info);}
 
+/* ===== 저장 · 백업 =====
+   자동 저장(1.2초 지연)은 그대로 두고, 즉시 올리는 수단과
+   파일 백업을 따로 둔다. 클라우드는 행 하나를 덮어쓰는 구조라
+   이력이 없다 — 파일 백업이 유일한 되돌리기 수단이다. */
+async function saveNow(){
+  const b=document.getElementById('saveNowBtn');
+  save();                                   /* 로컬 캐시 + 동기화 예약 */
+  if(!session){toast('로그인 상태가 아닙니다 — 이 기기에만 저장했습니다');return;}
+  if(syncBusy){toast('저장 중입니다…');return;}
+  const orig='저장';
+  if(b){b.disabled=true;b.textContent='저장 중…';}
+  clearTimeout(syncT);syncBusy=true;syncDirty=false;
+  try{
+    await sbUpsert();
+    lastSyncedAt=new Date().toISOString();setSync('ok','저장됨');
+    if(b)b.textContent='✓ 저장됨';
+    toast('클라우드에 저장했습니다');
+  }catch(e){
+    setSync('bad','저장 실패');
+    if(b)b.textContent='저장 실패';
+    toast('저장 실패 — 인터넷 연결을 확인해 주세요');
+    syncDirty=true;queueSync();             /* 자동 재시도로 넘긴다 */
+  }finally{
+    syncBusy=false;
+    if(b)setTimeout(()=>{b.disabled=false;b.textContent=orig;},1600);
+  }
+}
+function bkStamp(){const d=new Date(),p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;}
+function exportBackup(silent){
+  try{
+    const blob=new Blob([JSON.stringify(DB)],{type:'application/json'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=`tofs-백업-${bkStamp()}.json`;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    if(!silent)toast('백업 파일을 내려받았습니다');
+    return true;
+  }catch(e){toast('백업 파일 만들기에 실패했습니다');return false;}
+}
+/* 백업 파일인지 확인하고 요약을 낸다. 아니면 null. */
+function backupSummary(d){
+  if(!d||typeof d!=='object'||!Array.isArray(d.projects))return null;
+  return {np:d.projects.length,
+          nm:d.projects.reduce((s,pr)=>s+(((pr&&pr.materials)||[]).length),0)};
+}
+function restoreBackup(file){
+  const rd=new FileReader();
+  rd.onerror=()=>toast('파일을 읽지 못했습니다');
+  rd.onload=()=>{
+    let d=null;
+    try{d=JSON.parse(rd.result);}catch(e){toast('백업 파일을 읽을 수 없습니다 (형식 오류)');return;}
+    const sum=backupSummary(d);
+    if(!sum){toast('이 파일은 이 앱의 백업 파일이 아닙니다');return;}
+    const np=sum.np, nm=sum.nm;
+    if(!confirm(`복원하면 지금 데이터를 덮어씁니다.\n\n복원할 내용\n· 현장 ${np}개\n· 마감재 ${nm}개\n\n되돌릴 수 있도록 지금 상태를 먼저 파일로 내려받습니다.\n\n복원할까요?`))return;
+    if(!exportBackup(true)&&!confirm('현재 상태 백업에 실패했습니다.\n그래도 복원할까요? (지금 데이터는 되돌릴 수 없습니다)'))return;
+    DB=d;
+    DB.projects=DB.projects||[];DB.priceDB=DB.priceDB||[];
+    DB.trades=DB.trades||DEFAULT_TRADES.slice();
+    DB.company=Object.assign({},CO_DEFAULT,DB.company||{});
+    DB.projects.forEach(pr=>{pr.estimates=pr.estimates||[];pr.contracts=pr.contracts||[];pr.materials=pr.materials||[];});
+    syncPriceCats();
+    state.tab='home';
+    save();render();
+    toast(`복원 완료 — 현장 ${np}개 · 마감재 ${nm}개`);
+  };
+  rd.readAsText(file);
+}
+function openBackup(){
+  const ov=document.createElement('div');ov.className='overlay';
+  ov.innerHTML=`<div class="modal" style="width:min(460px,100%)"><h2>백업</h2>
+    <div class="msub">파일로 보관해 두면 무슨 일이 있어도 되돌릴 수 있습니다.</div>
+    <div style="padding:16px 22px;display:flex;flex-direction:column;gap:10px">
+      <button class="btn green" id="bkExp">백업 파일로 내보내기</button>
+      <button class="btn" id="bkImp">백업 파일에서 복원</button>
+      <input type="file" id="bkFile" accept="application/json,.json" hidden>
+      <div class="sub" style="line-height:1.65;margin-top:4px">복원은 지금 데이터를 <b>덮어씁니다</b>. 덮어쓰기 전 현재 상태를 자동으로 파일로 내려받으니, 잘못 복원해도 되돌릴 수 있습니다.</div>
+    </div>
+    <div class="modal-foot"><div class="right"><button class="btn" id="bkClose">닫기</button></div></div></div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.addEventListener('mousedown',e=>{if(e.target===ov)close();});
+  ov.querySelector('#bkClose').onclick=close;
+  ov.querySelector('#bkExp').onclick=()=>exportBackup();
+  const f=ov.querySelector('#bkFile');
+  ov.querySelector('#bkImp').onclick=()=>f.click();
+  f.onchange=()=>{const file=f.files&&f.files[0];if(file){close();restoreBackup(file);}};
+}
+
 /* ===== theme ===== */
 function applyTheme(t){if(t)document.documentElement.setAttribute('data-theme',t);
   const dark=(document.documentElement.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'))==='dark';
@@ -3731,6 +3823,8 @@ function initTheme(){let t=null;try{t=localStorage.getItem(KEY+'-theme');}catch(
 
 /* ===== init ===== */
 document.getElementById('newProjBtn').onclick=newProject;
+document.getElementById('saveNowBtn').onclick=saveNow;
+document.getElementById('backupBtn').onclick=openBackup;
 /* PWA — 홈 화면 설치형 앱 (https에서만 동작, 로컬 파일은 무시) */
 if('serviceWorker' in navigator&&location.protocol==='https:'){addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});}
 initTheme();
