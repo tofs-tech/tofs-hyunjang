@@ -468,6 +468,62 @@
   .psheet .eg-grand .wn i{color:rgba(255,255,255,.55);}
   .psheet .eg-remark{margin-top:20px;font-size:11.5px;line-height:1.85;}
   .psheet .eg-remark b{display:block;border-bottom:2px solid #333;padding-bottom:4px;margin-bottom:8px;font-size:12.5px;}
+  /* ── 에디토리얼 문서(견적서·발주서·스펙북·안내문) — 크림 종이 · 모노톤 · 헤어라인 ──
+     일정표·계약서 등 다른 문서는 기존 스타일을 그대로 쓴다. */
+  .pv-page:has(> .psheet > .ed){background:#F7F4EE;}
+  .psheet .ed{min-height:262mm;display:flex;flex-direction:column;color:#1D1B16;font-size:12px;letter-spacing:-.01em;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .psheet .ed.autoh{min-height:0;display:block;} /* 실측 분할용 — 페이지 높이를 강제하면 분할 측정이 깨진다 */
+  .psheet .ed .dash{color:#B8B1A2;}
+  .psheet .ed-top{display:flex;justify-content:space-between;align-items:baseline;}
+  .psheet .ed-co{font-size:11px;font-weight:800;letter-spacing:.4em;}
+  .psheet .ed-no{font-size:9.5px;font-weight:600;letter-spacing:.28em;color:#8D877B;white-space:nowrap;}
+  .psheet .ed-title{font-size:44px;font-weight:700;letter-spacing:-.025em;line-height:1;margin-top:30px;}
+  .psheet .ed-sub{font-size:10px;font-weight:800;letter-spacing:.55em;margin-top:12px;}
+  .psheet .ed-hrow{display:flex;justify-content:space-between;align-items:flex-end;}
+  .psheet .ed-hmeta{text-align:right;font-size:10.5px;color:#5A554A;line-height:1.7;}
+  .psheet .ed-band{display:flex;border-top:1.5px solid #1D1B16;border-bottom:1px solid #1D1B16;margin-top:24px;}
+  .psheet .ed-band.b2{border-top:none;}
+  .psheet .ed-band>div{flex:1;padding:12px 16px;border-left:1px solid #DDD6C8;min-width:0;}
+  .psheet .ed-band>div:first-child{padding-left:2px;border-left:none;}
+  .psheet .ed-lab{font-size:8.5px;font-weight:800;letter-spacing:.32em;color:#8D877B;}
+  .psheet .ed-val{font-size:12.5px;font-weight:700;margin-top:7px;word-break:keep-all;}
+  .psheet .ed-val small{font-weight:500;color:#5A554A;font-size:10.5px;}
+  .psheet .ed-amtrow{display:flex;justify-content:space-between;align-items:flex-end;margin-top:26px;}
+  .psheet .ed-amt{margin-top:8px;font-size:15px;color:#5A554A;}
+  .psheet .ed-amt b{font-size:34px;font-weight:700;color:#1D1B16;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
+  .psheet .ed-vat{font-size:9.5px;font-weight:800;letter-spacing:.3em;color:#5A554A;}
+  .psheet table.edt{width:100%;border-collapse:collapse;font-size:10.5px;table-layout:fixed;}
+  .psheet .edt thead th{font-size:8.5px;font-weight:700;letter-spacing:.22em;color:#8D877B;padding:8px 6px;border-bottom:1px solid #1D1B16;text-align:left;white-space:nowrap;}
+  .psheet .edt thead th.n{text-align:right;} .psheet .edt thead th.c{text-align:center;}
+  .psheet .edt td{padding:8px 6px;border-bottom:1px solid #E4DED1;vertical-align:middle;line-height:1.5;word-break:keep-all;overflow-wrap:break-word;}
+  .psheet .edt td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .psheet .edt td.c{text-align:center;white-space:nowrap;}
+  .psheet .edt td.etc{color:#5A554A;font-size:9.5px;white-space:normal;}
+  .psheet .edt .ed-det{font-size:9.5px;color:#8D877B;margin-top:2px;line-height:1.45;font-weight:400;}
+  .psheet .edt .ed-sec td{font-weight:800;font-size:11px;border-top:1.5px solid #1D1B16;border-bottom:1px solid #C9C2B2;padding:9px 6px;}
+  .psheet .edt .ed-sec .sn{color:#8D877B;margin-right:9px;font-variant-numeric:tabular-nums;}
+  .psheet .ed-tots{margin:22px 0 0 auto;width:56%;min-width:280px;font-size:11px;}
+  .psheet .ed-tots .tr{display:flex;justify-content:space-between;align-items:baseline;padding:9px 2px;border-top:1px solid #E4DED1;color:#5A554A;}
+  .psheet .ed-tots .tr b{font-weight:600;color:#1D1B16;font-variant-numeric:tabular-nums;}
+  .psheet .ed-tots .tr i{font-style:normal;font-size:9.5px;color:#8D877B;margin-left:3px;}
+  .psheet .ed-tots .grand{border-top:1.5px solid #1D1B16;border-bottom:1.5px solid #1D1B16;padding:12px 2px;color:#1D1B16;font-weight:800;letter-spacing:.2em;margin-top:4px;}
+  .psheet .ed-tots .grand b{font-size:14px;font-weight:800;}
+  .psheet .ed-note{display:flex;gap:10px;margin-top:26px;font-size:9.8px;color:#8D877B;line-height:1.8;}
+  .psheet .ed-foot{margin-top:auto;padding-top:12px;border-top:1.5px solid #1D1B16;}
+  .psheet .ed.autoh .ed-foot{margin-top:24px;}
+  .psheet .ed-fco{font-size:10.5px;font-weight:800;letter-spacing:.35em;}
+  .psheet .ed-frow{margin-top:8px;font-size:9px;color:#5A554A;display:flex;flex-wrap:wrap;gap:4px 18px;}
+  .psheet .ed-frow .fl{font-weight:800;letter-spacing:.18em;color:#1D1B16;margin-right:6px;}
+  .psheet .ed-cov{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:40px;text-align:center;}
+  .psheet .ed-cov .ed-title{margin-top:0;font-size:32px;letter-spacing:-.015em;line-height:1.3;}
+  .psheet .ed-covdate{font-size:10px;letter-spacing:.4em;color:#8D877B;}
+  .psheet .ed-sech{margin:24px 0 0;font-size:11px;font-weight:800;border-top:1.5px solid #1D1B16;padding:10px 2px 8px;}
+  .psheet .ed-sech .sn{color:#8D877B;margin-right:9px;font-variant-numeric:tabular-nums;}
+  .psheet .ed-sech small{color:#8D877B;font-weight:600;letter-spacing:.1em;margin-left:8px;font-size:9px;}
+  .psheet .ed-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px;}
+  .psheet .ed-card{background:#fff;border:1px solid #E4DED1;page-break-inside:avoid;}
+  .psheet .ed-card .im{height:118px;background:#EFEAE0;overflow:hidden;}
+  .psheet .ed-pg{margin-top:14px;font-size:9px;letter-spacing:.25em;color:#8D877B;text-align:right;}
   .psheet .eg-sign{text-align:right;margin-top:18px;font-size:13.5px;font-weight:600;}
   .psheet .eg-valid{text-align:right;color:#777;font-size:10px;margin-top:10px;}
   .psheet table.edt{width:100%;border-collapse:collapse;font-size:10.5px;}
@@ -691,7 +747,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.23.0';
+const APP_VERSION='7.24.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -924,12 +980,14 @@ function loadH2C(){
 }
 async function sheetToBlob(html,land){
   await loadH2C();
+  /* 에디토리얼 문서(.ed)는 크림 종이가 디자인의 일부 — 이미지로 보낼 때도 유지한다 */
+  const cream=/class="ed[\s"]/.test(html)?'#F7F4EE':'#ffffff';
   const host=document.createElement('div');
-  host.style.cssText='position:fixed;left:-12000px;top:0;background:#fff;padding:24px;width:'+(land?'1500px':'860px');
+  host.style.cssText=`position:fixed;left:-12000px;top:0;background:${cream};padding:24px;width:`+(land?'1500px':'860px');
   host.innerHTML=`<div class="psheet${land?' land':''}">${html}</div>`;
   document.body.appendChild(host);
   try{
-    const cv=await html2canvas(host,{scale:2,backgroundColor:'#ffffff',logging:false});
+    const cv=await html2canvas(host,{scale:2,backgroundColor:cream,logging:false});
     return await new Promise(r=>cv.toBlob(r,'image/png'));
   } finally { host.remove(); }
 }
@@ -1376,27 +1434,24 @@ function specbookPages(p,sp){
   const mats=(p.materials||[]).filter(m=>!sbHidden(p,m.id));
   const shownTotal=mats.reduce((s,m)=>s+matAmt(m),0);
   const groups=[...new Set(mats.map(m=>m.group))];
-  const cover=`<div class="ecov"><div class="ecov-title">${esc(i.name||'')} 마감재 스펙북</div><div class="ecov-logo">${coLogo(300)}</div><div class="ecov-date">${todayStr()}</div></div>`;
-  const pageHead=`<div style="display:flex;align-items:baseline;justify-content:space-between;border-bottom:2.5px solid #3E5A43;padding-bottom:10px;margin-bottom:18px">
-    <div style="font-size:20px;font-weight:800;letter-spacing:6px;color:#1d241e">마감재 스펙북 <span style="font-size:10px;letter-spacing:3px;color:#4A7C50;font-weight:700">FINISH SPEC BOOK</span></div>
-    <div style="font-size:11px;color:#666">${esc(i.name||'')}</div></div>`;
-  const cols=[{h:'사진',w:'width:64px'},{h:'공정',w:'width:11%'},{h:'품명 · 브랜드',w:''},{h:'규격 / 컬러',w:'width:22%'},{h:'수량',w:'width:9%'},
-    ...(sp?[{h:'단가',w:'width:11%',r:1},{h:'금액',w:'width:12%',r:1}]:[]),
-    {h:'비고',w:sp?'width:12%':'width:16%'}];
-  const thRow=`<tr>${cols.map(cl=>`<th style="background:#3E5A43;color:#f0f4ef;padding:6px 9px;font-size:9.5px;font-weight:600;text-align:${cl.r?'right':'left'};-webkit-print-color-adjust:exact;print-color-adjust:exact;${cl.w}">${cl.h}</th>`).join('')}</tr>`;
-  const td='padding:7px 9px;border-bottom:1px solid #edf0ec;vertical-align:middle';
+  const cover=edCover(`${i.name||''} 마감재 스펙북`,todayStr());
+  const pageHead=`${edTop(edDateNo(todayStr()))}
+    <div class="ed-hrow"><div>${edTitle('Spec Book.','마 감 재  스 펙 북')}</div>
+      <div class="ed-hmeta">${esc(i.name||'')}<br>${esc(edDot(todayStr()))}</div></div>`;
+  const cols=[{h:'사진',w:'width:62px'},{h:'공정',w:'width:10%'},{h:'품명',w:''},{h:'규격 / 컬러',w:'width:20%'},{h:'수량',w:'width:9%'},
+    ...(sp?[{h:'단가',w:'width:10%',r:1},{h:'금액',w:'width:11%',r:1}]:[]),
+    {h:'비고',w:sp?'width:11%':'width:15%'}];
+  const thRow=`<tr>${cols.map(cl=>`<th class="${cl.r?'n':''}" style="${cl.w}">${cl.h}</th>`).join('')}</tr>`;
   const rowHtml=m=>`<tr>
-    <td style="${td};padding:6px">${m.img?`<img src="${m.img}" style="width:52px;height:52px;object-fit:cover;border-radius:6px;display:block">`:`<div style="width:52px;height:52px;border-radius:6px;background:#f2f4f1;-webkit-print-color-adjust:exact;print-color-adjust:exact"></div>`}</td>
-    <td style="${td}"><span style="font-size:9.5px;font-weight:700;color:#4A7C50;letter-spacing:.05em">${esc(m.phase||'—')}</span></td>
-    <td style="${td}"><b style="font-size:11.5px;color:#20241f">${esc(m.name)}</b>${m.brand?`<div style="font-size:9.5px;color:#98a099;margin-top:2px">${esc(m.brand)}</div>`:''}${(m.detail||'').trim()?`<div style="font-size:9.5px;color:#555;margin-top:3px;line-height:1.5;white-space:pre-wrap">${esc(m.detail)}</div>`:''}</td>
-    <td style="${td};font-size:10px;color:#333">${esc(m.spec||'—')}</td>
-    <td style="${td};font-size:10px;color:#333">${m.qty?esc(m.qty)+' '+esc(m.unit||''):'—'}</td>
-    ${sp?`<td style="${td};font-size:10px;color:#333;text-align:right">${+m.price?numf(m.price):'—'}</td>
-    <td style="${td};font-size:10.5px;color:#20241f;text-align:right;font-weight:700">${matAmt(m)?numf(matAmt(m)):'—'}</td>`:''}
-    <td style="${td};font-size:10px;color:#666">${esc(m.note||'')}</td></tr>`;
-  const totalHtml=`<div data-sbtotal style="display:flex;align-items:baseline;justify-content:flex-end;gap:14px;margin-top:14px;padding-top:10px;border-top:2px solid #3E5A43">
-      <span style="font-size:11px;letter-spacing:3px;color:#4A7C50;font-weight:700">합계 TOTAL</span>
-      <span style="font-size:16px;font-weight:800;color:#20241f">${won(shownTotal)}</span></div>`;
+    <td style="padding:6px">${m.img?`<img src="${m.img}" style="width:50px;height:50px;object-fit:cover;display:block">`:`<div style="width:50px;height:50px;background:#EFEAE0;-webkit-print-color-adjust:exact;print-color-adjust:exact"></div>`}</td>
+    <td class="etc" style="font-size:9px;letter-spacing:.08em">${esc(m.phase||'—')}</td>
+    <td><b style="font-size:11px">${esc(m.name)}</b>${m.brand?`<div class="ed-det">${esc(m.brand)}</div>`:''}${(m.detail||'').trim()?`<div class="ed-det" style="white-space:pre-wrap">${esc(m.detail)}</div>`:''}</td>
+    <td class="etc">${esc(m.spec||'')||'<span class="dash">—</span>'}</td>
+    <td class="etc">${m.qty?esc(m.qty)+' '+esc(m.unit||''):'<span class="dash">—</span>'}</td>
+    ${sp?`<td class="n">${+m.price?numf(m.price):'<span class="dash">—</span>'}</td>
+    <td class="n" style="font-weight:700">${matAmt(m)?numf(matAmt(m)):'<span class="dash">—</span>'}</td>`:''}
+    <td class="etc">${esc(m.note||'')||'<span class="dash">—</span>'}</td></tr>`;
+  const totalHtml=`<div data-sbtotal class="ed-tots"><div class="tr grand"><span>합 계</span><b>${numf(shownTotal)}<i>원</i></b></div></div>`;
 
   /* ── 페이지 분할 ──
      예전엔 행 높이를 70px로 추정해 나눴는데, 실제 행은 그보다 낮아서
@@ -1415,27 +1470,26 @@ function specbookPages(p,sp){
   stage.appendChild(ruler);
   const pxPerMm=(ruler.getBoundingClientRect().height||377.95)/100;
   ruler.remove();
-  const MAXH=262*pxPerMm;            /* .pv-page min-height 290mm − padding 14mm×2 */
+  const MAXH=250*pxPerMm;            /* 내용 262mm − 하단 회사 푸터 몫 12mm */
 
   const pages=[];
-  let tbody=null, pageEmpty=true;
+  let edEl=null, tbody=null, pageEmpty=true;
   const overflow=()=>inner.scrollHeight>MAXH;
-  const newPage=()=>{inner.innerHTML=pageHead;tbody=null;pageEmpty=true;};
-  const pushPage=()=>{if(inner.querySelector('table,[data-sbtotal]'))pages.push(inner.innerHTML);};
-  const startSec=(g,cont,n)=>{
-    const first=!inner.querySelector('table');
-    inner.insertAdjacentHTML('beforeend',`<div class="eg-sechd" style="margin:${first?'0':'20px'} 0 8px"><span>${esc(g)}${cont?' <small style="letter-spacing:1px;color:#98a099">(계속)</small>':''}${n?` <small style="letter-spacing:1px;color:#98a099">· ${n}개</small>`:''}</span></div>`);
-    inner.insertAdjacentHTML('beforeend',`<table style="width:100%;border-collapse:collapse"><thead>${thRow}</thead><tbody></tbody></table>`);
-    tbody=inner.lastElementChild.querySelector('tbody');
+  const newPage=()=>{inner.innerHTML=`<div class="ed autoh">${pageHead}</div>`;edEl=inner.firstElementChild;tbody=null;pageEmpty=true;};
+  const pushPage=()=>{if(inner.querySelector('table,[data-sbtotal]')){edEl.insertAdjacentHTML('beforeend',edFoot());pages.push(inner.innerHTML);}};
+  const startSec=(g,cont,n,num)=>{
+    edEl.insertAdjacentHTML('beforeend',`<div class="ed-sech"><span class="sn">${String(num).padStart(2,'0')}</span>${esc(g)}${cont?' <small>(계속)</small>':''}${n?` <small>· ${n}개</small>`:''}</div>`);
+    edEl.insertAdjacentHTML('beforeend',`<table class="edt"><thead>${thRow}</thead><tbody></tbody></table>`);
+    tbody=edEl.lastElementChild.querySelector('tbody');
   };
-  const dropSec=()=>{const t=inner.lastElementChild;const h=t.previousElementSibling;t.remove();if(h&&h.classList.contains('eg-sechd'))h.remove();tbody=null;};
+  const dropSec=()=>{const t=edEl.lastElementChild;const h=t.previousElementSibling;t.remove();if(h&&h.classList.contains('ed-sech'))h.remove();tbody=null;};
 
   newPage();
-  groups.forEach(g=>{
+  groups.forEach((g,gi)=>{
     const items=mats.filter(m=>m.group===g);
     let idx=0, cont=false;
     while(idx<items.length){
-      startSec(g,cont,cont?0:items.length);
+      startSec(g,cont,cont?0:items.length,gi+1);
       let placed=0;
       while(idx<items.length){
         tbody.insertAdjacentHTML('beforeend',rowHtml(items[idx]));
@@ -1449,11 +1503,11 @@ function specbookPages(p,sp){
     }
   });
   if(sp&&shownTotal){
-    inner.insertAdjacentHTML('beforeend',totalHtml);
+    edEl.insertAdjacentHTML('beforeend',totalHtml);
     if(overflow()&&!pageEmpty){
-      inner.lastElementChild.remove();
+      edEl.lastElementChild.remove();
       pushPage();newPage();
-      inner.insertAdjacentHTML('beforeend',totalHtml);
+      edEl.insertAdjacentHTML('beforeend',totalHtml);
     }
   }
   pushPage();
@@ -1590,16 +1644,31 @@ function printOrder(po){
   const p=proj(),items=p.orders.filter(o=>o.po===po),qtySum=items.reduce((s,o)=>s+(+o.qty||0),0);
   const sp=!!items[0].showPrice, co=CO();
   const total=items.reduce((s,o)=>s+(+o.qty||0)*(+o.price||0),0);
-  const html=`<div class="eg-h1">발 주 서 <span>PURCHASE ORDER</span></div>
-  <div class="pmeta" style="border-top:none;border-bottom:1px solid #dfe5dd;margin-top:-4px"><div><b>발주번호</b> ${esc(po)}<br><b>현 장</b> ${esc(p.info.name)}<br><b>공급처</b> ${esc(items[0].supplier)}</div>
-  <div style="text-align:right"><b>발주일</b> ${items[0].orderDate||'—'}<br><b>납기일</b> ${items[0].dueDate||'—'}<br><b>담당</b> ${esc(p.info.manager||co.ceo||'')} / ${esc(co.tel||'')}</div></div>
-  <table class="dt2"><thead><tr><th class="c" style="width:36px">No</th><th>품목</th><th style="width:130px">규격</th><th class="n" style="width:70px">수량</th><th class="c" style="width:56px">단위</th>${sp?`<th class="n" style="width:90px">단가</th><th class="n" style="width:110px">금액</th>`:`<th style="width:120px">비고</th>`}</tr></thead><tbody>
-  ${items.map((o,idx)=>`<tr><td class="c">${idx+1}</td><td>${esc(o.item)}</td><td>${esc(o.spec||'')}</td><td class="n">${numf(o.qty)}</td><td class="c">${esc(o.unit||'')}</td>${sp?`<td class="n">${+o.price?numf(+o.price):''}</td><td class="n">${numf((+o.qty||0)*(+o.price||0))}</td>`:`<td></td>`}</tr>`).join('')}
-  <tr class="dt2-tot"><td></td><td colspan="2">총 ${items.length}개 품목</td><td class="n">${numf(qtySum)}</td><td class="c">-</td>${sp?`<td></td><td class="n">₩ ${numf(total)}</td>`:`<td></td>`}</tr>
+  const dash='<span class="dash">—</span>';
+  const html=`<div class="ed">
+  ${edTop(esc(po))}
+  ${edTitle('Order.','발 주 서')}
+  <div class="ed-band">
+    <div><div class="ed-lab">SUPPLIER</div><div class="ed-val">${esc(items[0].supplier||'—')} <small>귀중</small></div></div>
+    <div><div class="ed-lab">ORDER DATE</div><div class="ed-val">${items[0].orderDate?esc(edDot(items[0].orderDate)):'—'}</div></div>
+    <div><div class="ed-lab">DUE DATE</div><div class="ed-val">${items[0].dueDate?esc(edDot(items[0].dueDate)):'—'}</div></div>
+  </div>
+  <div class="ed-band b2">
+    <div><div class="ed-lab">PROJECT</div><div class="ed-val">${esc(p.info.name||'')}</div></div>
+    <div><div class="ed-lab">MANAGER</div><div class="ed-val">${esc(p.info.manager||co.ceo||'')}</div></div>
+    <div><div class="ed-lab">TEL</div><div class="ed-val">${esc(co.tel||'')}</div></div>
+  </div>
+  <div class="ed-lab" style="margin:28px 0 4px">ORDER ITEMS</div>
+  <table class="edt"><thead><tr><th class="c" style="width:6%">No</th><th>품목</th><th style="width:18%">규격</th><th class="n" style="width:8%">수량</th><th class="c" style="width:8%">단위</th>${sp?`<th class="n" style="width:12%">단가</th><th class="n" style="width:14%">금액</th>`:`<th style="width:16%">비고</th>`}</tr></thead><tbody>
+  ${items.map((o,idx)=>`<tr><td class="c">${idx+1}</td><td>${esc(o.item)||dash}</td><td class="etc">${esc(o.spec||'')||dash}</td><td class="n">${+o.qty?numf(o.qty):dash}</td><td class="c">${esc(o.unit||'')||dash}</td>${sp?`<td class="n">${+o.price?numf(+o.price):dash}</td><td class="n">${(+o.qty||0)*(+o.price||0)?numf((+o.qty||0)*(+o.price||0)):dash}</td>`:`<td class="etc">${dash}</td>`}</tr>`).join('')}
   </tbody></table>
-  <div class="foot">※ 상기와 같이 발주합니다.${sp?'':'<br>※ 단가·금액은 별도 견적서에 따릅니다.'}</div>
-  <div class="foot" style="margin-top:36px;text-align:right;color:#333">발주처 : <b style="color:#2b402f">${esc(co.name||'')}</b> &nbsp;&nbsp; (인)</div>
-  ${docLogo(co.poLogoPos||'왼쪽',130,30)}`;
+  <div class="ed-tots">
+    <div class="tr"><span>총 품목</span><b>${items.length}<i>개</i></b></div>
+    <div class="tr"><span>총 수량</span><b>${numf(qtySum)}</b></div>
+    ${sp?`<div class="tr grand"><span>총 금 액</span><b>${numf(total)}<i>원</i></b></div>`:''}
+  </div>
+  <div class="ed-note"><span class="dash">—</span><div>상기와 같이 발주합니다.${sp?'':'<br>단가·금액은 별도 견적서에 따릅니다.'}</div></div>
+  ${edFoot()}</div>`;
   showPreview('발주서',html);
 }
 
@@ -2160,37 +2229,38 @@ function noticeSheet(d){
   /* fontScale % — 안내문 전체 글씨 크기 배율 */
   const k=Math.max(.5,Math.min(2,(+d.fontScale||100)/100));
   const fz=n=>Math.round(n*k*10)/10+'px';
-  const period=d.start&&d.end?`${fdateF(d.start)} ~ ${fdateF(d.end)} <span style="font-weight:600;color:#8A93A2;font-size:${fz(13)}">(약 ${weeks(d.start,d.end)}주)</span>`:esc(fdateF(d.start));
-  const row=(kk,v)=>`<div style="display:flex;gap:20px;padding:14px 2px;border-bottom:1px solid #EDF0F4;align-items:baseline">
-    <div style="width:96px;flex:none;font-weight:700;color:#4A7C50;font-size:${fz(13)};letter-spacing:.14em">${kk}</div>
-    <div style="font-size:${fz(16)};font-weight:600;color:#1F2430;line-height:1.5">${v}</div></div>`;
-  const crow=(kk,v)=>v?`<div style="display:flex;gap:14px;padding:5px 0;font-size:${fz(12.5)};line-height:1.5"><div style="width:44px;flex:none;color:#8A93A2">${kk}</div><div style="color:#1F2430;font-weight:600">${v}</div></div>`:'';
+  const period=d.start&&d.end?`${fdateF(d.start)} ~ ${fdateF(d.end)} <span style="font-weight:500;color:#8D877B;font-size:${fz(12)}">(약 ${weeks(d.start,d.end)}주)</span>`:esc(fdateF(d.start));
+  const row=(en,kk,v)=>`<div style="display:flex;gap:22px;padding:${fz(13)} 2px;border-bottom:1px solid #E4DED1;align-items:baseline">
+    <div style="width:130px;flex:none"><div class="ed-lab" style="font-size:${fz(8)}">${en}</div><div style="font-weight:800;font-size:${fz(12.5)};margin-top:3px">${kk}</div></div>
+    <div style="font-size:${fz(15)};font-weight:600;line-height:1.55;flex:1">${v}</div></div>`;
+  const crow=(kk,v)=>v?`<span style="margin-right:22px;white-space:nowrap"><span class="fl" style="font-weight:800;letter-spacing:.15em;margin-right:7px">${kk}</span><span style="color:#5A554A">${v}</span></span>`:'';
   const logoW=Math.max(24,Math.min(600,+d.logoW||140));
   const logoAlign=d.logoPos==='center'?'center':d.logoPos==='right'?'right':'left';
-  return `<div style="min-height:255mm;display:flex;flex-direction:column;padding:10mm 6mm 6mm;letter-spacing:-.01em">
-    ${d.logo?`<div style="text-align:${logoAlign};margin-bottom:30px"><img src="${d.logo}" style="width:${logoW}px;max-width:100%" alt="logo"></div>`:''}
-    <div style="font-size:${fz(36)};font-weight:800;letter-spacing:-.02em;line-height:1.25;color:#171C26">인테리어 공사 안내문</div>
-    <div style="width:48px;height:4px;background:#4A7C50;border-radius:2px;margin:18px 0 26px;-webkit-print-color-adjust:exact;print-color-adjust:exact"></div>
-    <div style="font-size:${fz(15)};line-height:1.9;color:#3A4150;white-space:pre-wrap">${esc(d.greet)}</div>
-    <div style="margin:26px 0 0;border-top:2px solid #171C26">
-      ${row('공사 세대',esc(d.unit)||'—')}
-      ${row('공사 기간',period)}
-      ${row('작업 시간',esc(d.hours))}
-      ${row('공사 내용',esc(d.works))}
+  return `<div class="ed" style="font-size:${fz(12)}">
+    ${edTop(edDateNo(todayStr()))}
+    ${d.logo?`<div style="text-align:${logoAlign};margin-top:26px"><img src="${d.logo}" style="width:${logoW}px;max-width:100%" alt="logo"></div>`:''}
+    <div class="ed-title" style="font-size:${fz(38)}">공사 안내문</div>
+    <div class="ed-sub">INTERIOR CONSTRUCTION NOTICE</div>
+    <div style="font-size:${fz(14.5)};line-height:1.95;color:#3B372E;white-space:pre-wrap;margin-top:${fz(26)}">${esc(d.greet)}</div>
+    <div style="margin-top:${fz(24)};border-top:1.5px solid #1D1B16">
+      ${row('UNIT','공사 세대',esc(d.unit)||'—')}
+      ${row('PERIOD','공사 기간',period)}
+      ${row('HOURS','작업 시간',esc(d.hours))}
+      ${row('WORKS','공사 내용',esc(d.works))}
     </div>
-    ${d.noisy?`<div style="margin-top:22px;background:#F1F6F1;border-radius:14px;padding:16px 20px;font-size:${fz(14)};line-height:1.8;color:#31423A;-webkit-print-color-adjust:exact;print-color-adjust:exact"><b style="color:#4A7C50">소음 안내</b> &nbsp;${esc(d.noisy)}</div>`:''}
-    <div style="font-size:${fz(15)};line-height:1.9;color:#3A4150;margin-top:22px;white-space:pre-wrap">${esc(d.close)}</div>
+    ${d.noisy?`<div style="margin-top:${fz(20)};display:flex;gap:12px;font-size:${fz(13.5)};line-height:1.8;color:#3B372E">
+      <span class="dash">—</span><div><b style="letter-spacing:.12em">소음 안내</b>&nbsp; ${esc(d.noisy)}</div></div>`:''}
+    <div style="font-size:${fz(14.5)};line-height:1.95;color:#3B372E;margin-top:${fz(20)};white-space:pre-wrap">${esc(d.close)}</div>
     <div style="flex:1"></div>
-    <div style="width:340px;max-width:100%;border:1px solid #DCE5DB;border-radius:14px;overflow:hidden">
-      <div style="background:#3E5A43;color:#fff;padding:12px 18px;display:flex;align-items:center;-webkit-print-color-adjust:exact;print-color-adjust:exact">
-        <div style="font-size:${fz(16)};font-weight:800">${esc(d.manager||co.ceo||'')}</div>
-        <div style="margin-left:auto;font-size:${fz(11)};font-weight:700;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact">현장 책임 · 팀장</div>
+    <div style="border-top:1.5px solid #1D1B16;padding-top:${fz(12)};margin-top:${fz(20)}">
+      <div style="display:flex;align-items:baseline;gap:14px">
+        <span style="font-size:${fz(15)};font-weight:800">${esc(d.manager||co.ceo||'')}</span>
+        <span class="ed-lab" style="font-size:${fz(8.5)}">SITE MANAGER · 현장 책임</span>
+        <span style="margin-left:auto;font-size:${fz(15)};font-weight:800;font-variant-numeric:tabular-nums">${esc(d.contact)}</span>
       </div>
-      <div style="padding:12px 18px 14px">
-        <div style="font-weight:800;font-size:${fz(13.5)};color:#1F2430;padding-bottom:9px;border-bottom:1px solid #EDF0F4;margin-bottom:8px">${esc((co.name||'').split('(')[0].trim())}</div>
-        ${crow('전화',esc(d.contact))}
-        ${crow('이메일',esc(co.email||''))}
-        ${crow('주소',esc(co.addr||''))}
+      <div style="margin-top:${fz(11)};font-size:${fz(9.5)};color:#5A554A">
+        <span style="font-weight:800;letter-spacing:.3em;margin-right:18px">${esc((co.name||'').split('(')[0].trim())}</span>
+        ${crow('MAIL',esc(co.email||''))}${crow('ADDR.',esc(co.addr||''))}
       </div>
     </div>
   </div>`;
@@ -2751,137 +2821,77 @@ function estEditor(c,p,est){
 /* --- 견적서 출력 시트 --- */
 const estPageBreak=()=>`<div style="page-break-after:always;height:26px"></div>`;
 const ymdKor=d=>{if(!d)return'-';const[y,m,dd]=d.split('-');return`${y}년 ${+m}월 ${+dd}일`;};
-function estInfoTables(est){
-  const co=CO(),i=proj().info;
-  const py=+String(est.sizePy||'').replace(/[^0-9.]/g,'')||0;
-  return`<div class="eg-top">
-    <table class="ib">
-      <tr><th>Client</th><td>${esc(est.client||i.client||'')}</td></tr>
-      <tr><th>Project Name</th><td>${esc(i.name||'')}</td></tr>
-      <tr><th>Size in sqmeters</th><td class="red">${py?py+'PY / '+Math.round(py*3.3058)+'㎡':''}</td></tr>
-      <tr><th>Quotion date</th><td>${ymdKor(est.date)}</td></tr>
-    </table>
-    <table class="ib">
-      <tr><th>Supplier</th><td class="c"><b style="font-size:11.5px">${esc(co.name||'')}</b></td></tr>
-      <tr><th>Office</th><td class="c">${esc(co.addr||'')}</td></tr>
-      <tr><th>Quotion Writer</th><td class="c">${esc(co.ceo||'')} 대표</td></tr>
-      <tr><th>TEL</th><td class="c">TEL. ${esc(co.tel||'')}</td></tr>
-      <tr><th>E-mail</th><td class="c">${esc(co.email||'')}</td></tr>
-      <tr><th>Business</th><td class="c">${esc(co.biz||'')} · ${esc(co.bizType||'')}</td></tr>
-    </table>
-  </div>`;
-}
-/* 견적 내역 열 구성 — 화면 입력표와 같은 8칸.
-   예전엔 자재금액·노무금액·합계단가까지 11칸이었는데, 셋 다 단가와 수량에서
-   계산돼 나오는 값이라 정보는 안 늘고 칸만 좁아져 글자가 여러 줄로 접혔다.
-   폭은 세부내역에 몰아준다 — 여기가 가장 길고, 나머지는 짧거나 숫자다. */
-const EST_COLS=[
-  {h:'Description',w:18},{h:'세부내역',w:34},{h:'Size',w:6},{h:'Unit',w:5},
-  {h:'Qty',w:5},{h:'자재 단가',w:10},{h:'노무 단가',w:10},{h:'TOTAL',w:12}];
-const colBand=()=>`<table class="dhd"><thead>
-  <tr>${EST_COLS.map(c=>`<th style="width:${c.w}%">${c.h}</th>`).join('')}</tr></thead></table>`;
-function estRemarkHtml(est){
-  const co=CO();
-  return`<div class="eg-remark"><b>비고 / REMARK</b><div>${esc(est.remarks||'').replace(/\n/g,'<br>')}</div>
-    <div style="display:flex;justify-content:flex-end;align-items:baseline;gap:12px;margin-top:24px;font-size:12px;color:#666;white-space:nowrap">
-      <span>성&nbsp;&nbsp;명</span><span style="font-weight:600;font-size:13px;color:#1c1c1c;letter-spacing:2px">${esc(co.ceo||'')}</span></div>
-    <div class="eg-valid" style="margin-top:18px">※ 본 견적서는 발행일로부터 ${est.validDays||30}일간 유효합니다.</div></div>`;
-}
-function estCoverHtml(est){
+/* ── 에디토리얼 공통 조각 — 견적서·발주서·스펙북·안내문이 같은 표지 언어를 쓴다 ── */
+const edDateNo=d=>(d||todayStr()).replace(/-/g,' · ');
+const edDot=d=>(d||todayStr()).replace(/-/g,'.');
+const edTop=no=>`<div class="ed-top"><div class="ed-co">${esc(CO().name||'')}</div><div class="ed-no">№ ${esc(no)}</div></div>`;
+const edTitle=(en,ko)=>`<div class="ed-title">${esc(en)}</div><div class="ed-sub">${esc(ko)}</div>`;
+function edFoot(){const co=CO();
+  const f=(l,v)=>v?`<span><span class="fl">${l}</span><span class="fv">${esc(v)}</span></span>`:'';
+  return`<div class="ed-foot"><div class="ed-fco">${esc(co.name||'')}</div>
+    <div class="ed-frow">${f('CEO',co.ceo)}${f('REG.',co.reg)}${f('TEL.',co.tel)}${f('MAIL',co.email)}${f('ADDR.',co.addr)}</div></div>`;}
+function edCover(title,dateStr){
+  const lg=coLogo(220);
+  return`<div class="ed">${edTop(edDateNo(dateStr))}
+    <div class="ed-cov"><div class="ed-title">${esc(title)}</div>${lg?`<div>${lg}</div>`:''}
+      <div class="ed-covdate">${esc(edDot(dateStr))}</div></div>
+    ${edFoot()}</div>`;}
+
+/* ── 견적서 본문 — 섹션·품목·간접공사·합계를 한 흐름으로 ──
+   자재/노무 단가는 화면에서 나눠 관리하고, 인쇄물에는 합산 단가 하나로 낸다. */
+function edEstSheet(est,cal){
   const i=proj().info;
-  const nm=i.name||est.client||'';
-  const title=/인테리어|공사/.test(nm)?`${nm} 내역서`:`${nm} 인테리어공사 내역서`;
-  return`<div class="ecov">
-    <div class="ecov-title">${esc(title)}</div>
-    <div class="ecov-logo">${coLogo(300)}</div>
-    <div class="ecov-date">${esc(fdateF(est.date)||'')}</div>
-  </div>`;
-}
-function estGapjiHtml(est,cal){
-  const co=CO();
-  const srow=(no,name,amt)=>`<div class="eg-srow"><span>Section ${String(no).padStart(2,'0')}:&nbsp; ${esc(name||'-')}</span><span class="wn"><i>₩</i><b>${numf(amt)}</b></span></div>`;
-  const secRows=cal.secs.map((s,idx)=>srow(idx+1,s.name,s.total)).join('');
-  const indRows=cal.ind.map((x,idx)=>srow(idx+1,x[0],x[1])).join('');
-  return`<div class="egap">
-    <div class="eg-h1">견 적 서 <span>ESTIMATE</span></div>
-    ${estInfoTables(est)}
-    ${colBand()}
-    <div class="eg-sechd"><span>직 접 공 사</span></div>
-    ${secRows}
-    <div class="eg-total"><span>직접공사비 계</span><span class="wn"><i>₩</i><b>${numf(cal.direct)}</b></span></div>
-    <div class="eg-sechd"><span>간 접 공 사</span></div>
-    ${indRows}
-    <div class="eg-total"><span>간접공사비 계</span><span class="wn"><i>₩</i><b>${numf(cal.indirect)}</b></span></div>
-    <table class="eg-sum">
-      <tr><th>Sub TOTAL</th><td class="wn2"><i>₩</i><b>${numf(cal.sub)}</b></td></tr>
-      <tr><th>Discount</th><td class="wn2">${cal.discount?`<i>₩</i><b>${numf(cal.discount)}</b>`:''}</td></tr>
-      <tr><th>Tax: VAT 10%</th><td class="wn2">${est.vat==='포함'?`<i>₩</i><b>${numf(Math.round(cal.grand*0.1))}</b>`:''}</td></tr>
-    </table>
-    <div class="eg-grand"><span>GRAND TOTAL</span><span class="wn"><i>₩</i><b>${numf(cal.grand)}</b></span></div>
-    <div class="eg-remark"><b>비고/REMARK</b>
-      <div style="display:flex;gap:20px;align-items:flex-start">
-        <div style="flex:1;white-space:pre-line">${esc(est.remarks||'')}</div>
-        <div class="rm-sign2">성&nbsp;&nbsp;명: &nbsp;<b>${esc(co.ceo||'')}</b>&nbsp;&nbsp;(인)</div>
-      </div>
-      <div class="rm-valid">※ 본 견적서는 발행일로 ${est.validDays||30}일 유효합니다.</div>
-      <div class="rm-reg">Company Registration No. ${esc(co.reg||'')} — All rights reserved.</div>
-    </div>
-  </div>`;
-}
-function estDetailHtml(est,cal){
-  let body='';
-  est.sections.forEach((sec,si)=>{
-    body+=`<tr class="dt2-sec"><td colspan="8">Section ${String(si+1).padStart(2,'0')}: ${esc(sec.name||'-')}</td></tr>`;
+  const dash='<span class="dash">—</span>';
+  const cell=(v,cls)=>`<td class="${cls||''}">${(v==null||v==='')?dash:v}</td>`;
+  let no=0,body='';
+  const secRow=(name,total)=>{no++;
+    body+=`<tr class="ed-sec"><td colspan="4"><span class="sn">${String(no).padStart(2,'0')}</span>${esc(name||'-')}</td><td class="n">${total?numf(total):dash}</td><td></td></tr>`;};
+  (est.sections||[]).forEach((sec,si)=>{
+    const one=(est.sections.length===1&&!(sec.name||'').trim());
+    if(!one)secRow(sec.name,cal.secs[si].total);
     sec.items.forEach(it=>{
-      const q=+it.qty||0,m=(+it.mp||0)*q,l=(+it.lp||0)*q;
-      if(!it.name&&!q)return;
-      body+=`<tr><td>${esc(it.name)}</td><td>${esc(it.detail||'')}</td><td>${esc(it.spec)}</td><td class="c">${esc(it.unit)}</td><td class="n">${q?numf(q):''}</td>
-        <td class="n">${+it.mp?numf(+it.mp):'-'}</td><td class="n">${+it.lp?numf(+it.lp):'-'}</td>
-        <td class="n">${numf(m+l)}</td></tr>`;
-    });
-    body+=`<tr class="dt2-tot"><td colspan="7">Section ${si+1} TOTAL</td><td class="n"><span class="wn"><i>₩</i><b>${numf(cal.secs[si].total)}</b></span></td></tr>`;
+      const q=+it.qty||0,u=(+it.mp||0)+(+it.lp||0);
+      if(!(it.name||'').trim()&&!q&&!u)return;
+      const sub=[it.detail,it.spec].filter(x=>(x||'').trim()).join(' · ');
+      body+=`<tr>${cell(`${esc(it.name)}${sub?`<div class="ed-det">${esc(sub)}</div>`:''}`)}${cell(q?numf(q):'','n')}${cell(esc(it.unit||''),'c')}${cell(u?numf(u):'','n')}${cell(u*q?numf(u*q):'','n')}${cell(esc(it.note||''),'etc')}</tr>`;});
   });
-  return`<div><table class="dt2"><thead>
-    <tr>${EST_COLS.map(c=>`<th style="width:${c.w}%">${c.h}</th>`).join('')}</tr>
-    </thead><tbody>${body}</tbody></table></div>`;
-}
-function estAggHtml(est,cal){
-  const rate=Math.max(0,Math.min(100,+est.progress||100))/100;
-  const wn=v=>`<span class="wn"><i>₩</i><b>${numf(v)}</b></span>`;
-  const row=(no,name,amt)=>{const cur=Math.round(amt*rate);
-    return`<tr><td class="c">${no}</td><td class="c">${esc(name||'-')}</td><td>${wn(amt)}</td><td>${wn(cur)}</td><td>${wn(amt-cur)}</td><td></td></tr>`;};
-  let body=cal.secs.map((s,idx)=>row(idx+1,s.name+(s.name&&!/공사$/.test(s.name)?'':''),s.total)).join('');
-  if(est.type==='construction')body+=row(cal.secs.length+1,'간접공사'+(cal.discount?'(Discount반영)':''),cal.indirect-cal.discount);
-  const tot=cal.grand,cur=Math.round(tot*rate);
-  return`<div class="eagg"><div class="eagg-h1">집 계 표</div>
-    <table class="ag2"><thead><tr><th style="width:9%">NO</th><th style="width:26%">공종</th><th>계약금액</th><th>금차금액</th><th>잔여금액</th><th style="width:9%">비고</th></tr></thead>
-    <tbody>${body}
-    <tr><td></td><td></td><td>${wn(tot)}</td><td>${wn(cur)}</td><td>${wn(tot-cur)}</td><td></td></tr>
-    <tr class="ag2-rate"><td colspan="2">공정율</td><td></td><td>${Math.round(rate*100)}%</td><td>${100-Math.round(rate*100)}%</td><td></td></tr>
-    </tbody></table></div>`;
-}
-function estItemSheetHtml(est,cal){
-  const items=(est.sections[0]?est.sections[0].items:[]).filter(it=>it.name||+it.qty);
-  return`<div class="egap">
-    <div class="eg-h1">견 적 서 <span>ESTIMATE</span></div>
-    ${estInfoTables(est)}
-    <table class="dt2" style="margin-top:16px"><thead><tr>
-      <th style="width:5%">NO</th><th style="width:18%">품명</th><th>세부내역</th><th style="width:14%">규격</th><th style="width:6%">단위</th><th style="width:7%">수량</th><th style="width:11%">단가</th><th style="width:13%">금액</th>
-    </tr></thead><tbody>
-    ${items.map((it,idx)=>{const q=+it.qty||0,a=(+it.mp||0)*q;
-      return`<tr><td class="c">${idx+1}</td><td>${esc(it.name)}</td><td>${esc(it.detail||'')}</td><td>${esc(it.spec)}</td><td class="c">${esc(it.unit)}</td><td class="n">${q?numf(q):''}</td><td class="n">${+it.mp?numf(+it.mp):''}</td><td class="n">${numf(a)}</td></tr>`;}).join('')}
-    <tr class="dt2-tot"><td colspan="7">합계 ${cal.discount?'(할인 −₩'+numf(cal.discount)+' 반영)':''}</td><td class="n"><span class="wn"><i>₩</i><b>${numf(cal.grand)}</b></span></td></tr>
-    </tbody></table>
-    <div class="eg-grand" style="margin-top:16px"><span>GRAND TOTAL <small style="font-weight:600;opacity:.7">(VAT ${esc(est.vat||'별도')})</small></span><span class="wn"><i>₩</i><b>${numf(cal.grand)}</b></span></div>
-    ${estRemarkHtml(est)}
+  if(est.type==='construction'&&cal.ind.length){
+    secRow('간접공사',cal.indirect);
+    cal.ind.forEach(x=>{body+=`<tr>${cell(esc(x[0]))}${cell('','n')}${cell('','c')}${cell('','n')}${cell(x[1]?numf(x[1]):'','n')}${cell('','etc')}</tr>`;});
+  }
+  const vatIn=est.vat==='포함';
+  const noteLines=[...(est.remarks?String(est.remarks).split('\n').filter(x=>x.trim()):[]),
+    `본 견적서는 발행일로부터 ${est.validDays||30}일간 유효하며, 실제 계약 내용에 따라 금액이 달라질 수 있습니다.`];
+  return`<div class="ed">
+    ${edTop(edDateNo(est.date))}
+    ${edTitle('Estimate.','견 적 서')}
+    <div class="ed-band">
+      <div><div class="ed-lab">CLIENT</div><div class="ed-val">${esc(est.client||i.client||'—')} <small>귀하</small></div></div>
+      <div><div class="ed-lab">DATE</div><div class="ed-val">${esc(edDot(est.date))}</div></div>
+      <div><div class="ed-lab">PROJECT</div><div class="ed-val">${esc(i.name||'')}</div></div>
+    </div>
+    <div class="ed-amtrow">
+      <div><div class="ed-lab">TOTAL AMOUNT</div><div class="ed-amt">₩ <b>${numf(cal.grand)}</b> 원</div></div>
+      <div class="ed-vat">VAT ${esc(est.vat||'별도')}</div>
+    </div>
+    <div class="ed-lab" style="margin:28px 0 4px">SCOPE OF WORK</div>
+    <table class="edt"><thead><tr><th>품명</th><th class="n" style="width:7%">수량</th><th class="c" style="width:7%">단위</th><th class="n" style="width:12%">단가</th><th class="n" style="width:14%">금액</th><th style="width:14%">비고</th></tr></thead>
+    <tbody>${body}</tbody></table>
+    <div class="ed-tots">
+      <div class="tr"><span>합계</span><b>${numf(cal.sub)}<i>원</i></b></div>
+      ${cal.discount?`<div class="tr"><span>할인</span><b>−${numf(cal.discount)}<i>원</i></b></div>`:''}
+      <div class="tr"><span>부가세${vatIn?' (10%)':''}</span><b>${vatIn?numf(Math.round(cal.grand*0.1))+'<i>원</i>':'별도'}</b></div>
+      <div class="tr grand"><span>총 금 액</span><b>${numf(cal.grand)}<i>원</i></b></div>
+    </div>
+    <div class="ed-note"><span class="dash">—</span><div>${noteLines.map(esc).join('<br>')}</div></div>
+    ${edFoot()}
   </div>`;
 }
 function openEstPreview(est){
   const cal=estCalc(est);
-  const pages=est.type==='construction'
-    ? [estCoverHtml(est),estGapjiHtml(est,cal),estDetailHtml(est,cal)]
-    : [estCoverHtml(est),estItemSheetHtml(est,cal)];
-  showPreview('견적서',pages,false);
+  const nm=proj().info.name||est.client||'';
+  const title=/인테리어|공사/.test(nm)?`${nm} 견적서`:`${nm} 인테리어공사 견적서`;
+  showPreview('견적서',[edCover(title,est.date),edEstSheet(est,cal)],false);
 }
 
 /* ===== 홈 대시보드 — 진행 중인 현장 전체 일정 ===== */
@@ -3012,12 +3022,12 @@ function projSpecItems(p){
 }
 function specCardPrint(e){
   const m=e.m;
-  const img=m.img?`<img src="${m.img}" style="width:100%;height:100%;object-fit:cover">`:`<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#aaa;font-size:11px">사진 없음</div>`;
-  const row=(l,v)=>v?`<div style="display:flex;gap:8px;font-size:10.5px;line-height:1.55"><span style="color:#888;min-width:44px">${l}</span><span style="flex:1">${esc(v)}</span></div>`:'';
-  return`<div style="border:1px solid #ddd;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;background:#fff;page-break-inside:avoid">
-    <div style="height:120px;background:#f3f3f3">${img}</div>
-    <div style="padding:9px 11px;display:flex;flex-direction:column;gap:2px">
-      <div style="font-size:12.5px;font-weight:700">${esc(m.name)}</div>
+  const img=m.img?`<img src="${m.img}" style="width:100%;height:100%;object-fit:cover;display:block">`:`<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#B8B1A2;font-size:10px;letter-spacing:.2em">NO IMAGE</div>`;
+  const row=(l,v)=>v?`<div style="display:flex;gap:10px;font-size:10px;line-height:1.6"><span style="color:#8D877B;min-width:46px;flex:none">${l}</span><span style="flex:1;color:#1D1B16">${esc(v)}</span></div>`:'';
+  return`<div class="ed-card">
+    <div class="im">${img}</div>
+    <div style="padding:10px 12px 12px;display:flex;flex-direction:column;gap:2px">
+      <div style="font-size:12px;font-weight:800;padding-bottom:6px;margin-bottom:5px;border-bottom:1px solid #E4DED1">${esc(m.name)}</div>
       ${row('세부내역',m.detail)}${row('브랜드',m.brand)}${row('규격',m.spec)}${row('위치',e.locs.join(', '))}${row('구입처',m.vendor)}${+m.mp?row('가격',won(m.mp)+(m.unit?' / '+m.unit:'')):''}${row('비고',m.note)}
     </div></div>`;
 }
@@ -3025,14 +3035,14 @@ function specPages(projName,dateStr,items){
   const per=6, pages=[];
   for(let i=0;i<items.length;i+=per){
     const chunk=items.slice(i,i+per);
-    pages.push(`<div>
-      <div style="display:flex;align-items:flex-end;justify-content:space-between;border-bottom:2px solid #1c1c1c;padding-bottom:10px;margin-bottom:14px">
-        <div><div style="font-size:20px;font-weight:800;letter-spacing:1px">SPEC BOOK <span style="font-size:12px;color:#888;font-weight:600">마감재 사양서</span></div>
-        <div style="font-size:11.5px;color:#555;margin-top:3px">${esc(projName)} · ${esc(dateStr)}</div></div>
-        <div>${coLogo(120)}</div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${chunk.map(specCardPrint).join('')}</div>
-      <div style="margin-top:12px;font-size:10px;color:#999;text-align:right">${i/per+1} / ${Math.ceil(items.length/per)} — ${esc(CO().name||'')}</div>
-    </div>`);
+    pages.push(`<div class="ed">
+      ${edTop(edDateNo(dateStr))}
+      <div class="ed-hrow"><div>${edTitle('Spec Book.','스 펙 북')}</div>
+        <div class="ed-hmeta">${esc(projName)}<br>${esc(edDot(dateStr))}</div></div>
+      <div style="border-top:1.5px solid #1D1B16;margin-top:22px"></div>
+      <div class="ed-grid">${chunk.map(specCardPrint).join('')}</div>
+      <div class="ed-pg">${i/per+1} / ${Math.ceil(items.length/per)}</div>
+      ${edFoot()}</div>`);
   }
   return pages;
 }
