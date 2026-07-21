@@ -473,65 +473,66 @@
   .pv-page:has(> .psheet > .ed){background:#F7F4EE;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .psheet .ed{min-height:262mm;display:flex;flex-direction:column;color:#1D1B16;font-size:12px;letter-spacing:-.01em;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .psheet .ed.autoh{min-height:0;display:block;} /* 실측 분할용 — 페이지 높이를 강제하면 분할 측정이 깨진다 */
-  .psheet .ed .dash{color:#B8B1A2;}
-  /* 숫자·코드류는 전부 고정폭 — 레퍼런스(suplex)와 동일한 조합: Pretendard + ui-monospace */
-  .psheet .ed-no,.psheet .ed-amt b,.psheet .edt td.n,.psheet .ed-tots .tr b,.psheet .ed-frow .fv{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;}
+  /* 앱 화면·다른 문서의 표 스타일(어두운 헤더·전체 테두리)이 새어 들어오지 않게 원천 차단 */
+  .psheet .ed table{border:none;background:transparent;}
+  .psheet .ed th,.psheet .ed td{border:none;background:transparent;color:inherit;font-weight:inherit;text-align:left;}
+  .psheet .ed .dash{color:#C4BDAD;}
+  /* 숫자·코드류만 고정폭 — suplex 실측 조합: Pretendard + ui-monospace */
+  .psheet .ed-no,.psheet .edt td.n,.psheet .edt td.c,.psheet .ed-tots .tr b,.psheet .ed-frow .fv{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;}
   .psheet .ed-top{display:flex;justify-content:space-between;align-items:baseline;}
-  .psheet .ed-co{font-size:11px;font-weight:800;letter-spacing:.4em;}
-  .psheet .ed-no{font-size:10px;font-weight:500;letter-spacing:.16em;color:#A29B8C;white-space:nowrap;}
-  .psheet .ed-title{font-size:47px;font-weight:600;letter-spacing:-.015em;line-height:1;margin-top:34px;}
-  .psheet .ed-sub{font-size:10px;font-weight:700;letter-spacing:.6em;margin-top:13px;}
+  .psheet .ed-co{font-size:10.5px;font-weight:700;letter-spacing:.48em;}
+  .psheet .ed-no{font-size:10px;font-weight:400;letter-spacing:.22em;color:#B3AC9C;white-space:nowrap;}
+  .psheet .ed-title{font-size:46px;font-weight:330;letter-spacing:-.01em;line-height:1.04;margin-top:34px;}
+  .psheet .ed-sub{font-size:9.5px;font-weight:600;letter-spacing:.62em;margin-top:12px;}
   .psheet .ed-hrow{display:flex;justify-content:space-between;align-items:flex-end;}
-  .psheet .ed-hmeta{text-align:right;font-size:10.5px;color:#5A554A;line-height:1.7;}
-  .psheet .ed-band{display:flex;border-top:1.5px solid #1D1B16;border-bottom:1px solid #1D1B16;margin-top:24px;}
+  .psheet .ed-hmeta{text-align:right;font-size:10.5px;color:#6B6558;line-height:1.7;font-weight:500;}
+  .psheet .ed-band{display:flex;border-top:1px solid #1D1B16;border-bottom:1px solid #CFC8B8;margin-top:26px;}
   .psheet .ed-band.b2{border-top:none;}
-  .psheet .ed-band>div{flex:1;padding:12px 16px;border-left:1px solid #DDD6C8;min-width:0;}
+  .psheet .ed-band>div{flex:1;padding:14px 20px 15px;border-left:1px solid #DDD6C8;min-width:0;}
   .psheet .ed-band>div:first-child{padding-left:2px;border-left:none;}
-  .psheet .ed-lab{font-size:8.5px;font-weight:800;letter-spacing:.32em;color:#A29B8C;}
-  .psheet .ed-val{font-size:12.5px;font-weight:700;margin-top:7px;word-break:keep-all;}
-  .psheet .ed-val small{font-weight:500;color:#5A554A;font-size:10.5px;}
-  .psheet .ed-amtrow{display:flex;justify-content:space-between;align-items:flex-end;margin-top:28px;}
-  .psheet .ed-amt{margin-top:9px;font-size:17px;color:#5A554A;}
-  .psheet .ed-amt b{font-size:38px;font-weight:600;color:#1D1B16;letter-spacing:-.02em;}
-  .psheet .ed-vat{font-size:9.5px;font-weight:800;letter-spacing:.3em;color:#5A554A;}
-  .psheet table.edt{width:100%;border-collapse:collapse;font-size:10.5px;table-layout:fixed;}
-  .psheet .edt thead th{font-size:9px;font-weight:600;letter-spacing:.12em;color:#A29B8C;padding:9px 6px;border-bottom:1px solid #DDD6C8;text-align:left;white-space:nowrap;}
-  .psheet .edt thead th.n{text-align:right;} .psheet .edt thead th.c{text-align:center;}
-  .psheet .edt td{padding:9.5px 6px;border-bottom:1px solid #EAE4D6;vertical-align:middle;line-height:1.5;word-break:keep-all;overflow-wrap:break-word;}
-  .psheet .edt td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
-  .psheet .edt td.c{text-align:center;white-space:nowrap;}
-  .psheet .edt td.etc{color:#5A554A;font-size:9.5px;white-space:normal;}
-  .psheet .edt .ed-det{font-size:9.5px;color:#8D877B;margin-top:2px;line-height:1.45;font-weight:400;}
-  .psheet .edt .ed-sec td{font-weight:800;font-size:11px;border-top:1.5px solid #1D1B16;border-bottom:1px solid #C9C2B2;padding:9px 6px;}
-  .psheet .edt .ed-sec .sn{color:#8D877B;margin-right:9px;font-variant-numeric:tabular-nums;}
-  .psheet .ed-tots{margin:24px 0 0 auto;width:56%;min-width:280px;font-size:11px;}
-  .psheet .ed-tots .tr{display:flex;justify-content:space-between;align-items:baseline;padding:10px 2px;border-top:1px solid #EAE4D6;color:#6B6558;}
-  .psheet .ed-tots .tr b{font-weight:500;color:#1D1B16;}
-  .psheet .ed-tots .tr i{font-style:normal;font-size:9.5px;color:#A29B8C;margin-left:4px;font-family:"Pretendard Variable","Pretendard","Malgun Gothic",sans-serif;}
-  .psheet .ed-tots .grand{border-top:1.5px solid #1D1B16;border-bottom:1.5px solid #1D1B16;padding:13px 2px;color:#1D1B16;font-weight:800;letter-spacing:.22em;margin-top:5px;}
-  .psheet .ed-tots .grand b{font-size:15px;font-weight:700;}
-  .psheet .ed-note{display:flex;gap:10px;margin-top:26px;font-size:9.8px;color:#8D877B;line-height:1.8;}
-  .psheet .ed-foot{margin-top:auto;padding-top:12px;border-top:1.5px solid #1D1B16;}
-  .psheet .ed.autoh .ed-foot{margin-top:24px;}
-  .psheet .ed-fco{font-size:10.5px;font-weight:800;letter-spacing:.35em;}
-  .psheet .ed-frow{margin-top:8px;font-size:9px;color:#6B6558;display:flex;flex-wrap:wrap;gap:4px 18px;}
-  .psheet .ed-frow .fl{font-weight:800;letter-spacing:.18em;color:#1D1B16;margin-right:6px;}
+  .psheet .ed-lab{font-size:8.5px;font-weight:700;letter-spacing:.32em;color:#A9A292;}
+  .psheet .ed-val{font-size:13px;font-weight:500;margin-top:8px;word-break:keep-all;}
+  .psheet .ed-val small{font-weight:400;color:#8D877B;font-size:11px;}
+  .psheet .ed-amtrow{display:flex;justify-content:space-between;align-items:flex-end;margin-top:32px;}
+  .psheet .ed-amt{margin-top:10px;font-size:20px;color:#1D1B16;font-weight:300;}
+  .psheet .ed-amt b{font-size:42px;font-weight:300;color:#1D1B16;letter-spacing:-.01em;font-variant-numeric:tabular-nums;}
+  .psheet .ed-amt .u{font-size:14px;color:#6B6558;font-weight:400;margin-left:2px;}
+  .psheet .ed-vat{font-size:9.5px;font-weight:700;letter-spacing:.32em;color:#6B6558;}
+  .psheet table.edt{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed;}
+  .psheet .ed .edt thead th{font-size:9.5px;font-weight:500;letter-spacing:.35em;color:#A9A292;padding:12px 8px;border-bottom:1px solid #D9D2C2;text-align:center;white-space:nowrap;}
+  .psheet .ed .edt td{padding:11px 8px;border-bottom:1px solid #E7E1D3;vertical-align:middle;line-height:1.55;word-break:keep-all;overflow-wrap:break-word;color:#2A2721;}
+  .psheet .ed .edt td:first-child{font-weight:500;color:#1D1B16;}
+  .psheet .ed .edt td.n{text-align:right;font-size:10.5px;white-space:nowrap;}
+  .psheet .ed .edt td.c{text-align:center;white-space:nowrap;}
+  .psheet .ed .edt td.etc{color:#8D877B;font-size:10px;white-space:normal;font-weight:400;}
+  .psheet .edt .ed-det{font-size:9.5px;color:#A29B8C;margin-top:3px;line-height:1.5;font-weight:400;}
+  .psheet .ed .edt .ed-sec td{font-weight:700;font-size:11.5px;border-top:1.5px solid #1D1B16;border-bottom:1px solid #D9D2C2;padding:12px 8px;color:#1D1B16;}
+  .psheet .edt .ed-sec .sn{color:#A9A292;margin-right:10px;font-weight:500;}
+  .psheet .ed-tots{margin:26px 0 0 auto;width:48%;min-width:300px;font-size:11px;}
+  .psheet .ed-tots .tr{display:flex;justify-content:space-between;align-items:baseline;padding:12px 2px;border-top:1px solid #E7E1D3;color:#6B6558;}
+  .psheet .ed-tots .tr b{font-weight:400;color:#1D1B16;font-size:11.5px;}
+  .psheet .ed-tots .tr i{font-style:normal;font-size:9.5px;color:#A29B8C;margin-left:5px;font-family:"Pretendard Variable","Pretendard","Malgun Gothic",sans-serif;}
+  .psheet .ed-tots .grand{border-top:1.5px solid #1D1B16;border-bottom:none;padding:14px 2px 4px;color:#1D1B16;}
+  .psheet .ed-tots .grand span{font-weight:800;letter-spacing:.28em;font-size:12px;}
+  .psheet .ed-tots .grand b{font-size:17px;font-weight:700;}
+  .psheet .ed-note{display:flex;gap:10px;margin-top:34px;font-size:10px;color:#8D877B;line-height:1.85;}
+  .psheet .ed-foot{margin-top:auto;padding-top:13px;border-top:1px solid #1D1B16;}
+  .psheet .ed.autoh .ed-foot{margin-top:26px;}
+  .psheet .ed-fco{font-size:10px;font-weight:700;letter-spacing:.42em;}
+  .psheet .ed-frow{margin-top:8px;font-size:9px;color:#8D877B;display:flex;flex-wrap:wrap;gap:4px 20px;}
+  .psheet .ed-frow .fl{font-weight:700;letter-spacing:.16em;color:#1D1B16;margin-right:7px;}
   .psheet .ed-frow .fv{letter-spacing:.02em;}
-  .psheet .ed-sech{margin:24px 0 0;font-size:11px;font-weight:800;border-top:1.5px solid #1D1B16;padding:10px 2px 8px;}
-  .psheet .ed-sech .sn{color:#8D877B;margin-right:9px;font-variant-numeric:tabular-nums;}
-  .psheet .ed-sech small{color:#8D877B;font-weight:600;letter-spacing:.1em;margin-left:8px;font-size:9px;}
+  .psheet .ed-sech{margin:26px 0 0;font-size:11.5px;font-weight:700;border-top:1.5px solid #1D1B16;padding:11px 2px 8px;}
+  .psheet .ed-sech .sn{color:#A9A292;margin-right:10px;font-weight:500;}
+  .psheet .ed-sech small{color:#A29B8C;font-weight:500;letter-spacing:.1em;margin-left:8px;font-size:9px;}
   .psheet .ed-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px;}
-  .psheet .ed-card{background:#fff;border:1px solid #E4DED1;page-break-inside:avoid;}
+  .psheet .ed-card{background:#fff;border:1px solid #E7E1D3;page-break-inside:avoid;}
   .psheet .ed-card .im{height:118px;background:#EFEAE0;overflow:hidden;}
-  .psheet .ed-pg{margin-top:14px;font-size:9px;letter-spacing:.25em;color:#8D877B;text-align:right;}
+  .psheet .ed-pg{margin-top:14px;font-size:9px;letter-spacing:.25em;color:#B3AC9C;text-align:right;}
   .psheet .eg-sign{text-align:right;margin-top:18px;font-size:13.5px;font-weight:600;}
   .psheet .eg-valid{text-align:right;color:#777;font-size:10px;margin-top:10px;}
-  .psheet table.edt{width:100%;border-collapse:collapse;font-size:10.5px;}
-  .psheet .edt th{background:#39435c;color:#fff;border:1px solid #4a5470;padding:6px 5px;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  .psheet .edt td{border:1px solid #ccc;padding:5px 6px;}
-  .psheet .edt td.n{text-align:right;font-variant-numeric:tabular-nums;} .psheet .edt td.c{text-align:center;}
-  .psheet .edt .edt-sec td{background:#eef1f6;font-weight:800;font-size:11px;padding:7px 8px;border-top:2px solid #8892ab;}
-  .psheet .edt .edt-tot td{background:#f6f7fa;font-weight:800;border-bottom:2px solid #8892ab;}
+  /* (옛 .edt 남색 헤더 표 스타일은 제거됨 — 쓰는 곳이 없었고 새 에디토리얼 표와 이름이 충돌해
+      견적서 헤더가 남색으로 나오는 버그의 원인이었다) */
   .psheet .eagg-h1{font-size:24px;font-weight:800;letter-spacing:14px;text-align:center;margin:6px 0 18px;}
   /* 계약서 출력 시트 */
   .psheet .ctrcov{min-height:250mm;padding-top:36px;}
@@ -747,7 +748,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.25.0';
+const APP_VERSION='7.26.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1659,7 +1660,7 @@ function printOrder(po){
   </div>
   <div class="ed-lab" style="margin:28px 0 4px">ORDER ITEMS</div>
   <table class="edt"><thead><tr><th class="c" style="width:6%">No</th><th>품목</th><th style="width:18%">규격</th><th class="n" style="width:8%">수량</th><th class="c" style="width:8%">단위</th>${sp?`<th class="n" style="width:12%">단가</th><th class="n" style="width:14%">금액</th>`:`<th style="width:16%">비고</th>`}</tr></thead><tbody>
-  ${items.map((o,idx)=>`<tr><td class="c">${idx+1}</td><td>${esc(o.item)||dash}</td><td class="etc">${esc(o.spec||'')||dash}</td><td class="n">${+o.qty?numf(o.qty):dash}</td><td class="c">${esc(o.unit||'')||dash}</td>${sp?`<td class="n">${+o.price?numf(+o.price):dash}</td><td class="n">${(+o.qty||0)*(+o.price||0)?numf((+o.qty||0)*(+o.price||0)):dash}</td>`:`<td class="etc">${dash}</td>`}</tr>`).join('')}
+  ${items.map((o,idx)=>`<tr><td class="c">${idx+1}</td><td>${esc(o.item)||dash}</td><td class="etc">${esc(o.spec||'')||dash}</td><td class="c">${+o.qty?numf(o.qty):dash}</td><td class="c">${esc(o.unit||'')||dash}</td>${sp?`<td class="n">${+o.price?numf(+o.price):dash}</td><td class="n">${(+o.qty||0)*(+o.price||0)?numf((+o.qty||0)*(+o.price||0)):dash}</td>`:`<td class="etc">${dash}</td>`}</tr>`).join('')}
   </tbody></table>
   <div class="ed-tots">
     <div class="tr"><span>총 품목</span><b>${items.length}<i>개</i></b></div>
@@ -2846,11 +2847,11 @@ function edEstSheet(est,cal){
       const q=+it.qty||0,u=(+it.mp||0)+(+it.lp||0);
       if(!(it.name||'').trim()&&!q&&!u)return;
       const sub=[it.detail,it.spec].filter(x=>(x||'').trim()).join(' · ');
-      body+=`<tr>${cell(`${esc(it.name)}${sub?`<div class="ed-det">${esc(sub)}</div>`:''}`)}${cell(q?numf(q):'','n')}${cell(esc(it.unit||''),'c')}${cell(u?numf(u):'','n')}${cell(u*q?numf(u*q):'','n')}${cell(esc(it.note||''),'etc')}</tr>`;});
+      body+=`<tr>${cell(`${esc(it.name)}${sub?`<div class="ed-det">${esc(sub)}</div>`:''}`)}${cell(q?numf(q):'','c')}${cell(esc(it.unit||''),'c')}${cell(u?numf(u):'','n')}${cell(u*q?numf(u*q):'','n')}${cell(esc(it.note||''),'etc')}</tr>`;});
   });
   if(est.type==='construction'&&cal.ind.length){
     secRow('간접공사',cal.indirect);
-    cal.ind.forEach(x=>{body+=`<tr>${cell(esc(x[0]))}${cell('','n')}${cell('','c')}${cell('','n')}${cell(x[1]?numf(x[1]):'','n')}${cell('','etc')}</tr>`;});
+    cal.ind.forEach(x=>{body+=`<tr>${cell(esc(x[0]))}${cell('','c')}${cell('','c')}${cell('','n')}${cell(x[1]?numf(x[1]):'','n')}${cell('','etc')}</tr>`;});
   }
   const vatIn=est.vat==='포함';
   const noteLines=[...(est.remarks?String(est.remarks).split('\n').filter(x=>x.trim()):[]),
@@ -2864,16 +2865,16 @@ function edEstSheet(est,cal){
       <div><div class="ed-lab">PROJECT</div><div class="ed-val">${esc(i.name||'')}</div></div>
     </div>
     <div class="ed-amtrow">
-      <div><div class="ed-lab">TOTAL AMOUNT</div><div class="ed-amt">₩ <b>${numf(cal.grand)}</b> 원</div></div>
+      <div><div class="ed-lab">TOTAL AMOUNT</div><div class="ed-amt">₩ <b>${numf(cal.grand)}</b><span class="u">원</span></div></div>
       <div class="ed-vat">VAT ${esc(est.vat||'별도')}</div>
     </div>
-    <div class="ed-lab" style="margin:28px 0 4px">SCOPE OF WORK</div>
-    <table class="edt"><thead><tr><th>품명</th><th class="n" style="width:7%">수량</th><th class="c" style="width:7%">단위</th><th class="n" style="width:12%">단가</th><th class="n" style="width:14%">금액</th><th style="width:14%">비고</th></tr></thead>
+    <div class="ed-lab" style="margin:30px 0 2px">SCOPE OF WORK</div>
+    <table class="edt"><thead><tr><th>품명</th><th style="width:7%">수량</th><th style="width:7%">단위</th><th style="width:11%">단가</th><th style="width:13%">금액</th><th style="width:20%">비고</th></tr></thead>
     <tbody>${body}</tbody></table>
     <div class="ed-tots">
       <div class="tr"><span>합계</span><b>${numf(cal.sub)}<i>원</i></b></div>
       ${cal.discount?`<div class="tr"><span>할인</span><b>−${numf(cal.discount)}<i>원</i></b></div>`:''}
-      <div class="tr"><span>부가세${vatIn?' (10%)':''}</span><b>${vatIn?numf(Math.round(cal.grand*0.1))+'<i>원</i>':'별도'}</b></div>
+      <div class="tr"><span>부가세 (${vatIn?'10%':'0%'})</span><b>${vatIn?numf(Math.round(cal.grand*0.1))+'<i>원</i>':'별도'}</b></div>
       <div class="tr grand"><span>총 금 액</span><b>${numf(cal.grand)}<i>원</i></b></div>
     </div>
     <div class="ed-note"><span class="dash">—</span><div>${noteLines.map(esc).join('<br>')}</div></div>
