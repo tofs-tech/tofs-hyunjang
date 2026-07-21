@@ -470,53 +470,53 @@
   .psheet .eg-remark b{display:block;border-bottom:2px solid #333;padding-bottom:4px;margin-bottom:8px;font-size:12.5px;}
   /* ── 에디토리얼 문서(견적서·발주서·스펙북·안내문) — 크림 종이 · 모노톤 · 헤어라인 ──
      일정표·계약서 등 다른 문서는 기존 스타일을 그대로 쓴다. */
-  .pv-page:has(> .psheet > .ed){background:#F7F4EE;}
+  .pv-page:has(> .psheet > .ed){background:#F7F4EE;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .psheet .ed{min-height:262mm;display:flex;flex-direction:column;color:#1D1B16;font-size:12px;letter-spacing:-.01em;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .psheet .ed.autoh{min-height:0;display:block;} /* 실측 분할용 — 페이지 높이를 강제하면 분할 측정이 깨진다 */
   .psheet .ed .dash{color:#B8B1A2;}
+  /* 숫자·코드류는 전부 고정폭 — 레퍼런스(suplex)와 동일한 조합: Pretendard + ui-monospace */
+  .psheet .ed-no,.psheet .ed-amt b,.psheet .edt td.n,.psheet .ed-tots .tr b,.psheet .ed-frow .fv{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;}
   .psheet .ed-top{display:flex;justify-content:space-between;align-items:baseline;}
   .psheet .ed-co{font-size:11px;font-weight:800;letter-spacing:.4em;}
-  .psheet .ed-no{font-size:9.5px;font-weight:600;letter-spacing:.28em;color:#8D877B;white-space:nowrap;}
-  .psheet .ed-title{font-size:44px;font-weight:700;letter-spacing:-.025em;line-height:1;margin-top:30px;}
-  .psheet .ed-sub{font-size:10px;font-weight:800;letter-spacing:.55em;margin-top:12px;}
+  .psheet .ed-no{font-size:10px;font-weight:500;letter-spacing:.16em;color:#A29B8C;white-space:nowrap;}
+  .psheet .ed-title{font-size:47px;font-weight:600;letter-spacing:-.015em;line-height:1;margin-top:34px;}
+  .psheet .ed-sub{font-size:10px;font-weight:700;letter-spacing:.6em;margin-top:13px;}
   .psheet .ed-hrow{display:flex;justify-content:space-between;align-items:flex-end;}
   .psheet .ed-hmeta{text-align:right;font-size:10.5px;color:#5A554A;line-height:1.7;}
   .psheet .ed-band{display:flex;border-top:1.5px solid #1D1B16;border-bottom:1px solid #1D1B16;margin-top:24px;}
   .psheet .ed-band.b2{border-top:none;}
   .psheet .ed-band>div{flex:1;padding:12px 16px;border-left:1px solid #DDD6C8;min-width:0;}
   .psheet .ed-band>div:first-child{padding-left:2px;border-left:none;}
-  .psheet .ed-lab{font-size:8.5px;font-weight:800;letter-spacing:.32em;color:#8D877B;}
+  .psheet .ed-lab{font-size:8.5px;font-weight:800;letter-spacing:.32em;color:#A29B8C;}
   .psheet .ed-val{font-size:12.5px;font-weight:700;margin-top:7px;word-break:keep-all;}
   .psheet .ed-val small{font-weight:500;color:#5A554A;font-size:10.5px;}
-  .psheet .ed-amtrow{display:flex;justify-content:space-between;align-items:flex-end;margin-top:26px;}
-  .psheet .ed-amt{margin-top:8px;font-size:15px;color:#5A554A;}
-  .psheet .ed-amt b{font-size:34px;font-weight:700;color:#1D1B16;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
+  .psheet .ed-amtrow{display:flex;justify-content:space-between;align-items:flex-end;margin-top:28px;}
+  .psheet .ed-amt{margin-top:9px;font-size:17px;color:#5A554A;}
+  .psheet .ed-amt b{font-size:38px;font-weight:600;color:#1D1B16;letter-spacing:-.02em;}
   .psheet .ed-vat{font-size:9.5px;font-weight:800;letter-spacing:.3em;color:#5A554A;}
   .psheet table.edt{width:100%;border-collapse:collapse;font-size:10.5px;table-layout:fixed;}
-  .psheet .edt thead th{font-size:8.5px;font-weight:700;letter-spacing:.22em;color:#8D877B;padding:8px 6px;border-bottom:1px solid #1D1B16;text-align:left;white-space:nowrap;}
+  .psheet .edt thead th{font-size:9px;font-weight:600;letter-spacing:.12em;color:#A29B8C;padding:9px 6px;border-bottom:1px solid #DDD6C8;text-align:left;white-space:nowrap;}
   .psheet .edt thead th.n{text-align:right;} .psheet .edt thead th.c{text-align:center;}
-  .psheet .edt td{padding:8px 6px;border-bottom:1px solid #E4DED1;vertical-align:middle;line-height:1.5;word-break:keep-all;overflow-wrap:break-word;}
+  .psheet .edt td{padding:9.5px 6px;border-bottom:1px solid #EAE4D6;vertical-align:middle;line-height:1.5;word-break:keep-all;overflow-wrap:break-word;}
   .psheet .edt td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
   .psheet .edt td.c{text-align:center;white-space:nowrap;}
   .psheet .edt td.etc{color:#5A554A;font-size:9.5px;white-space:normal;}
   .psheet .edt .ed-det{font-size:9.5px;color:#8D877B;margin-top:2px;line-height:1.45;font-weight:400;}
   .psheet .edt .ed-sec td{font-weight:800;font-size:11px;border-top:1.5px solid #1D1B16;border-bottom:1px solid #C9C2B2;padding:9px 6px;}
   .psheet .edt .ed-sec .sn{color:#8D877B;margin-right:9px;font-variant-numeric:tabular-nums;}
-  .psheet .ed-tots{margin:22px 0 0 auto;width:56%;min-width:280px;font-size:11px;}
-  .psheet .ed-tots .tr{display:flex;justify-content:space-between;align-items:baseline;padding:9px 2px;border-top:1px solid #E4DED1;color:#5A554A;}
-  .psheet .ed-tots .tr b{font-weight:600;color:#1D1B16;font-variant-numeric:tabular-nums;}
-  .psheet .ed-tots .tr i{font-style:normal;font-size:9.5px;color:#8D877B;margin-left:3px;}
-  .psheet .ed-tots .grand{border-top:1.5px solid #1D1B16;border-bottom:1.5px solid #1D1B16;padding:12px 2px;color:#1D1B16;font-weight:800;letter-spacing:.2em;margin-top:4px;}
-  .psheet .ed-tots .grand b{font-size:14px;font-weight:800;}
+  .psheet .ed-tots{margin:24px 0 0 auto;width:56%;min-width:280px;font-size:11px;}
+  .psheet .ed-tots .tr{display:flex;justify-content:space-between;align-items:baseline;padding:10px 2px;border-top:1px solid #EAE4D6;color:#6B6558;}
+  .psheet .ed-tots .tr b{font-weight:500;color:#1D1B16;}
+  .psheet .ed-tots .tr i{font-style:normal;font-size:9.5px;color:#A29B8C;margin-left:4px;font-family:"Pretendard Variable","Pretendard","Malgun Gothic",sans-serif;}
+  .psheet .ed-tots .grand{border-top:1.5px solid #1D1B16;border-bottom:1.5px solid #1D1B16;padding:13px 2px;color:#1D1B16;font-weight:800;letter-spacing:.22em;margin-top:5px;}
+  .psheet .ed-tots .grand b{font-size:15px;font-weight:700;}
   .psheet .ed-note{display:flex;gap:10px;margin-top:26px;font-size:9.8px;color:#8D877B;line-height:1.8;}
   .psheet .ed-foot{margin-top:auto;padding-top:12px;border-top:1.5px solid #1D1B16;}
   .psheet .ed.autoh .ed-foot{margin-top:24px;}
   .psheet .ed-fco{font-size:10.5px;font-weight:800;letter-spacing:.35em;}
-  .psheet .ed-frow{margin-top:8px;font-size:9px;color:#5A554A;display:flex;flex-wrap:wrap;gap:4px 18px;}
+  .psheet .ed-frow{margin-top:8px;font-size:9px;color:#6B6558;display:flex;flex-wrap:wrap;gap:4px 18px;}
   .psheet .ed-frow .fl{font-weight:800;letter-spacing:.18em;color:#1D1B16;margin-right:6px;}
-  .psheet .ed-cov{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:40px;text-align:center;}
-  .psheet .ed-cov .ed-title{margin-top:0;font-size:32px;letter-spacing:-.015em;line-height:1.3;}
-  .psheet .ed-covdate{font-size:10px;letter-spacing:.4em;color:#8D877B;}
+  .psheet .ed-frow .fv{letter-spacing:.02em;}
   .psheet .ed-sech{margin:24px 0 0;font-size:11px;font-weight:800;border-top:1.5px solid #1D1B16;padding:10px 2px 8px;}
   .psheet .ed-sech .sn{color:#8D877B;margin-right:9px;font-variant-numeric:tabular-nums;}
   .psheet .ed-sech small{color:#8D877B;font-weight:600;letter-spacing:.1em;margin-left:8px;font-size:9px;}
@@ -747,7 +747,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.24.0';
+const APP_VERSION='7.25.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1434,7 +1434,6 @@ function specbookPages(p,sp){
   const mats=(p.materials||[]).filter(m=>!sbHidden(p,m.id));
   const shownTotal=mats.reduce((s,m)=>s+matAmt(m),0);
   const groups=[...new Set(mats.map(m=>m.group))];
-  const cover=edCover(`${i.name||''} 마감재 스펙북`,todayStr());
   const pageHead=`${edTop(edDateNo(todayStr()))}
     <div class="ed-hrow"><div>${edTitle('Spec Book.','마 감 재  스 펙 북')}</div>
       <div class="ed-hmeta">${esc(i.name||'')}<br>${esc(edDot(todayStr()))}</div></div>`;
@@ -1512,7 +1511,7 @@ function specbookPages(p,sp){
   }
   pushPage();
   stage.remove();
-  return [cover,...pages];
+  return pages;
 }
 function openSpecbook(){
   const p=proj();
@@ -2822,7 +2821,7 @@ function estEditor(c,p,est){
 const estPageBreak=()=>`<div style="page-break-after:always;height:26px"></div>`;
 const ymdKor=d=>{if(!d)return'-';const[y,m,dd]=d.split('-');return`${y}년 ${+m}월 ${+dd}일`;};
 /* ── 에디토리얼 공통 조각 — 견적서·발주서·스펙북·안내문이 같은 표지 언어를 쓴다 ── */
-const edDateNo=d=>(d||todayStr()).replace(/-/g,' · ');
+const edDateNo=d=>(d||todayStr()).replace(/-/g,' ·');   /* 레퍼런스 표기: 2026 ·07 ·03 */
 const edDot=d=>(d||todayStr()).replace(/-/g,'.');
 const edTop=no=>`<div class="ed-top"><div class="ed-co">${esc(CO().name||'')}</div><div class="ed-no">№ ${esc(no)}</div></div>`;
 const edTitle=(en,ko)=>`<div class="ed-title">${esc(en)}</div><div class="ed-sub">${esc(ko)}</div>`;
@@ -2830,12 +2829,6 @@ function edFoot(){const co=CO();
   const f=(l,v)=>v?`<span><span class="fl">${l}</span><span class="fv">${esc(v)}</span></span>`:'';
   return`<div class="ed-foot"><div class="ed-fco">${esc(co.name||'')}</div>
     <div class="ed-frow">${f('CEO',co.ceo)}${f('REG.',co.reg)}${f('TEL.',co.tel)}${f('MAIL',co.email)}${f('ADDR.',co.addr)}</div></div>`;}
-function edCover(title,dateStr){
-  const lg=coLogo(220);
-  return`<div class="ed">${edTop(edDateNo(dateStr))}
-    <div class="ed-cov"><div class="ed-title">${esc(title)}</div>${lg?`<div>${lg}</div>`:''}
-      <div class="ed-covdate">${esc(edDot(dateStr))}</div></div>
-    ${edFoot()}</div>`;}
 
 /* ── 견적서 본문 — 섹션·품목·간접공사·합계를 한 흐름으로 ──
    자재/노무 단가는 화면에서 나눠 관리하고, 인쇄물에는 합산 단가 하나로 낸다. */
@@ -2888,10 +2881,8 @@ function edEstSheet(est,cal){
   </div>`;
 }
 function openEstPreview(est){
-  const cal=estCalc(est);
-  const nm=proj().info.name||est.client||'';
-  const title=/인테리어|공사/.test(nm)?`${nm} 견적서`:`${nm} 인테리어공사 견적서`;
-  showPreview('견적서',[edCover(title,est.date),edEstSheet(est,cal)],false);
+  /* 레퍼런스 디자인은 표지 없는 단일 시트 */
+  showPreview('견적서',[edEstSheet(est,estCalc(est))],false);
 }
 
 /* ===== 홈 대시보드 — 진행 중인 현장 전체 일정 ===== */
