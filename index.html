@@ -520,7 +520,7 @@
   .psheet .ed .edt .ed-sumr td:first-child{padding-left:30px;font-weight:500;color:#2A2721;}
   .psheet .ed .edt .ed-sumr td.n{font-size:10.5px;}
   /* 상세내역 공종별 합계줄 — 회색이 아닌 검정으로 또렷하게 */
-  .psheet .ed .edt .ed-strow td{font-weight:700;color:#1D1B16;border-top:1.5px solid #1D1B16;border-bottom:1.5px solid #1D1B16;padding:11px 8px;font-size:11px;}
+  .psheet .ed .edt .ed-strow td{font-weight:700;color:#1D1B16;border-top:1px solid #D9D2C2;border-bottom:1.5px solid #1D1B16;padding:11px 8px;font-size:11px;}
   .psheet .ed .edt .ed-strow td:first-child{font-weight:700;color:#1D1B16;}
   /* 공종이 많아 갑지가 한 장을 넘칠 것 같으면 자동 압축(cmp) — edEstCover가 행 수를 보고 붙인다 */
   .psheet .ed.cmp .ed-title{margin-top:18px;}
@@ -799,7 +799,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.30.5';
+const APP_VERSION='7.30.6';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
