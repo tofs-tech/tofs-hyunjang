@@ -552,8 +552,9 @@
   /* 전면 표지 — 프로젝트명·날짜 중앙, 로고는 9분할 격자에서 위치·크기 지정 */
   .psheet .ed.edcover{position:relative;}
   .psheet .edcover-mid{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;}
-  .psheet .edcover-name{font-size:34px;font-weight:300;letter-spacing:-.005em;line-height:1.25;margin-top:16px;word-break:keep-all;}
-  .psheet .edcover-date{font-size:12px;color:#6B6558;margin-top:16px;letter-spacing:.14em;}
+  .psheet .edcover-name{font-size:96px;font-weight:300;letter-spacing:-.01em;line-height:1.12;margin-top:22px;word-break:keep-all;}
+  .psheet .edcover-date{font-size:13px;color:#6B6558;margin-top:26px;letter-spacing:.16em;}
+  .psheet .edcover-midlogo{display:block;margin:0 auto 16mm;}
   /* 로고 배치 격자 — 상단 회사명 띠와 하단 푸터를 피한 범위 안에서만 움직인다 */
   .psheet .edcover-grid{position:absolute;inset:16mm 0 26mm 0;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr;pointer-events:none;}
   .psheet .edcover-grid img{max-width:100%;max-height:100%;object-fit:contain;}
@@ -782,7 +783,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.28.0';
+const APP_VERSION='7.28.1';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -2818,7 +2819,7 @@ function estEditor(c,p,est){
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;height:34px"><input type="checkbox" id="estCoverOn" ${est.coverOn?'checked':''}> 표지 사용</label>
       <div class="field" style="margin:0;min-width:130px"><label>로고 위치</label>
         <select id="estLogoPos">
-          ${[['tl','상단 왼쪽'],['tc','상단 가운데'],['tr','상단 오른쪽'],['ml','중앙 왼쪽'],['mc','정중앙'],['mr','중앙 오른쪽'],['bl','하단 왼쪽'],['bc','하단 가운데'],['br','하단 오른쪽']].map(o=>`<option value="${o[0]}" ${(est.logoPos||'tc')===o[0]?'selected':''}>${o[1]}</option>`).join('')}
+          ${[['pn','프로젝트명 위'],['tl','상단 왼쪽'],['tc','상단 가운데'],['tr','상단 오른쪽'],['ml','중앙 왼쪽'],['mc','정중앙'],['mr','중앙 오른쪽'],['bl','하단 왼쪽'],['bc','하단 가운데'],['br','하단 오른쪽']].map(o=>`<option value="${o[0]}" ${(est.logoPos||'pn')===o[0]?'selected':''}>${o[1]}</option>`).join('')}
         </select></div>
       <div class="field" style="margin:0;width:110px"><label>로고 폭 (mm)</label><input id="estLogoW" type="number" min="10" max="160" value="${esc(est.logoW||40)}"></div>
       <button class="btn sm" id="estLogoUp" type="button">${svg(IC.plus)}로고 올리기</button>
@@ -2930,18 +2931,25 @@ const edEstSecs=(est,cal)=>{
 /* 전면 표지 — 프로젝트명·날짜·회사 로고. 로고 위치(9분할)와 폭(mm)은 견적서 편집에서 지정 */
 function edEstFrontCover(est){
   const i=proj().info,co=CO();
-  const pos=est.logoPos||'tc',w=Math.max(10,Math.min(160,+est.logoW||40));
-  const row={t:1,m:2,b:3}[pos[0]]||1, col={l:1,c:2,r:3}[pos[1]]||2;
-  const js={1:'start',2:'center',3:'end'};
-  const logo=co.logo?`<div class="edcover-grid"><img src="${co.logo}" style="grid-row:${row};grid-column:${col};justify-self:${js[col]};align-self:${js[row]};width:${w}mm"></div>`:'';
+  const pos=est.logoPos||'pn',w=Math.max(10,Math.min(160,+est.logoW||40));
+  /* 'pn' = 프로젝트명 바로 위(가운데 흐름), 나머지는 9분할 격자 배치 */
+  const inMid=pos==='pn';
+  const midLogo=(inMid&&co.logo)?`<img class="edcover-midlogo" src="${co.logo}" style="width:${w}mm">`:'';
+  let grid='';
+  if(!inMid&&co.logo){
+    const row={t:1,m:2,b:3}[pos[0]]||1, col={l:1,c:2,r:3}[pos[1]]||2;
+    const js={1:'start',2:'center',3:'end'};
+    grid=`<div class="edcover-grid"><img src="${co.logo}" style="grid-row:${row};grid-column:${col};justify-self:${js[col]};align-self:${js[row]};width:${w}mm"></div>`;
+  }
   return`<div class="ed edcover">
     ${edTop(edDateNo(est.date))}
     <div class="edcover-mid">
+      ${midLogo}
       <div class="ed-lab">PROJECT</div>
       <div class="edcover-name">${esc(i.name||'')}</div>
       <div class="edcover-date">${esc(edDot(est.date))}</div>
     </div>
-    ${logo}
+    ${grid}
     ${edFoot()}
   </div>`;
 }
