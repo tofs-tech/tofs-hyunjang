@@ -520,7 +520,7 @@
   .psheet .ed .edt .ed-sumr td:first-child{padding-left:30px;font-weight:500;color:#2A2721;}
   .psheet .ed .edt .ed-sumr td.n{font-size:10.5px;}
   /* 상세내역 공종별 합계줄 — 회색이 아닌 검정으로 또렷하게 */
-  .psheet .ed .edt .ed-strow td{font-weight:700;color:#1D1B16;border-top:1.5px solid #1D1B16;border-bottom:none;padding:11px 8px;font-size:11px;}
+  .psheet .ed .edt .ed-strow td{font-weight:700;color:#1D1B16;border-top:1.5px solid #1D1B16;border-bottom:1.5px solid #1D1B16;padding:11px 8px;font-size:11px;}
   .psheet .ed .edt .ed-strow td:first-child{font-weight:700;color:#1D1B16;}
   /* 공종이 많아 갑지가 한 장을 넘칠 것 같으면 자동 압축(cmp) — edEstCover가 행 수를 보고 붙인다 */
   .psheet .ed.cmp .ed-title{margin-top:18px;}
@@ -799,7 +799,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.30.2';
+const APP_VERSION='7.30.3';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -3004,9 +3004,8 @@ function edEstCover(est,cal,hasDetail,fit){
   const rowN=secs.length+(hasInd?2+cal.ind.length:0);
   const cmp=fit>=1||rowN>=12, cmp2=fit>=2;
   const vatIn=est.vat==='포함';
-  const noteLines=[...(est.remarks?String(est.remarks).split('\n').filter(x=>x.trim()):[]),
-    `본 견적서는 발행일로부터 ${est.validDays||30}일간 유효하며, 실제 계약 내용에 따라 금액이 달라질 수 있습니다.`,
-    ...(hasDetail?['공종별 상세 내역은 다음 페이지에 있습니다.']:[])];
+  /* 갑지 비고는 사용자가 쓴 것만 — 유효기간·상세내역 안내 문구는 뺐다 */
+  const noteLines=est.remarks?String(est.remarks).split('\n').filter(x=>x.trim()):[];
   return`<div class="ed${cmp?' cmp':''}${cmp2?' cmp2':''}">
     ${edTop(edDateNo(est.date))}
     ${edTitle('Estimate.','견 적 서')}
@@ -3017,7 +3016,6 @@ function edEstCover(est,cal,hasDetail,fit){
     </div>
     <div class="ed-amtrow">
       <div><div class="ed-lab">TOTAL AMOUNT</div><div class="ed-amt">₩ <b>${numf(cal.grand)}</b><span class="u">원</span></div></div>
-      <div class="ed-vat">VAT ${esc(est.vat||'별도')}</div>
     </div>
     <div class="ed-lab" style="margin:16px 0 2px">SUMMARY</div>
     <table class="edt"><thead>${isCon
@@ -3033,7 +3031,7 @@ function edEstCover(est,cal,hasDetail,fit){
       <div class="tr"><span>부가세 (${vatIn?'10%':'0%'})</span><b>${vatIn?numf(Math.round(cal.grand*0.1))+'<i>원</i>':'별도'}</b></div>
       <div class="tr grand"><span>총 금 액</span><b>${numf(cal.grand)}<i>원</i></b></div>
     </div>
-    <div class="ed-note" style="margin-top:22px"><span class="dash">—</span><div>${noteLines.map(esc).join('<br>')}</div></div>
+    ${noteLines.length?`<div class="ed-note" style="margin-top:22px"><span class="dash">—</span><div>${noteLines.map(esc).join('<br>')}</div></div>`:''}
   </div>`;
 }
 /* 상세내역 — 스펙북과 같은 실측 분할. 한 공종이 페이지에 걸치면 통째로 다음 장으로 민다. */
