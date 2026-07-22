@@ -797,7 +797,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.29.0';
+const APP_VERSION='7.29.1';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -2716,7 +2716,7 @@ function estCalc(est){
   if(est.type==='construction'){
     const r=est.rates||{};
     ind=[['공과잡비',(+r.gongwa||0)],['기업이윤',(+r.profit||0)],['산재보험',(+r.sanjae||0)],['고용보험',(+r.goyong||0)]]
-      .map(x=>[x[0],Math.round(direct*x[1]/100)]);
+      .map(x=>[x[0],Math.round(direct*x[1]/100),x[1]]); /* [이름, 금액, 요율%] — 갑지에 요율 병기 */
   }
   const indirect=ind.reduce((a,b)=>a+b[1],0);
   const sub=direct+indirect;
@@ -2990,11 +2990,11 @@ function edEstCover(est,cal,hasDetail,fit){
     const mSum=secs.reduce((a,s)=>a+(s.m||0),0),lSum=secs.reduce((a,s)=>a+(s.l||0),0);
     head(1,'직접공사',mSum,lSum,cal.direct);
     secs.forEach(s=>child(s.name,s.m,s.l,s.total));
-    if(fit>=3){ /* 마지막 수단 — 간접공사를 한 줄로 접고 구성은 이름에 병기 */
-      head(2,`간접공사 (${cal.ind.map(x=>x[0]).join('·')})`,0,0,cal.indirect);
+    if(fit>=3){ /* 마지막 수단 — 간접공사를 한 줄로 접고 구성·요율은 이름에 병기 */
+      head(2,`간접공사 (${cal.ind.map(x=>x[0]+(x[2]?' '+x[2]+'%':'')).join('·')})`,0,0,cal.indirect);
     }else{
       head(2,'간접공사',0,0,cal.indirect);
-      cal.ind.forEach(x=>child(x[0],0,0,x[1]));
+      cal.ind.forEach(x=>child(x[0]+(x[2]?` (${x[2]}%)`:''),0,0,x[1]));
     }
   }else{
     secs.forEach(s=>head(s.num,s.name,s.m,s.l,s.total));
@@ -3032,7 +3032,6 @@ function edEstCover(est,cal,hasDetail,fit){
       <div class="tr grand"><span>총 금 액</span><b>${numf(cal.grand)}<i>원</i></b></div>
     </div>
     <div class="ed-note" style="margin-top:22px"><span class="dash">—</span><div>${noteLines.map(esc).join('<br>')}</div></div>
-    ${est.coverOn?'':edFoot()}
   </div>`;
 }
 /* 상세내역 — 스펙북과 같은 실측 분할. 한 공종이 페이지에 걸치면 통째로 다음 장으로 민다. */
