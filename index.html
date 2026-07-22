@@ -471,6 +471,9 @@
   /* ── 에디토리얼 문서(견적서·발주서·스펙북·안내문) — 크림 종이 · 모노톤 · 헤어라인 ──
      일정표·계약서 등 다른 문서는 기존 스타일을 그대로 쓴다. */
   .pv-page:has(> .psheet > .ed){background:#F7F4EE;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  /* 크림 종이가 디자인의 일부 — 시트의 기본 흰 배경이 크림을 덮지 않게 비운다 (미리보기·이미지·인쇄 공통) */
+  .psheet:has(> .ed){background:transparent;}
+  #printRoot:has(.ed){background:#F7F4EE;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .psheet .ed{min-height:262mm;display:flex;flex-direction:column;color:#1D1B16;font-size:12px;letter-spacing:-.01em;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .psheet .ed.autoh{min-height:0;display:block;} /* 실측 분할용 — 페이지 높이를 강제하면 분할 측정이 깨진다 */
   /* 앱 화면·다른 문서의 표 스타일(어두운 헤더·전체 테두리)이 새어 들어오지 않게 원천 차단 */
@@ -482,8 +485,8 @@
   .psheet .ed-top{display:flex;justify-content:space-between;align-items:baseline;}
   .psheet .ed-co{font-size:10.5px;font-weight:700;letter-spacing:.48em;}
   .psheet .ed-no{font-size:10px;font-weight:400;letter-spacing:.22em;color:#B3AC9C;white-space:nowrap;}
-  .psheet .ed-title{font-size:46px;font-weight:330;letter-spacing:-.01em;line-height:1.04;margin-top:34px;}
-  .psheet .ed-sub{font-size:9.5px;font-weight:600;letter-spacing:.62em;margin-top:12px;}
+  .psheet .ed-title{font-size:30px;font-weight:300;letter-spacing:-.005em;line-height:1.1;margin-top:28px;}
+  .psheet .ed-sub{font-size:9.5px;font-weight:600;letter-spacing:.62em;margin-top:10px;}
   .psheet .ed-hrow{display:flex;justify-content:space-between;align-items:flex-end;}
   .psheet .ed-hmeta{text-align:right;font-size:10.5px;color:#6B6558;line-height:1.7;font-weight:500;}
   .psheet .ed-band{display:flex;border-top:1px solid #1D1B16;border-bottom:1px solid #CFC8B8;margin-top:26px;}
@@ -493,10 +496,10 @@
   .psheet .ed-lab{font-size:8.5px;font-weight:700;letter-spacing:.32em;color:#A9A292;}
   .psheet .ed-val{font-size:13px;font-weight:500;margin-top:8px;word-break:keep-all;}
   .psheet .ed-val small{font-weight:400;color:#8D877B;font-size:11px;}
-  .psheet .ed-amtrow{display:flex;justify-content:space-between;align-items:flex-end;margin-top:32px;}
-  .psheet .ed-amt{margin-top:10px;font-size:20px;color:#1D1B16;font-weight:300;}
-  .psheet .ed-amt b{font-size:42px;font-weight:300;color:#1D1B16;letter-spacing:-.01em;font-variant-numeric:tabular-nums;}
-  .psheet .ed-amt .u{font-size:14px;color:#6B6558;font-weight:400;margin-left:2px;}
+  .psheet .ed-amtrow{display:flex;justify-content:space-between;align-items:flex-end;margin-top:26px;}
+  .psheet .ed-amt{margin-top:9px;font-size:14px;color:#1D1B16;font-weight:300;}
+  .psheet .ed-amt b{font-size:24px;font-weight:300;color:#1D1B16;letter-spacing:-.01em;font-variant-numeric:tabular-nums;}
+  .psheet .ed-amt .u{font-size:11px;color:#6B6558;font-weight:400;margin-left:2px;}
   .psheet .ed-vat{font-size:9.5px;font-weight:700;letter-spacing:.32em;color:#6B6558;}
   .psheet table.edt{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed;}
   .psheet .ed .edt thead th{font-size:9.5px;font-weight:500;letter-spacing:.35em;color:#A9A292;padding:12px 8px;border-bottom:1px solid #D9D2C2;text-align:center;white-space:nowrap;}
@@ -508,13 +511,19 @@
   .psheet .edt .ed-det{font-size:9.5px;color:#A29B8C;margin-top:3px;line-height:1.5;font-weight:400;}
   .psheet .ed .edt .ed-sec td{font-weight:700;font-size:11.5px;border-top:1.5px solid #1D1B16;border-bottom:1px solid #D9D2C2;padding:12px 8px;color:#1D1B16;}
   .psheet .edt .ed-sec .sn{color:#A9A292;margin-right:10px;font-weight:500;}
+  /* 갑지(표지) 공종 요약 — 공종 한 줄씩 + 간접공사 하위 항목. 한 장 안에 들어가게 패딩은 조인다 */
+  .psheet .ed .edt .ed-sumr td{font-weight:600;font-size:11.5px;padding:10px 8px;color:#1D1B16;}
+  .psheet .ed .edt .ed-sumr td.n{font-weight:500;font-size:11px;}
+  .psheet .ed .edt .ed-sumr .sn{color:#A9A292;margin-right:10px;font-weight:500;}
+  .psheet .ed .edt .ed-sumi td{color:#8D877B;font-weight:400;padding:8px 8px;}
+  .psheet .ed .edt .ed-sumi td:first-child{color:#8D877B;font-weight:400;}
   .psheet .ed-tots{margin:26px 0 0 auto;width:48%;min-width:300px;font-size:11px;}
-  .psheet .ed-tots .tr{display:flex;justify-content:space-between;align-items:baseline;padding:12px 2px;border-top:1px solid #E7E1D3;color:#6B6558;}
+  .psheet .ed-tots .tr{display:flex;justify-content:space-between;align-items:baseline;padding:10px 2px;border-top:1px solid #E7E1D3;color:#6B6558;}
   .psheet .ed-tots .tr b{font-weight:400;color:#1D1B16;font-size:11.5px;}
   .psheet .ed-tots .tr i{font-style:normal;font-size:9.5px;color:#A29B8C;margin-left:5px;font-family:"Pretendard Variable","Pretendard","Malgun Gothic",sans-serif;}
   .psheet .ed-tots .grand{border-top:1.5px solid #1D1B16;border-bottom:none;padding:14px 2px 4px;color:#1D1B16;}
-  .psheet .ed-tots .grand span{font-weight:800;letter-spacing:.28em;font-size:12px;}
-  .psheet .ed-tots .grand b{font-size:17px;font-weight:700;}
+  .psheet .ed-tots .grand span{font-weight:600;letter-spacing:.28em;font-size:11px;}
+  .psheet .ed-tots .grand b{font-size:14px;font-weight:600;}
   .psheet .ed-note{display:flex;gap:10px;margin-top:34px;font-size:10px;color:#8D877B;line-height:1.85;}
   .psheet .ed-foot{margin-top:auto;padding-top:13px;border-top:1px solid #1D1B16;}
   .psheet .ed.autoh .ed-foot{margin-top:26px;}
@@ -574,6 +583,7 @@
     .psheet.land{page:schedLand;}
     body.print-doc .appbar, body.print-doc .wrap, body.print-doc .pv-overlay{display:none!important;}
     body.print-doc #printRoot{display:block!important;}
+    body.print-doc:has(#printRoot .ed){background:#F7F4EE!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }
 </style>
 
@@ -748,7 +758,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.26.0';
+const APP_VERSION='7.27.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -2824,38 +2834,41 @@ const ymdKor=d=>{if(!d)return'-';const[y,m,dd]=d.split('-');return`${y}년 ${+m}
 /* ── 에디토리얼 공통 조각 — 견적서·발주서·스펙북·안내문이 같은 표지 언어를 쓴다 ── */
 const edDateNo=d=>(d||todayStr()).replace(/-/g,' ·');   /* 레퍼런스 표기: 2026 ·07 ·03 */
 const edDot=d=>(d||todayStr()).replace(/-/g,'.');
-const edTop=no=>`<div class="ed-top"><div class="ed-co">${esc(CO().name||'')}</div><div class="ed-no">№ ${esc(no)}</div></div>`;
+/* 회사명에서 영문 표기(thinkof_space 등)는 인쇄물에서만 뗀다 — 저장된 회사 정보는 그대로 */
+const edBrand=s=>{const t=String(s||'').replace(/\([^)]*[A-Za-z][^)]*\)/g,'').replace(/[A-Za-z_][A-Za-z_.&'-]*/g,'').replace(/\s+/g,' ').trim();return t||String(s||'');};
+const edTop=no=>`<div class="ed-top"><div class="ed-co">${esc(edBrand(CO().name))}</div><div class="ed-no">№ ${esc(no)}</div></div>`;
 const edTitle=(en,ko)=>`<div class="ed-title">${esc(en)}</div><div class="ed-sub">${esc(ko)}</div>`;
 function edFoot(){const co=CO();
   const f=(l,v)=>v?`<span><span class="fl">${l}</span><span class="fv">${esc(v)}</span></span>`:'';
-  return`<div class="ed-foot"><div class="ed-fco">${esc(co.name||'')}</div>
+  return`<div class="ed-foot"><div class="ed-fco">${esc(edBrand(co.name))}</div>
     <div class="ed-frow">${f('CEO',co.ceo)}${f('REG.',co.reg)}${f('TEL.',co.tel)}${f('MAIL',co.email)}${f('ADDR.',co.addr)}</div></div>`;}
 
-/* ── 견적서 본문 — 섹션·품목·간접공사·합계를 한 흐름으로 ──
+/* ── 견적서 — 1페이지 갑지(공종별 합계 + 간접공사 + 총액), 2페이지부터 공종별 상세내역 ──
    자재/노무 단가는 화면에서 나눠 관리하고, 인쇄물에는 합산 단가 하나로 낸다. */
-function edEstSheet(est,cal){
+const edEstSecs=(est,cal)=>{
+  const one=(est.sections||[]).length===1&&!(((est.sections[0]||{}).name)||'').trim();
+  return(est.sections||[]).map((sec,si)=>({
+    num:si+1,
+    name:one?'공사 내역':(sec.name||'-'),
+    total:cal.secs[si].total,
+    items:(sec.items||[]).filter(it=>(it.name||'').trim()||+it.qty||(+it.mp||0)+(+it.lp||0))
+  }));
+};
+function edEstCover(est,cal,hasDetail){
   const i=proj().info;
   const dash='<span class="dash">—</span>';
-  const cell=(v,cls)=>`<td class="${cls||''}">${(v==null||v==='')?dash:v}</td>`;
-  let no=0,body='';
-  const secRow=(name,total)=>{no++;
-    body+=`<tr class="ed-sec"><td colspan="4"><span class="sn">${String(no).padStart(2,'0')}</span>${esc(name||'-')}</td><td class="n">${total?numf(total):dash}</td><td></td></tr>`;};
-  (est.sections||[]).forEach((sec,si)=>{
-    const one=(est.sections.length===1&&!(sec.name||'').trim());
-    if(!one)secRow(sec.name,cal.secs[si].total);
-    sec.items.forEach(it=>{
-      const q=+it.qty||0,u=(+it.mp||0)+(+it.lp||0);
-      if(!(it.name||'').trim()&&!q&&!u)return;
-      const sub=[it.detail,it.spec].filter(x=>(x||'').trim()).join(' · ');
-      body+=`<tr>${cell(`${esc(it.name)}${sub?`<div class="ed-det">${esc(sub)}</div>`:''}`)}${cell(q?numf(q):'','c')}${cell(esc(it.unit||''),'c')}${cell(u?numf(u):'','n')}${cell(u*q?numf(u*q):'','n')}${cell(esc(it.note||''),'etc')}</tr>`;});
-  });
+  const secs=edEstSecs(est,cal);
+  let body='';
+  const sumRow=(num,name,amt)=>{body+=`<tr class="ed-sumr"><td><span class="sn">${String(num).padStart(2,'0')}</span>${esc(name)}</td><td class="n">${amt?numf(amt):dash}</td><td class="etc"></td></tr>`;};
+  secs.forEach(s=>sumRow(s.num,s.name,s.total));
   if(est.type==='construction'&&cal.ind.length){
-    secRow('간접공사',cal.indirect);
-    cal.ind.forEach(x=>{body+=`<tr>${cell(esc(x[0]))}${cell('','c')}${cell('','c')}${cell('','n')}${cell(x[1]?numf(x[1]):'','n')}${cell('','etc')}</tr>`;});
+    sumRow(secs.length+1,'간접공사',cal.indirect);
+    cal.ind.forEach(x=>{body+=`<tr class="ed-sumi"><td style="padding-left:36px">${esc(x[0])}</td><td class="n">${x[1]?numf(x[1]):dash}</td><td class="etc"></td></tr>`;});
   }
   const vatIn=est.vat==='포함';
   const noteLines=[...(est.remarks?String(est.remarks).split('\n').filter(x=>x.trim()):[]),
-    `본 견적서는 발행일로부터 ${est.validDays||30}일간 유효하며, 실제 계약 내용에 따라 금액이 달라질 수 있습니다.`];
+    `본 견적서는 발행일로부터 ${est.validDays||30}일간 유효하며, 실제 계약 내용에 따라 금액이 달라질 수 있습니다.`,
+    ...(hasDetail?['공종별 상세 내역은 다음 페이지에 있습니다.']:[])];
   return`<div class="ed">
     ${edTop(edDateNo(est.date))}
     ${edTitle('Estimate.','견 적 서')}
@@ -2868,8 +2881,8 @@ function edEstSheet(est,cal){
       <div><div class="ed-lab">TOTAL AMOUNT</div><div class="ed-amt">₩ <b>${numf(cal.grand)}</b><span class="u">원</span></div></div>
       <div class="ed-vat">VAT ${esc(est.vat||'별도')}</div>
     </div>
-    <div class="ed-lab" style="margin:30px 0 2px">SCOPE OF WORK</div>
-    <table class="edt"><thead><tr><th>품명</th><th style="width:7%">수량</th><th style="width:7%">단위</th><th style="width:11%">단가</th><th style="width:13%">금액</th><th style="width:20%">비고</th></tr></thead>
+    <div class="ed-lab" style="margin:24px 0 2px">SUMMARY</div>
+    <table class="edt"><thead><tr><th>구분</th><th style="width:20%">금액</th><th style="width:26%">비고</th></tr></thead>
     <tbody>${body}</tbody></table>
     <div class="ed-tots">
       <div class="tr"><span>합계</span><b>${numf(cal.sub)}<i>원</i></b></div>
@@ -2881,9 +2894,78 @@ function edEstSheet(est,cal){
     ${edFoot()}
   </div>`;
 }
+/* 상세내역 — 스펙북과 같은 실측 분할. 한 공종이 페이지에 걸치면 통째로 다음 장으로 민다. */
+function edEstDetailPages(est,cal){
+  const i=proj().info;
+  const dash='<span class="dash">—</span>';
+  const cell=(v,cls)=>`<td class="${cls||''}">${(v==null||v==='')?dash:v}</td>`;
+  const secs=edEstSecs(est,cal).filter(s=>s.items.length);
+  if(!secs.length)return[];
+  const pageHead=`${edTop(edDateNo(est.date))}
+    <div class="ed-hrow"><div>${edTitle('Detail.','상 세 내 역')}</div>
+      <div class="ed-hmeta">${esc(i.name||'')}<br>${esc(edDot(est.date))}</div></div>`;
+  const thRow=`<tr><th>품명</th><th style="width:7%">수량</th><th style="width:7%">단위</th><th style="width:11%">단가</th><th style="width:13%">금액</th><th style="width:20%">비고</th></tr>`;
+  const rowHtml=it=>{
+    const q=+it.qty||0,u=(+it.mp||0)+(+it.lp||0);
+    const sub=[it.detail,it.spec].filter(x=>(x||'').trim()).join(' · ');
+    return`<tr>${cell(`${esc(it.name)}${sub?`<div class="ed-det">${esc(sub)}</div>`:''}`)}${cell(q?numf(q):'','c')}${cell(esc(it.unit||''),'c')}${cell(u?numf(u):'','n')}${cell(u*q?numf(u*q):'','n')}${cell(esc(it.note||''),'etc')}</tr>`;};
+  const secHead=(s,cont)=>`<div class="ed-sech"><span class="sn">${String(s.num).padStart(2,'0')}</span>${esc(s.name)}${cont?' <small>(계속)</small>':''}<small>· 합계 ${numf(s.total)}원</small></div>`;
+  /* 화면 밖에 실제 페이지를 그려놓고 scrollHeight로 "더 안 들어갈 때까지" 채운다 (스펙북과 동일) */
+  const stage=document.createElement('div');
+  stage.style.cssText='position:fixed;left:-99999px;top:0;visibility:hidden;pointer-events:none;z-index:-1';
+  const outer=document.createElement('div');
+  outer.className='pv-page'; outer.style.minHeight='0'; outer.style.boxShadow='none';
+  const inner=document.createElement('div'); inner.className='psheet';
+  outer.appendChild(inner); stage.appendChild(outer); document.body.appendChild(stage);
+  const ruler=document.createElement('div');
+  ruler.style.cssText='height:100mm;position:absolute;visibility:hidden';
+  stage.appendChild(ruler);
+  const pxPerMm=(ruler.getBoundingClientRect().height||377.95)/100;
+  ruler.remove();
+  const MAXH=250*pxPerMm;            /* 내용 262mm − 하단 회사 푸터 몫 12mm */
+  const pages=[];
+  let edEl=null,pageEmpty=true;
+  const overflow=()=>inner.scrollHeight>MAXH;
+  const newPage=()=>{inner.innerHTML=`<div class="ed autoh">${pageHead}</div>`;edEl=inner.firstElementChild;pageEmpty=true;};
+  const pushPage=()=>{if(!pageEmpty){edEl.insertAdjacentHTML('beforeend',edFoot());pages.push(inner.innerHTML);}};
+  const dropSec=()=>{edEl.lastElementChild.remove();const h=edEl.lastElementChild;if(h&&h.classList.contains('ed-sech'))h.remove();};
+  const addWhole=s=>{edEl.insertAdjacentHTML('beforeend',secHead(s,false)+`<table class="edt"><thead>${thRow}</thead><tbody>${s.items.map(rowHtml).join('')}</tbody></table>`);};
+  /* 공종이 한 페이지를 통째로 넘길 만큼 길면 행 단위로 나눠 채운다 */
+  const fillRows=s=>{
+    let idx=0,cont=false;
+    while(idx<s.items.length){
+      edEl.insertAdjacentHTML('beforeend',secHead(s,cont)+`<table class="edt"><thead>${thRow}</thead><tbody></tbody></table>`);
+      const tbody=edEl.lastElementChild.querySelector('tbody');
+      let placed=0;
+      while(idx<s.items.length){
+        tbody.insertAdjacentHTML('beforeend',rowHtml(s.items[idx]));
+        /* 빈 페이지에서는 넘치더라도 최소 한 행은 넣는다 — 안 그러면 무한루프 */
+        if(overflow()&&!(pageEmpty&&placed===0)){tbody.lastElementChild.remove();break;}
+        idx++;placed++;
+      }
+      if(placed>0)pageEmpty=false; else dropSec();
+      if(idx<s.items.length){pushPage();newPage();cont=idx>0;}
+    }
+  };
+  newPage();
+  secs.forEach(s=>{
+    addWhole(s);
+    if(!overflow()){pageEmpty=false;return;}
+    dropSec();
+    if(!pageEmpty){pushPage();newPage();}   /* 걸치는 공종은 통째로 다음 장으로 */
+    addWhole(s);
+    if(!overflow()){pageEmpty=false;return;}
+    dropSec();
+    fillRows(s);                            /* 새 페이지에도 안 들어가는 긴 공종만 분할 */
+  });
+  pushPage();
+  stage.remove();
+  return pages;
+}
 function openEstPreview(est){
-  /* 레퍼런스 디자인은 표지 없는 단일 시트 */
-  showPreview('견적서',[edEstSheet(est,estCalc(est))],false);
+  const cal=estCalc(est);
+  const detail=edEstDetailPages(est,cal);
+  showPreview('견적서',[edEstCover(est,cal,detail.length),...detail],false);
 }
 
 /* ===== 홈 대시보드 — 진행 중인 현장 전체 일정 ===== */
