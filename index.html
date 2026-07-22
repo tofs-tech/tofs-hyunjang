@@ -783,7 +783,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.28.2';
+const APP_VERSION='7.28.3';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -2942,7 +2942,7 @@ function edEstFrontCover(est){
     grid=`<div class="edcover-grid"><img src="${co.logo}" style="grid-row:${row};grid-column:${col};justify-self:${js[col]};align-self:${js[row]};width:${w}mm"></div>`;
   }
   return`<div class="ed edcover">
-    ${edTop(edDateNo(est.date))}
+    <div class="ed-top"><div></div><div class="ed-no">№ ${esc(edDateNo(est.date))}</div></div>
     <div class="edcover-mid">
       ${midLogo}
       <div class="ed-lab">PROJECT</div>
