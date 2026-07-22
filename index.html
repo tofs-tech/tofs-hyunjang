@@ -509,16 +509,24 @@
   .psheet .ed .edt td.c{text-align:center;white-space:nowrap;}
   .psheet .ed .edt td.etc{color:#8D877B;font-size:10px;white-space:normal;font-weight:400;}
   .psheet .edt .ed-det{font-size:9.5px;color:#A29B8C;margin-top:3px;line-height:1.5;font-weight:400;}
-  .psheet .ed .edt .ed-sec td{font-weight:700;font-size:11.5px;border-top:1.5px solid #1D1B16;border-bottom:1px solid #D9D2C2;padding:12px 8px;color:#1D1B16;}
+  .psheet .ed .edt .ed-sec td{font-weight:700;font-size:11.5px;border-top:1.5px solid #1D1B16;border-bottom:1px solid #D9D2C2;padding:9px 8px;color:#1D1B16;}
   .psheet .edt .ed-sec .sn{color:#A9A292;margin-right:10px;font-weight:500;}
-  /* 갑지(표지) 공종 요약 — 공종 한 줄씩 + 간접공사 하위 항목. 한 장 안에 들어가게 패딩은 조인다 */
-  .psheet .ed .edt .ed-sumr td{font-weight:600;font-size:11.5px;padding:10px 8px;color:#1D1B16;}
-  .psheet .ed .edt .ed-sumr td.n{font-weight:500;font-size:11px;}
-  .psheet .ed .edt .ed-sumr .sn{color:#A9A292;margin-right:10px;font-weight:500;}
-  .psheet .ed .edt .ed-sumi td{color:#8D877B;font-weight:400;padding:8px 8px;}
-  .psheet .ed .edt .ed-sumi td:first-child{color:#8D877B;font-weight:400;}
+  /* 갑지(표지) 요약 — 직접공사·간접공사 그룹 머리(ed-sec)에 각자의 합계, 그 아래 하위 항목(ed-sumr).
+     한 장 안에 들어가야 하므로 패딩은 조인다 */
+  .psheet .ed .edt .ed-sumr td{font-weight:500;font-size:11px;padding:7px 8px;color:#2A2721;}
+  .psheet .ed .edt .ed-sumr td:first-child{padding-left:30px;font-weight:500;color:#2A2721;}
+  .psheet .ed .edt .ed-sumr td.n{font-size:10.5px;}
+  /* 공종이 많아 갑지가 한 장을 넘칠 것 같으면 자동 압축(cmp) — edEstCover가 행 수를 보고 붙인다 */
+  .psheet .ed.cmp .ed-title{margin-top:18px;}
+  .psheet .ed.cmp .ed-band>div{padding:10px 20px 11px;}
+  .psheet .ed.cmp .ed-amtrow{margin-top:14px;}
+  .psheet .ed.cmp .edt thead th{padding:8px;}
+  .psheet .ed.cmp .edt .ed-sec td{padding:6px 8px;}
+  .psheet .ed.cmp .edt .ed-sumr td{padding:4px 8px;}
+  .psheet .ed.cmp .ed-tots{margin-top:14px;}
+  .psheet .ed.cmp .ed-tots .tr{padding:7px 2px;}
   .psheet .ed-tots{margin:26px 0 0 auto;width:48%;min-width:300px;font-size:11px;}
-  .psheet .ed-tots .tr{display:flex;justify-content:space-between;align-items:baseline;padding:10px 2px;border-top:1px solid #E7E1D3;color:#6B6558;}
+  .psheet .ed-tots .tr{display:flex;justify-content:space-between;align-items:baseline;padding:9px 2px;border-top:1px solid #E7E1D3;color:#6B6558;}
   .psheet .ed-tots .tr b{font-weight:400;color:#1D1B16;font-size:11.5px;}
   .psheet .ed-tots .tr i{font-style:normal;font-size:9.5px;color:#A29B8C;margin-left:5px;font-family:"Pretendard Variable","Pretendard","Malgun Gothic",sans-serif;}
   .psheet .ed-tots .grand{border-top:1.5px solid #1D1B16;border-bottom:none;padding:14px 2px 4px;color:#1D1B16;}
@@ -758,7 +766,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.27.0';
+const APP_VERSION='7.27.2';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -2111,6 +2119,7 @@ function exportEstXlsx(est){
   }
   h+=srow('Sub TOTAL',cal.sub,1);
   h+=srow('Discount',cal.discount?-cal.discount:'',!!cal.discount);
+  if(cal.cut)h+=srow('단수정리',-cal.cut,1);
   h+=srow('Tax: VAT 10%',est.vat==='포함'?Math.round(cal.grand*0.1):'');
   h+=`<tr><td colspan="${W-2}" style="background:#4A7C50;color:#ffffff;font-weight:bold;letter-spacing:3px;padding:6px 9px">GRAND TOTAL</td><td style="background:#4A7C50;color:#ffffff;text-align:center">₩</td><td style="background:#4A7C50;color:#ffffff;font-weight:bold;padding:6px 7px;${XNUM}">${cal.grand}</td></tr>`;
   h+=`<tr><td colspan="${W}" style="padding:3px 0;color:#555;font-size:9pt">비고/REMARK &nbsp; ${esc(est.remarks||'').replace(/\n/g,'<br>')}</td></tr>`;
@@ -2665,7 +2674,10 @@ function estCalc(est){
   const sub=direct+indirect;
   const target=+est.target||0;
   const discount=(target&&target<sub)?sub-target:0;
-  return{secs,direct,ind,indirect,sub,discount,grand:sub-discount};
+  /* 만원 단위 단수정리 — 켜져 있으면 최종 금액에서 만원 미만을 절사 */
+  let grand=sub-discount,cut=0;
+  if(est.round10k){cut=grand%10000;grand-=cut;}
+  return{secs,direct,ind,indirect,sub,discount,cut,grand};
 }
 function vEstimates(c){
   const p=proj();p.estimates=p.estimates||[];
@@ -2730,6 +2742,7 @@ function estSummaryHtml(cal,isCon){
     ${isCon?row('직접공사비',won(cal.direct),1)+cal.ind.map(x=>row(x[0]+'',won(x[1]))).join('')+
       `<div style="border-top:1px solid var(--line);padding-top:6px">${row('Sub Total',won(cal.sub),1)}</div>`:''}
     ${cal.discount?row('Discount','−'+won(cal.discount)):''}
+    ${cal.cut?row('단수정리 (만원 미만 절사)','−'+won(cal.cut)):''}
     <div style="display:flex;justify-content:space-between;align-items:center;border-top:2px solid var(--line-strong);padding-top:8px">
       <b>견적 금액 <span class="sub">(VAT 별도)</span></b><b class="num" style="font-size:20px;color:var(--accent-ink)">${won(cal.grand)}</b></div>
   </div>`;
@@ -2766,6 +2779,8 @@ function estEditor(c,p,est){
     ${estField('sizePy','면적(평)','text',est.sizePy)}
     ${isCon?estField('progress','공정율 % (집계표용)','number',est.progress):''}
     ${estField('target','최종 금액 (절사·할인, 선택)','number',est.target)}
+    <div class="field"><label>만원 단위 단수정리</label>
+      <label style="display:flex;align-items:center;gap:8px;height:34px;cursor:pointer;font-size:13px"><input type="checkbox" id="estRound10k" ${est.round10k?'checked':''}> 만원 미만 절사</label></div>
   </div></div>
   ${est.sections.map((s,si)=>estSectionCard(s,si,isCon)).join('')}
   ${isCon?`<div style="margin-top:14px"><button class="btn" id="addSection">${svg(IC.plus)}공종(Section) 추가</button></div>`:''}
@@ -2785,6 +2800,7 @@ function estEditor(c,p,est){
   c.querySelectorAll('[data-estf]').forEach(inp=>inp.onchange=()=>{est[inp.dataset.estf]=inp.value;save();refreshEst(c,est);});
   c.querySelectorAll('[data-rate]').forEach(inp=>inp.onchange=()=>{est.rates[inp.dataset.rate]=inp.value;save();refreshEst(c,est);});
   const rm=document.getElementById('estRemarks');rm.onchange=()=>{est.remarks=rm.value;save();};
+  const r10=document.getElementById('estRound10k');if(r10)r10.onchange=()=>{est.round10k=r10.checked;save();refreshEst(c,est);};
   c.querySelectorAll('.est-sec').forEach(card=>{
     const sec=est.sections.find(s=>s.id===card.dataset.sec);if(!sec)return;
     const nm=card.querySelector('[data-secname]');
@@ -2859,17 +2875,24 @@ function edEstCover(est,cal,hasDetail){
   const dash='<span class="dash">—</span>';
   const secs=edEstSecs(est,cal);
   let body='';
-  const sumRow=(num,name,amt)=>{body+=`<tr class="ed-sumr"><td><span class="sn">${String(num).padStart(2,'0')}</span>${esc(name)}</td><td class="n">${amt?numf(amt):dash}</td><td class="etc"></td></tr>`;};
-  secs.forEach(s=>sumRow(s.num,s.name,s.total));
-  if(est.type==='construction'&&cal.ind.length){
-    sumRow(secs.length+1,'간접공사',cal.indirect);
-    cal.ind.forEach(x=>{body+=`<tr class="ed-sumi"><td style="padding-left:36px">${esc(x[0])}</td><td class="n">${x[1]?numf(x[1]):dash}</td><td class="etc"></td></tr>`;});
+  /* 갑지는 직접공사·간접공사 두 그룹 — 그룹 머리에 각자의 합계, 맨 아래에서 총금액으로 합쳐진다 */
+  const head=(num,name,amt)=>{body+=`<tr class="ed-sec"><td><span class="sn">${String(num).padStart(2,'0')}</span>${esc(name)}</td><td class="n">${amt?numf(amt):dash}</td><td></td></tr>`;};
+  const child=(name,amt)=>{body+=`<tr class="ed-sumr"><td>${esc(name)}</td><td class="n">${amt?numf(amt):dash}</td><td class="etc"></td></tr>`;};
+  const hasInd=est.type==='construction'&&cal.ind.length;
+  if(hasInd){
+    head(1,'직접공사',cal.direct);
+    secs.forEach(s=>child(s.name,s.total));
+    head(2,'간접공사',cal.indirect);
+    cal.ind.forEach(x=>child(x[0],x[1]));
+  }else{
+    secs.forEach(s=>head(s.num,s.name,s.total));
   }
+  const rowN=secs.length+(hasInd?2+cal.ind.length:0);
   const vatIn=est.vat==='포함';
   const noteLines=[...(est.remarks?String(est.remarks).split('\n').filter(x=>x.trim()):[]),
     `본 견적서는 발행일로부터 ${est.validDays||30}일간 유효하며, 실제 계약 내용에 따라 금액이 달라질 수 있습니다.`,
     ...(hasDetail?['공종별 상세 내역은 다음 페이지에 있습니다.']:[])];
-  return`<div class="ed">
+  return`<div class="ed${rowN>=12?' cmp':''}">
     ${edTop(edDateNo(est.date))}
     ${edTitle('Estimate.','견 적 서')}
     <div class="ed-band">
@@ -2881,16 +2904,19 @@ function edEstCover(est,cal,hasDetail){
       <div><div class="ed-lab">TOTAL AMOUNT</div><div class="ed-amt">₩ <b>${numf(cal.grand)}</b><span class="u">원</span></div></div>
       <div class="ed-vat">VAT ${esc(est.vat||'별도')}</div>
     </div>
-    <div class="ed-lab" style="margin:24px 0 2px">SUMMARY</div>
+    <div class="ed-lab" style="margin:16px 0 2px">SUMMARY</div>
     <table class="edt"><thead><tr><th>구분</th><th style="width:20%">금액</th><th style="width:26%">비고</th></tr></thead>
     <tbody>${body}</tbody></table>
     <div class="ed-tots">
-      <div class="tr"><span>합계</span><b>${numf(cal.sub)}<i>원</i></b></div>
+      ${hasInd?`<div class="tr"><span>직접공사</span><b>${numf(cal.direct)}<i>원</i></b></div>
+      <div class="tr"><span>간접공사</span><b>${numf(cal.indirect)}<i>원</i></b></div>`
+      :`<div class="tr"><span>합계</span><b>${numf(cal.sub)}<i>원</i></b></div>`}
       ${cal.discount?`<div class="tr"><span>할인</span><b>−${numf(cal.discount)}<i>원</i></b></div>`:''}
+      ${cal.cut?`<div class="tr"><span>단수정리</span><b>−${numf(cal.cut)}<i>원</i></b></div>`:''}
       <div class="tr"><span>부가세 (${vatIn?'10%':'0%'})</span><b>${vatIn?numf(Math.round(cal.grand*0.1))+'<i>원</i>':'별도'}</b></div>
       <div class="tr grand"><span>총 금 액</span><b>${numf(cal.grand)}<i>원</i></b></div>
     </div>
-    <div class="ed-note"><span class="dash">—</span><div>${noteLines.map(esc).join('<br>')}</div></div>
+    <div class="ed-note" style="margin-top:22px"><span class="dash">—</span><div>${noteLines.map(esc).join('<br>')}</div></div>
     ${edFoot()}
   </div>`;
 }
