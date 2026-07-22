@@ -799,7 +799,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.30.4';
+const APP_VERSION='7.30.5';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -3031,7 +3031,7 @@ function edEstCover(est,cal,hasDetail,fit){
       <div class="tr"><span>부가세 (${vatIn?'10%':'0%'})</span><b>${vatIn?numf(Math.round(cal.grand*0.1))+'<i>원</i>':'별도'}</b></div>
       <div class="tr grand"><span>총 금 액</span><b>${numf(cal.grand)}<i>원</i></b></div>
     </div>
-    ${noteLines.length?`<div class="ed-note" style="margin-top:22px"><span class="dash">—</span><div>${noteLines.map(esc).join('<br>')}</div></div>`:''}
+    ${noteLines.length?`<div class="ed-note" style="margin-top:22px;border-top:1px solid #D9D2C2;border-bottom:1px solid #D9D2C2;padding:12px 2px"><span class="dash">—</span><div>${noteLines.map(esc).join('<br>')}</div></div>`:''}
   </div>`;
 }
 /* 상세내역 — 스펙북과 같은 실측 분할. 한 공종이 페이지에 걸치면 통째로 다음 장으로 민다. */
