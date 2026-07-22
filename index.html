@@ -622,7 +622,7 @@
     body.print-doc.ed-white:has(#printRoot .ed){background:#fff!important;}
     /* 에디토리얼 문서는 @page 여백 0 → 여백 몫을 종이 안쪽 패딩으로 (내용 폭·높이 예산은 기존 12mm 여백과 동일) */
     body.print-doc #printRoot .ed{padding:12mm;min-height:272mm;}
-    body.print-doc #printRoot .ed.autoh{min-height:0;}
+    body.print-doc #printRoot .ed.autoh{min-height:272mm;} /* 내용이 짧은 마지막 장도 크림 종이가 끝까지 */
     body.print-doc #printRoot .edcover-grid{padding:12mm 12mm 0;} /* 하단 로고는 회사정보 구분선 위에 얹힌다 */
     body.print-doc #printRoot .ed.edcover{padding-bottom:4mm;} /* 표지 하단 묶음(로고·회사정보)을 더 아래로 */
   }
@@ -799,7 +799,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.30.6';
+const APP_VERSION='7.30.7';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
