@@ -474,6 +474,9 @@
   /* 크림 종이가 디자인의 일부 — 시트의 기본 흰 배경이 크림을 덮지 않게 비운다 (미리보기·이미지·인쇄 공통) */
   .psheet:has(> .ed){background:transparent;}
   #printRoot:has(.ed){background:#F7F4EE;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  /* 종이색 흰색 설정 (body.ed-white) — 아이보리 대신 흰 종이 */
+  body.ed-white .pv-page:has(> .psheet > .ed){background:#fff;}
+  body.ed-white #printRoot:has(.ed){background:#fff;}
   .psheet .ed{min-height:262mm;display:flex;flex-direction:column;color:#1D1B16;font-size:12px;letter-spacing:-.01em;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .psheet .ed.autoh{min-height:0;display:block;} /* 실측 분할용 — 페이지 높이를 강제하면 분할 측정이 깨진다 */
   /* 앱 화면·다른 문서의 표 스타일(어두운 헤더·전체 테두리)이 새어 들어오지 않게 원천 차단 */
@@ -546,6 +549,14 @@
   .psheet .ed-card{background:#fff;border:1px solid #E7E1D3;page-break-inside:avoid;}
   .psheet .ed-card .im{height:118px;background:#EFEAE0;overflow:hidden;}
   .psheet .ed-pg{margin-top:14px;font-size:9px;letter-spacing:.25em;color:#B3AC9C;text-align:right;}
+  /* 전면 표지 — 프로젝트명·날짜 중앙, 로고는 9분할 격자에서 위치·크기 지정 */
+  .psheet .ed.edcover{position:relative;}
+  .psheet .edcover-mid{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;}
+  .psheet .edcover-name{font-size:34px;font-weight:300;letter-spacing:-.005em;line-height:1.25;margin-top:16px;word-break:keep-all;}
+  .psheet .edcover-date{font-size:12px;color:#6B6558;margin-top:16px;letter-spacing:.14em;}
+  /* 로고 배치 격자 — 상단 회사명 띠와 하단 푸터를 피한 범위 안에서만 움직인다 */
+  .psheet .edcover-grid{position:absolute;inset:16mm 0 26mm 0;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr;pointer-events:none;}
+  .psheet .edcover-grid img{max-width:100%;max-height:100%;object-fit:contain;}
   .psheet .eg-sign{text-align:right;margin-top:18px;font-size:13.5px;font-weight:600;}
   .psheet .eg-valid{text-align:right;color:#777;font-size:10px;margin-top:10px;}
   /* (옛 .edt 남색 헤더 표 스타일은 제거됨 — 쓰는 곳이 없었고 새 에디토리얼 표와 이름이 충돌해
@@ -592,9 +603,11 @@
     body.print-doc .appbar, body.print-doc .wrap, body.print-doc .pv-overlay{display:none!important;}
     body.print-doc #printRoot{display:block!important;}
     body.print-doc:has(#printRoot .ed){background:#F7F4EE!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    body.print-doc.ed-white:has(#printRoot .ed){background:#fff!important;}
     /* 에디토리얼 문서는 @page 여백 0 → 여백 몫을 종이 안쪽 패딩으로 (내용 폭·높이 예산은 기존 12mm 여백과 동일) */
     body.print-doc #printRoot .ed{padding:12mm;min-height:272mm;}
     body.print-doc #printRoot .ed.autoh{min-height:0;}
+    body.print-doc #printRoot .edcover-grid{padding:12mm;}
   }
 </style>
 
@@ -769,7 +782,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.27.3';
+const APP_VERSION='7.28.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1002,8 +1015,8 @@ function loadH2C(){
 }
 async function sheetToBlob(html,land){
   await loadH2C();
-  /* 에디토리얼 문서(.ed)는 크림 종이가 디자인의 일부 — 이미지로 보낼 때도 유지한다 */
-  const cream=/class="ed[\s"]/.test(html)?'#F7F4EE':'#ffffff';
+  /* 에디토리얼 문서(.ed)는 크림 종이가 디자인의 일부 — 이미지로 보낼 때도 유지한다 (흰색 설정 시 흰색) */
+  const cream=/class="ed[\s"]/.test(html)?(DB.edPaper==='white'?'#ffffff':'#F7F4EE'):'#ffffff';
   const host=document.createElement('div');
   host.style.cssText=`position:fixed;left:-12000px;top:0;background:${cream};padding:24px;width:`+(land?'1500px':'860px');
   host.innerHTML=`<div class="psheet${land?' land':''}">${html}</div>`;
@@ -1074,9 +1087,14 @@ function openPrint(html,land){
 }
 function showPreview(title,html,land){
   const pages=Array.isArray(html)?html:[html];
-  const joined=pages.join('<div style="page-break-after:always;height:0"></div>');
+  /* 페이지 구분은 break-before — break-after 방식은 앞 페이지가 꽉 찼을 때
+     구분용 빈 요소가 다음 장으로 밀리며 공페이지를 만든다 */
+  const joined=pages.join('<div style="page-break-before:always;height:0"></div>');
+  const isEdDoc=/class="ed[\s"]/.test(joined);
+  syncEdPaper();
   const ov=document.createElement('div');ov.className='pv-overlay';
   ov.innerHTML=`<div class="pv-bar"><span class="ttl">${esc(title)} 미리보기 ${pages.length>1?`<span class="sub">· ${pages.length}장</span>`:''}</span><div style="flex:1"></div>
+    ${isEdDoc?`<button class="btn" id="pvPaper">바탕 ${DB.edPaper==='white'?'흰색':'아이보리'}</button>`:''}
     <button class="btn green" id="pvShare">${svg(IC.share)}${canShare()?'카톡·문자로 보내기':'이미지로 저장'}</button>
     <button class="btn accent" id="pvPrint">${svg(IC.print)}인쇄 / PDF 저장</button>
     <button class="btn" id="pvClose">닫기</button></div>
@@ -1087,8 +1105,15 @@ function showPreview(title,html,land){
   ov.querySelector('#pvPrint').onclick=()=>openPrint(joined,land);
   /* 미리보기 열릴 때 페이지별 이미지를 미리 생성 — 버튼은 누른 즉시 공유(권한 만료 방지) */
   let sheetBlobs=null;
-  const blobP=(async()=>{const out=[];for(const pg of pages){out.push(await sheetToBlob(pg,land));}return out;})()
+  const genBlobs=()=>(async()=>{const out=[];for(const pg of pages){out.push(await sheetToBlob(pg,land));}return out;})()
     .then(bs=>{sheetBlobs=bs;return bs;}).catch(()=>null);
+  let blobP=genBlobs();
+  const pp=ov.querySelector('#pvPaper');
+  if(pp)pp.onclick=()=>{ /* 아이보리 ↔ 흰색 — 미리보기·인쇄·이미지 모두 즉시 반영 */
+    DB.edPaper=DB.edPaper==='white'?'':'white';save();syncEdPaper();
+    pp.textContent='바탕 '+(DB.edPaper==='white'?'흰색':'아이보리');
+    sheetBlobs=null;blobP=genBlobs();
+  };
   const shBtn=ov.querySelector('#pvShare');
   const shOrig=shBtn.innerHTML;
   shBtn.onclick=async()=>{
@@ -2788,6 +2813,19 @@ function estEditor(c,p,est){
     <div class="field"><label>만원 단위 단수정리</label>
       <label style="display:flex;align-items:center;gap:8px;height:34px;cursor:pointer;font-size:13px"><input type="checkbox" id="estRound10k" ${est.round10k?'checked':''}> 만원 미만 절사</label></div>
   </div></div>
+  <div class="card" style="margin-top:14px"><div class="card-h"><span class="ct">표지</span><span class="cs">견적서 맨 앞에 프로젝트명·날짜·로고가 들어간 표지를 붙입니다</span></div>
+    <div class="pad" style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;height:34px"><input type="checkbox" id="estCoverOn" ${est.coverOn?'checked':''}> 표지 사용</label>
+      <div class="field" style="margin:0;min-width:130px"><label>로고 위치</label>
+        <select id="estLogoPos">
+          ${[['tl','상단 왼쪽'],['tc','상단 가운데'],['tr','상단 오른쪽'],['ml','중앙 왼쪽'],['mc','정중앙'],['mr','중앙 오른쪽'],['bl','하단 왼쪽'],['bc','하단 가운데'],['br','하단 오른쪽']].map(o=>`<option value="${o[0]}" ${(est.logoPos||'tc')===o[0]?'selected':''}>${o[1]}</option>`).join('')}
+        </select></div>
+      <div class="field" style="margin:0;width:110px"><label>로고 폭 (mm)</label><input id="estLogoW" type="number" min="10" max="160" value="${esc(est.logoW||40)}"></div>
+      <button class="btn sm" id="estLogoUp" type="button">${svg(IC.plus)}로고 올리기</button>
+      ${CO().logo?`<img src="${CO().logo}" alt="로고" style="height:36px;max-width:120px;object-fit:contain;border:1px solid var(--line);border-radius:6px;padding:3px;background:#fff">
+      <button class="btn sm ghost" id="estLogoDel" type="button" style="color:var(--bad)">로고 삭제</button>`:`<span class="sub">로고가 아직 없습니다 — 올리면 회사 정보에 저장돼 모든 견적서에서 씁니다</span>`}
+      <input type="file" id="estLogoFile" accept="image/*" style="display:none">
+    </div></div>
   ${est.sections.map((s,si)=>estSectionCard(s,si,isCon)).join('')}
   ${isCon?`<div style="margin-top:14px"><button class="btn" id="addSection">${svg(IC.plus)}공종(Section) 추가</button></div>`:''}
   ${isCon?`<div class="card" style="margin-top:16px"><div class="card-h"><span class="ct">간접공사 요율</span><span class="cs">직접공사비 × %로 자동 계산됩니다</span></div>
@@ -2807,6 +2845,17 @@ function estEditor(c,p,est){
   c.querySelectorAll('[data-rate]').forEach(inp=>inp.onchange=()=>{est.rates[inp.dataset.rate]=inp.value;save();refreshEst(c,est);});
   const rm=document.getElementById('estRemarks');rm.onchange=()=>{est.remarks=rm.value;save();};
   const r10=document.getElementById('estRound10k');if(r10)r10.onchange=()=>{est.round10k=r10.checked;save();refreshEst(c,est);};
+  /* 표지 설정 — 로고 파일은 회사 정보(DB.company.logo)에 저장(추가 필드), 위치·크기는 견적서별 */
+  const cvOn=document.getElementById('estCoverOn');if(cvOn)cvOn.onchange=()=>{est.coverOn=cvOn.checked;save();};
+  const lpS=document.getElementById('estLogoPos');if(lpS)lpS.onchange=()=>{est.logoPos=lpS.value;save();};
+  const lwI=document.getElementById('estLogoW');if(lwI)lwI.onchange=()=>{est.logoW=+lwI.value||40;save();};
+  const lfI=document.getElementById('estLogoFile');
+  const luB=document.getElementById('estLogoUp');if(luB)luB.onclick=()=>lfI.click();
+  if(lfI)lfI.onchange=async()=>{const f=lfI.files[0];if(!f)return;
+    DB.company=Object.assign({},CO_DEFAULT,DB.company||{});
+    DB.company.logo=await compressImage(f,600,f.type==='image/png');
+    save();render();toast('로고를 저장했습니다');};
+  const ldB=document.getElementById('estLogoDel');if(ldB)ldB.onclick=()=>{if(!confirm('로고를 삭제할까요?'))return;delete DB.company.logo;save();render();};
   c.querySelectorAll('.est-sec').forEach(card=>{
     const sec=est.sections.find(s=>s.id===card.dataset.sec);if(!sec)return;
     const nm=card.querySelector('[data-secname]');
@@ -2856,6 +2905,8 @@ const ymdKor=d=>{if(!d)return'-';const[y,m,dd]=d.split('-');return`${y}년 ${+m}
 /* ── 에디토리얼 공통 조각 — 견적서·발주서·스펙북·안내문이 같은 표지 언어를 쓴다 ── */
 const edDateNo=d=>(d||todayStr()).replace(/-/g,' ·');   /* 레퍼런스 표기: 2026 ·07 ·03 */
 const edDot=d=>(d||todayStr()).replace(/-/g,'.');
+/* 에디토리얼 종이색 설정(DB.edPaper: ''=아이보리 | 'white') → body 클래스로 반영 */
+const syncEdPaper=()=>document.body.classList.toggle('ed-white',DB.edPaper==='white');
 /* 회사명에서 영문 표기(thinkof_space 등)는 인쇄물에서만 뗀다 — 저장된 회사 정보는 그대로 */
 const edBrand=s=>{const t=String(s||'').replace(/\([^)]*[A-Za-z][^)]*\)/g,'').replace(/[A-Za-z_][A-Za-z_.&'-]*/g,'').replace(/\s+/g,' ').trim();return t||String(s||'');};
 const edTop=no=>`<div class="ed-top"><div class="ed-co">${esc(edBrand(CO().name))}</div><div class="ed-no">№ ${esc(no)}</div></div>`;
@@ -2876,7 +2927,25 @@ const edEstSecs=(est,cal)=>{
     items:(sec.items||[]).filter(it=>(it.name||'').trim()||+it.qty||(+it.mp||0)+(+it.lp||0))
   }));
 };
-function edEstCover(est,cal,hasDetail){
+/* 전면 표지 — 프로젝트명·날짜·회사 로고. 로고 위치(9분할)와 폭(mm)은 견적서 편집에서 지정 */
+function edEstFrontCover(est){
+  const i=proj().info,co=CO();
+  const pos=est.logoPos||'tc',w=Math.max(10,Math.min(160,+est.logoW||40));
+  const row={t:1,m:2,b:3}[pos[0]]||1, col={l:1,c:2,r:3}[pos[1]]||2;
+  const js={1:'start',2:'center',3:'end'};
+  const logo=co.logo?`<div class="edcover-grid"><img src="${co.logo}" style="grid-row:${row};grid-column:${col};justify-self:${js[col]};align-self:${js[row]};width:${w}mm"></div>`:'';
+  return`<div class="ed edcover">
+    ${edTop(edDateNo(est.date))}
+    <div class="edcover-mid">
+      <div class="ed-lab">PROJECT</div>
+      <div class="edcover-name">${esc(i.name||'')}</div>
+      <div class="edcover-date">${esc(edDot(est.date))}</div>
+    </div>
+    ${logo}
+    ${edFoot()}
+  </div>`;
+}
+function edEstCover(est,cal,hasDetail,forceCmp){
   const i=proj().info;
   const dash='<span class="dash">—</span>';
   const secs=edEstSecs(est,cal);
@@ -2894,11 +2963,12 @@ function edEstCover(est,cal,hasDetail){
     secs.forEach(s=>head(s.num,s.name,s.total));
   }
   const rowN=secs.length+(hasInd?2+cal.ind.length:0);
+  const cmp=forceCmp||rowN>=12;
   const vatIn=est.vat==='포함';
   const noteLines=[...(est.remarks?String(est.remarks).split('\n').filter(x=>x.trim()):[]),
     `본 견적서는 발행일로부터 ${est.validDays||30}일간 유효하며, 실제 계약 내용에 따라 금액이 달라질 수 있습니다.`,
     ...(hasDetail?['공종별 상세 내역은 다음 페이지에 있습니다.']:[])];
-  return`<div class="ed${rowN>=12?' cmp':''}">
+  return`<div class="ed${cmp?' cmp':''}">
     ${edTop(edDateNo(est.date))}
     ${edTitle('Estimate.','견 적 서')}
     <div class="ed-band">
@@ -2994,10 +3064,29 @@ function edEstDetailPages(est,cal){
   stage.remove();
   return pages;
 }
+/* 인쇄 폭 기준으로 시트 내용 높이를 실측(mm) — 갑지가 한 장(273mm)에 드는지 확인용 */
+function edMeasureMm(html){
+  const stage=document.createElement('div');
+  stage.style.cssText='position:fixed;left:-99999px;top:0;visibility:hidden;pointer-events:none;z-index:-1';
+  const outer=document.createElement('div');outer.className='pv-page';outer.style.minHeight='0';outer.style.boxShadow='none';
+  const inner=document.createElement('div');inner.className='psheet';
+  outer.appendChild(inner);stage.appendChild(outer);document.body.appendChild(stage);
+  const ruler=document.createElement('div');ruler.style.cssText='height:100mm;position:absolute;visibility:hidden';
+  stage.appendChild(ruler);
+  const pxPerMm=(ruler.getBoundingClientRect().height||377.95)/100;ruler.remove();
+  inner.innerHTML=html;
+  const mm=inner.scrollHeight/pxPerMm;
+  stage.remove();
+  return mm;
+}
 function openEstPreview(est){
   const cal=estCalc(est);
   const detail=edEstDetailPages(est,cal);
-  showPreview('견적서',[edEstCover(est,cal,detail.length),...detail],false);
+  let cover=edEstCover(est,cal,detail.length);
+  /* 실측해서 한 장을 넘치면 압축 모드로 다시 — 비고가 길거나 공종이 많아도 갑지는 한 장 */
+  if(edMeasureMm(cover)>273)cover=edEstCover(est,cal,detail.length,true);
+  const pages=[...(est.coverOn?[edEstFrontCover(est)]:[]),cover,...detail];
+  showPreview('견적서',pages,false);
 }
 
 /* ===== 홈 대시보드 — 진행 중인 현장 전체 일정 ===== */
