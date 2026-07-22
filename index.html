@@ -783,7 +783,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.28.3';
+const APP_VERSION='7.28.4';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -3014,11 +3014,12 @@ function edEstDetailPages(est,cal){
   const pageHead=`${edTop(edDateNo(est.date))}
     <div class="ed-hrow"><div>${edTitle('Detail.','상 세 내 역')}</div>
       <div class="ed-hmeta">${esc(i.name||'')}<br>${esc(edDot(est.date))}</div></div>`;
-  const thRow=`<tr><th>품명</th><th style="width:7%">수량</th><th style="width:7%">단위</th><th style="width:11%">단가</th><th style="width:13%">금액</th><th style="width:20%">비고</th></tr>`;
+  const thRow=`<tr><th>품명</th><th style="width:14%">규격</th><th style="width:7%">수량</th><th style="width:7%">단위</th><th style="width:11%">단가</th><th style="width:13%">금액</th><th style="width:14%">비고</th></tr>`;
   const rowHtml=it=>{
     const q=+it.qty||0,u=(+it.mp||0)+(+it.lp||0);
-    const sub=[it.detail,it.spec].filter(x=>(x||'').trim()).join(' · ');
-    return`<tr>${cell(`${esc(it.name)}${sub?`<div class="ed-det">${esc(sub)}</div>`:''}`)}${cell(q?numf(q):'','c')}${cell(esc(it.unit||''),'c')}${cell(u?numf(u):'','n')}${cell(u*q?numf(u*q):'','n')}${cell(esc(it.note||''),'etc')}</tr>`;};
+    /* 세부내역(detail)은 품명 아래 회색 줄, 규격(spec)은 전용 칸으로 */
+    const sub=(it.detail||'').trim();
+    return`<tr>${cell(`${esc(it.name)}${sub?`<div class="ed-det">${esc(sub)}</div>`:''}`)}${cell(esc(it.spec||''),'etc')}${cell(q?numf(q):'','c')}${cell(esc(it.unit||''),'c')}${cell(u?numf(u):'','n')}${cell(u*q?numf(u*q):'','n')}${cell(esc(it.note||''),'etc')}</tr>`;};
   const secHead=(s,cont)=>`<div class="ed-sech"><span class="sn">${String(s.num).padStart(2,'0')}</span>${esc(s.name)}${cont?' <small>(계속)</small>':''}<small>· 합계 ${numf(s.total)}원</small></div>`;
   /* 화면 밖에 실제 페이지를 그려놓고 scrollHeight로 "더 안 들어갈 때까지" 채운다 (스펙북과 동일) */
   const stage=document.createElement('div');
