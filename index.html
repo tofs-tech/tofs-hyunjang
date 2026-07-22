@@ -571,7 +571,7 @@
   .psheet .edcover-date{font-size:13px;color:#6B6558;margin-top:25px;letter-spacing:.16em;}
   .psheet .edcover-midlogo{display:block;margin:0 auto 16mm;}
   /* 로고 배치 격자 — 상단 회사명 띠와 하단 푸터를 피한 범위 안에서만 움직인다 */
-  .psheet .edcover-grid{position:absolute;inset:16mm 0 8mm 0;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr;pointer-events:none;}
+  .psheet .edcover-grid{position:absolute;inset:16mm 0 28mm 0;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr;pointer-events:none;}
   .psheet .edcover-grid img{max-width:100%;max-height:100%;object-fit:contain;}
   .psheet .eg-sign{text-align:right;margin-top:18px;font-size:13.5px;font-weight:600;}
   .psheet .eg-valid{text-align:right;color:#777;font-size:10px;margin-top:10px;}
@@ -623,7 +623,7 @@
     /* 에디토리얼 문서는 @page 여백 0 → 여백 몫을 종이 안쪽 패딩으로 (내용 폭·높이 예산은 기존 12mm 여백과 동일) */
     body.print-doc #printRoot .ed{padding:12mm;min-height:272mm;}
     body.print-doc #printRoot .ed.autoh{min-height:0;}
-    body.print-doc #printRoot .edcover-grid{padding:12mm;}
+    body.print-doc #printRoot .edcover-grid{padding:12mm 12mm 0;} /* 하단 로고는 회사정보 구분선 위에 얹힌다 */
     body.print-doc #printRoot .ed.edcover{padding-bottom:4mm;} /* 표지 하단 묶음(로고·회사정보)을 더 아래로 */
   }
 </style>
@@ -799,7 +799,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.30.0';
+const APP_VERSION='7.30.1';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -3059,7 +3059,7 @@ function edEstDetailPages(est,cal){
       ?`${cell(mp?numf(mp):'','n')}${cell(lp?numf(lp):'','n')}`
       :cell(u?numf(u):'','n');
     return`<tr>${cell(`${esc(it.name)}${sub?`<div class="ed-det">${esc(sub)}</div>`:''}`)}${cell(esc(it.spec||''),'etc')}${cell(q?numf(q):'','c')}${cell(esc(it.unit||''),'c')}${price}${cell(u*q?numf(u*q):'','n')}${cell(esc(it.note||''),'etc')}</tr>`;};
-  const secHead=(s,cont)=>`<div class="ed-sech"><span class="sn">${String(s.num).padStart(2,'0')}</span>${esc(s.name)}${cont?' <small>(계속)</small>':''}</div>`;
+  const secHead=(s,cont)=>`<div class="ed-sech"><span class="sn">${String(s.num).padStart(2,'0')}</span>${esc(s.name)}</div>`;
   /* 공종 합계는 내역 맨 아래 검정 줄로 — 헤더 회색 글씨는 눈에 안 띄어서 옮겼다 */
   const secTotalRow=s=>isCon
     ?`<tr class="ed-strow"><td>합계</td><td></td><td></td><td></td><td class="n">${s.m?numf(s.m):''}</td><td class="n">${s.l?numf(s.l):''}</td><td class="n">${numf(s.total)}</td><td></td></tr>`
