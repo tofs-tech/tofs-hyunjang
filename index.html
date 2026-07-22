@@ -621,8 +621,9 @@
     body.print-doc:has(#printRoot .ed){background:#F7F4EE!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
     body.print-doc.ed-white:has(#printRoot .ed){background:#fff!important;}
     /* 에디토리얼 문서는 @page 여백 0 → 여백 몫을 종이 안쪽 패딩으로 (내용 폭·높이 예산은 기존 12mm 여백과 동일) */
-    body.print-doc #printRoot .ed{padding:12mm;min-height:272mm;}
-    body.print-doc #printRoot .ed.autoh{min-height:272mm;} /* 내용이 짧은 마지막 장도 크림 종이가 끝까지 */
+    /* 전역 box-sizing:border-box — min-height는 패딩 포함이므로 페이지(297mm)에 맞추려면 296mm */
+    body.print-doc #printRoot .ed{padding:12mm;min-height:296mm;}
+    body.print-doc #printRoot .ed.autoh{min-height:296mm;} /* 내용이 짧은 마지막 장도 크림 종이가 끝까지 */
     body.print-doc #printRoot .edcover-grid{padding:12mm 12mm 0;} /* 하단 로고는 회사정보 구분선 위에 얹힌다 */
     body.print-doc #printRoot .ed.edcover{padding-bottom:4mm;} /* 표지 하단 묶음(로고·회사정보)을 더 아래로 */
   }
@@ -799,7 +800,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.30.7';
+const APP_VERSION='7.30.8';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -3012,7 +3013,8 @@ function edEstCover(est,cal,hasDetail,fit){
     <div class="ed-band">
       <div><div class="ed-lab">CLIENT</div><div class="ed-val">${esc(est.client||i.client||'—')} <small>귀하</small></div></div>
       <div><div class="ed-lab">DATE</div><div class="ed-val">${esc(edDot(est.date))}</div></div>
-      <div><div class="ed-lab">PROJECT</div><div class="ed-val">${esc(i.name||'')}${(est.clientAddr||i.address||'').trim()?`<div style="font-size:9.5px;color:#A29B8C;font-weight:400;margin-top:4px;letter-spacing:0">${esc((est.clientAddr||i.address).trim())}</div>`:''}</div></div>
+      <div><div class="ed-lab">PROJECT</div><div class="ed-val">${esc(i.name||'')}</div></div>
+      <div><div class="ed-lab">ADDRESS</div><div class="ed-val">${esc((est.clientAddr||i.address||'').trim()||'—')}</div></div>
     </div>
     <div class="ed-amtrow">
       <div><div class="ed-lab">TOTAL AMOUNT</div><div class="ed-amt">₩ <b>${numf(cal.grand)}</b><span class="u">원</span></div></div>
