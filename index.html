@@ -566,12 +566,12 @@
   /* 전면 표지 — 프로젝트명·날짜 중앙, 로고는 9분할 격자에서 위치·크기 지정 */
   .psheet .ed.edcover{position:relative;}
   .psheet .edcover-mid{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;}
-  .psheet .edcover-mid .ed-lab{font-size:13px;letter-spacing:.34em;}
-  .psheet .edcover-name{font-size:72px;font-weight:300;letter-spacing:-.01em;line-height:1.15;margin-top:24px;word-break:keep-all;}
-  .psheet .edcover-date{font-size:19px;color:#6B6558;margin-top:36px;letter-spacing:.16em;}
+  .psheet .edcover-mid .ed-lab{font-size:9px;letter-spacing:.34em;}
+  .psheet .edcover-name{font-size:50px;font-weight:300;letter-spacing:-.01em;line-height:1.15;margin-top:17px;word-break:keep-all;}
+  .psheet .edcover-date{font-size:13px;color:#6B6558;margin-top:25px;letter-spacing:.16em;}
   .psheet .edcover-midlogo{display:block;margin:0 auto 16mm;}
   /* 로고 배치 격자 — 상단 회사명 띠와 하단 푸터를 피한 범위 안에서만 움직인다 */
-  .psheet .edcover-grid{position:absolute;inset:16mm 0 14mm 0;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr;pointer-events:none;}
+  .psheet .edcover-grid{position:absolute;inset:16mm 0 8mm 0;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr;pointer-events:none;}
   .psheet .edcover-grid img{max-width:100%;max-height:100%;object-fit:contain;}
   .psheet .eg-sign{text-align:right;margin-top:18px;font-size:13.5px;font-weight:600;}
   .psheet .eg-valid{text-align:right;color:#777;font-size:10px;margin-top:10px;}
@@ -624,7 +624,7 @@
     body.print-doc #printRoot .ed{padding:12mm;min-height:272mm;}
     body.print-doc #printRoot .ed.autoh{min-height:0;}
     body.print-doc #printRoot .edcover-grid{padding:12mm;}
-    body.print-doc #printRoot .ed.edcover{padding-bottom:7mm;} /* 표지 하단 묶음(로고·회사정보)을 더 아래로 */
+    body.print-doc #printRoot .ed.edcover{padding-bottom:4mm;} /* 표지 하단 묶음(로고·회사정보)을 더 아래로 */
   }
 </style>
 
@@ -799,7 +799,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.29.2';
+const APP_VERSION='7.30.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -3080,11 +3080,12 @@ function edEstDetailPages(est,cal){
   const pages=[];
   let edEl=null,pageEmpty=true;
   const overflow=()=>inner.scrollHeight>MAXH;
-  const newPage=()=>{inner.innerHTML=`<div class="ed autoh">${pageHead}</div>`;edEl=inner.firstElementChild;pageEmpty=true;};
+  /* 공종의 첫 장에만 상단 헤더(공간생각·Detail.·현장명) — 이어지는 장은 헤더 없이 바로 내역 */
+  const newPage=withHead=>{inner.innerHTML=`<div class="ed autoh">${withHead?pageHead:''}</div>`;edEl=inner.firstElementChild;pageEmpty=true;};
   const pushPage=()=>{if(!pageEmpty)pages.push(inner.innerHTML);};
   const dropSec=()=>{edEl.lastElementChild.remove();const h=edEl.lastElementChild;if(h&&h.classList.contains('ed-sech'))h.remove();};
   const addWhole=s=>{edEl.insertAdjacentHTML('beforeend',secHead(s,false)+`<table class="edt"><thead>${thRow}</thead><tbody>${s.items.map(rowHtml).join('')}${secTotalRow(s)}</tbody></table>`);};
-  /* 공종이 한 페이지를 통째로 넘길 만큼 길면 행 단위로 나눠 채운다 */
+  /* 공종이 한 페이지를 넘길 만큼 길면 행 단위로 나눠 채운다 — 이어지는 장은 헤더 없이 */
   const fillRows=s=>{
     let idx=0,cont=false;
     while(idx<s.items.length){
@@ -3103,24 +3104,22 @@ function edEstDetailPages(est,cal){
         tbody.insertAdjacentHTML('beforeend',secTotalRow(s));
         if(overflow()){
           tbody.lastElementChild.remove();
-          pushPage();newPage();
+          pushPage();newPage(false);
           edEl.insertAdjacentHTML('beforeend',secHead(s,true)+`<table class="edt"><thead>${thRow}</thead><tbody>${secTotalRow(s)}</tbody></table>`);
           pageEmpty=false;
         }
       }
-      if(idx<s.items.length){pushPage();newPage();cont=idx>0;}
+      if(idx<s.items.length){pushPage();newPage(false);cont=idx>0;}
     }
   };
-  newPage();
+  newPage(true);
   secs.forEach(s=>{
+    /* 한 페이지에는 한 공종만 — 앞 공종이 짧아 자리가 남아도 새 장에서 시작한다 */
+    if(!pageEmpty){pushPage();newPage(true);}
     addWhole(s);
     if(!overflow()){pageEmpty=false;return;}
     dropSec();
-    if(!pageEmpty){pushPage();newPage();}   /* 걸치는 공종은 통째로 다음 장으로 */
-    addWhole(s);
-    if(!overflow()){pageEmpty=false;return;}
-    dropSec();
-    fillRows(s);                            /* 새 페이지에도 안 들어가는 긴 공종만 분할 */
+    fillRows(s);                            /* 한 장에 안 들어가는 긴 공종만 행 단위 분할 */
   });
   pushPage();
   stage.remove();
