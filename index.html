@@ -786,7 +786,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.28.7';
+const APP_VERSION='7.28.8';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -2873,14 +2873,14 @@ function estEditor(c,p,est){
     card.querySelector('[data-addrow-est]').onclick=()=>{sec.items.push(newEstItem());save();render();};
     const pk=card.querySelector('[data-pickdb]');
     if(pk)pk.onclick=()=>openPricePicker(it=>{
-      sec.items.push(Object.assign(newEstItem(),{name:it.name||'',spec:it.spec||'',unit:it.unit||'',mp:it.mp||'',lp:it.lp||''}));save();});
+      sec.items.push(Object.assign(newEstItem(),{name:it.name||'',detail:it.detail||'',spec:it.spec||'',unit:it.unit||'',mp:it.mp||'',lp:it.lp||''}));save();});
     const sv=card.querySelector('[data-savedb-sec]');
     if(sv)sv.onclick=()=>saveItemsToPriceDB(sec.items,sec.name||'');
     card.querySelectorAll('tr[data-eit]').forEach(tr=>{
       const it=sec.items.find(x=>x.id===tr.dataset.eit);if(!it)return;
       tr.querySelectorAll('.ci').forEach(inp=>inp.addEventListener('input',()=>{it[inp.dataset.ef]=inp.value;save();refreshEst(c,est);}));
       const sb=tr.querySelector('[data-savedb-est]');
-      if(sb)sb.onclick=()=>{const r=upsertPriceDB({cat:sec.name||'',name:it.name,spec:it.spec,unit:it.unit,mp:it.mp,lp:it.lp});
+      if(sb)sb.onclick=()=>{const r=upsertPriceDB({cat:sec.name||'',name:it.name,detail:it.detail,spec:it.spec,unit:it.unit,mp:it.mp,lp:it.lp});
         if(!r){toast('품명을 먼저 입력하세요');return;}
         if(r==='same'){toast('단가 DB에 이미 같은 내용으로 등록되어 있습니다');return;}
         save();toast((r==='added'?'단가 DB에 추가: ':'단가 DB 가격 갱신: ')+it.name);};
@@ -3411,14 +3411,15 @@ const PRICE_PRESET=[
 /* 세부내역 — 품명 아래 한 줄. 길어도 표가 안 무너지게 줄바꿈만 허용한다 */
 const detailLine=d=>(d||'').trim()?`<div class="sub" style="font-weight:400;font-size:11px;line-height:1.5;margin-top:2px;white-space:pre-wrap">${esc(d)}</div>`:'';
 const finThumb=x=>x.img?`<img src="${x.img}" style="width:54px;height:42px;object-fit:cover;border-radius:6px">`:`<div style="width:54px;height:42px;border-radius:6px;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:9.5px;color:var(--sub)">사진</div>`;
+/* 견적서와 같은 순서: 품명 → 세부내역 → 규격 (3방향 연동이라 눈에 익은 자리가 같아야 한다) */
 function priceFinTable(rows){
-  return`<table><thead><tr><th style="width:60px">사진</th><th>분류</th><th>품명</th><th>브랜드·모델</th><th>규격</th><th class="c">단위</th><th class="r">가격</th><th>구입처</th><th>비고</th><th></th></tr></thead>
-    <tbody>${rows.map(x=>`<tr><td>${finThumb(x)}</td><td><span class="tag">${esc(x.cat||'—')}</span></td><td class="strong">${esc(x.name)}${detailLine(x.detail)}</td><td class="sub">${esc(x.brand||'—')}</td><td class="sub num">${esc(x.spec||'—')}</td>
+  return`<table><thead><tr><th style="width:60px">사진</th><th>분류</th><th>품명</th><th>세부내역</th><th>규격</th><th>브랜드·모델</th><th class="c">단위</th><th class="r">가격</th><th>구입처</th><th>비고</th><th></th></tr></thead>
+    <tbody>${rows.map(x=>`<tr><td>${finThumb(x)}</td><td><span class="tag">${esc(x.cat||'—')}</span></td><td class="strong">${esc(x.name)}</td><td class="sub">${esc(x.detail||'—')}</td><td class="sub num">${esc(x.spec||'—')}</td><td class="sub">${esc(x.brand||'—')}</td>
       <td class="c sub">${esc(x.unit||'')}</td><td class="r num">${+x.mp?won(x.mp):'—'}</td><td class="sub">${esc(x.vendor||'—')}</td><td class="sub">${esc(x.note||'')}</td>${rowAct('price',x.id)}</tr>`).join('')}</tbody></table>`;
 }
 function priceGenTable(rows,showKind){
-  return`<table><thead><tr>${showKind?'<th>구분</th>':''}<th>분류</th><th>품명</th><th>규격</th><th class="c">단위</th><th class="r">자재 단가</th><th class="r">노무 단가</th><th>비고</th><th></th></tr></thead>
-    <tbody>${rows.map(x=>`<tr>${showKind?`<td><span class="tag">${esc(x.kind||'시공자재')}</span></td>`:''}<td><span class="tag">${esc(x.cat||'—')}</span></td><td class="strong">${esc(x.name)}${x.brand?` <span class="sub" style="font-weight:400">· ${esc(x.brand)}</span>`:''}${detailLine(x.detail)}</td><td class="sub num">${esc(x.spec||'—')}</td>
+  return`<table><thead><tr>${showKind?'<th>구분</th>':''}<th>분류</th><th>품명</th><th>세부내역</th><th>규격</th><th class="c">단위</th><th class="r">자재 단가</th><th class="r">노무 단가</th><th>비고</th><th></th></tr></thead>
+    <tbody>${rows.map(x=>`<tr>${showKind?`<td><span class="tag">${esc(x.kind||'시공자재')}</span></td>`:''}<td><span class="tag">${esc(x.cat||'—')}</span></td><td class="strong">${esc(x.name)}${x.brand?` <span class="sub" style="font-weight:400">· ${esc(x.brand)}</span>`:''}</td><td class="sub">${esc(x.detail||'—')}</td><td class="sub num">${esc(x.spec||'—')}</td>
       <td class="c sub">${esc(x.unit||'')}</td><td class="r num">${+x.mp?won(x.mp):'—'}</td><td class="r num">${+x.lp?won(x.lp):'—'}</td><td class="sub">${esc(x.note||'')}</td>${rowAct('price',x.id)}</tr>`).join('')}</tbody></table>`;
 }
 function vPrice(c){
@@ -3426,7 +3427,7 @@ function vPrice(c){
   const q=(state.priceQ||'').trim(), catF=state.priceCat||'전체', kindF=state.priceKind||'전체';
   const pool=DB.priceDB.filter(x=>kindF==='전체'||(x.kind||'시공자재')===kindF);
   const cats=[...new Set(pool.map(x=>x.cat||'미분류'))];
-  const rows=pool.filter(x=>(catF==='전체'||(x.cat||'미분류')===catF)&&(!q||[x.cat,x.name,x.spec,x.brand,x.vendor].join(' ').includes(q)));
+  const rows=pool.filter(x=>(catF==='전체'||(x.cat||'미분류')===catF)&&(!q||[x.cat,x.name,x.detail,x.spec,x.brand,x.vendor].join(' ').includes(q)));
   c.innerHTML=`
   <div class="vhead"><div><div class="t">단가 · 마감재 DB</div><div class="d"><b>마감재 / 시공자재 / 시공단가</b>로 구분해 정리합니다. 견적서·발주서에서 골라 담을 수 있고, 마감재(도기·수전·싱크대 등)는 사진·브랜드·구입처를 넣어두면 견적서에서 <b>스펙북이 자동 완성</b>됩니다. (회사 공용 데이터)</div></div>
     <div class="spacer"></div>
@@ -3506,6 +3507,7 @@ function upsertPriceDB(e){
     if(e.mp!==''&&e.mp!=null&&+e.mp!==+(ex.mp||0)){ex.mp=e.mp;ch=true;}
     if(e.lp!==''&&e.lp!=null&&+e.lp!==+(ex.lp||0)){ex.lp=e.lp;ch=true;}
     if(e.cat&&!ex.cat){ex.cat=e.cat;ch=true;}
+    if(e.detail&&!(ex.detail||'').trim()){ex.detail=e.detail;ch=true;}
     /* 빈 칸만 채운다 — DB에 정리해둔 값을 현장 데이터로 덮어쓰지 않는다 */
     ['brand','img','note','vendor','detail'].forEach(k=>{if(e[k]&&!ex[k]){ex[k]=e[k];ch=true;}});
     /* 마감재는 명시 지정이라 guessKind 추측보다 우선한다 */
@@ -3541,7 +3543,7 @@ function importMaterialsFromDB(){
 }
 function saveItemsToPriceDB(items,cat){
   let a=0,u=0;
-  (items||[]).forEach(it=>{const r=upsertPriceDB({cat,name:it.name,spec:it.spec,unit:it.unit,mp:it.mp,lp:it.lp});if(r==='added')a++;else if(r==='updated')u++;});
+  (items||[]).forEach(it=>{const r=upsertPriceDB({cat,name:it.name,detail:it.detail,spec:it.spec,unit:it.unit,mp:it.mp,lp:it.lp});if(r==='added')a++;else if(r==='updated')u++;});
   if(!a&&!u){toast('단가 DB에 이미 모두 등록되어 있습니다');return;}
   save();
   toast('단가 DB 저장: '+[a?`신규 ${a}개`:'',u?`가격 갱신 ${u}개`:''].filter(Boolean).join(' · '));
@@ -3557,9 +3559,9 @@ function openPricePicker(onPick,opts){
   const kindBar=()=>['전체',...PRICE_KINDS].map(k=>`<button class="btn sm ${k===kindF?'accent':''}" data-ppkind="${esc(k)}" style="padding:4px 11px;font-weight:700">${esc(k)}</button>`).join('');
   const catBar=()=>['전체',...cats].map(cc=>`<button class="btn sm ${cc===catF?'green':''}" data-ppcat="${esc(cc)}" style="padding:4px 11px">${esc(cc)}</button>`).join('');
   const build=q=>{
-    const rows=DB.priceDB.filter(x=>(kindF==='전체'||(x.kind||'시공자재')===kindF)&&(catF==='전체'||(x.cat||'미분류')===catF)&&(!q||[x.cat,x.name,x.spec,x.brand,x.vendor].join(' ').includes(q)));
-    return rows.length?`<table><thead><tr><th>분류</th><th>품명</th><th>규격</th><th class="c">단위</th><th class="r">자재</th><th class="r">노무</th><th></th></tr></thead>
-      <tbody>${rows.map(x=>`<tr><td><span class="tag">${esc(x.cat||'—')}</span></td><td class="strong">${esc(x.name)}${x.brand?` <span class="sub" style="font-weight:400">· ${esc(x.brand)}</span>`:''}</td><td class="sub num">${esc(x.spec||'')}</td>
+    const rows=DB.priceDB.filter(x=>(kindF==='전체'||(x.kind||'시공자재')===kindF)&&(catF==='전체'||(x.cat||'미분류')===catF)&&(!q||[x.cat,x.name,x.detail,x.spec,x.brand,x.vendor].join(' ').includes(q)));
+    return rows.length?`<table><thead><tr><th>분류</th><th>품명</th><th>세부내역</th><th>규격</th><th class="c">단위</th><th class="r">자재</th><th class="r">노무</th><th></th></tr></thead>
+      <tbody>${rows.map(x=>`<tr><td><span class="tag">${esc(x.cat||'—')}</span></td><td class="strong">${esc(x.name)}${x.brand?` <span class="sub" style="font-weight:400">· ${esc(x.brand)}</span>`:''}</td><td class="sub">${esc(x.detail||'')}</td><td class="sub num">${esc(x.spec||'')}</td>
       <td class="c sub">${esc(x.unit||'')}</td><td class="r num sub">${+x.mp?numf(+x.mp):'—'}</td><td class="r num sub">${+x.lp?numf(+x.lp):'—'}</td>
       <td class="r"><button class="btn sm green" data-pick="${x.id}">담기</button></td></tr>`).join('')}</tbody></table>`
       :`<div class="empty" style="padding:30px">검색 결과가 없습니다.<br><span class="sub">단가·마감재 탭에서 단가를 먼저 등록해 주세요.</span></div>`;
@@ -3837,9 +3839,9 @@ const FORMS={
     {k:'img',l:'사진',t:'image',fix:1,full:1},{k:'note',l:'비고',full:1}]},
   price:{title:'단가 · 마감재 DB',sub:'마감재/시공자재/시공단가로 구분해 정리합니다. 마감재는 사진·브랜드·구입처를 넣으면 견적서 스펙북에 자동으로 들어갑니다.',fields:[
     {k:'kind',l:'구분',t:'select',opt:PRICE_KINDS},{k:'cat',l:'분류',t:'select',opt:PRICE_CATS},
-    {k:'name',l:'품명',req:1},{k:'brand',l:'브랜드·모델',hint:'마감재 스펙북에 표시'},
-    {k:'detail',l:'세부내역',full:1,hint:'품명만으로 부족한 설명 — 구성·시공범위·옵션 등. 목록과 스펙북에 함께 표시됩니다'},
-    {k:'spec',l:'규격',full:1},{k:'unit',l:'단위',hint:'예: EA, ㎡, 인'},
+    {k:'name',l:'품명',req:1},
+    {k:'detail',l:'세부내역',full:1,hint:'품명만으로 부족한 설명 — 구성·시공범위·옵션 등. 견적서·스펙북과 같은 자리(품명 다음)에 표시됩니다'},
+    {k:'spec',l:'규격',full:1},{k:'brand',l:'브랜드·모델',hint:'마감재 스펙북에 표시'},{k:'unit',l:'단위',hint:'예: EA, ㎡, 인'},
     {k:'mp',l:'자재·구입 단가',t:'number',money:1},{k:'lp',l:'노무·시공 단가',t:'number',money:1},
     {k:'vendor',l:'구입처',dl:'vendors',hint:'업체 탭에서 선택 가능'},{k:'note',l:'비고'},
     {k:'img',l:'사진 (마감재 — 스펙북에 사용)',t:'image',fix:1,full:1}]},
