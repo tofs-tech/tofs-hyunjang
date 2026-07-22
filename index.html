@@ -592,6 +592,9 @@
     body.print-doc .appbar, body.print-doc .wrap, body.print-doc .pv-overlay{display:none!important;}
     body.print-doc #printRoot{display:block!important;}
     body.print-doc:has(#printRoot .ed){background:#F7F4EE!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    /* 에디토리얼 문서는 @page 여백 0 → 여백 몫을 종이 안쪽 패딩으로 (내용 폭·높이 예산은 기존 12mm 여백과 동일) */
+    body.print-doc #printRoot .ed{padding:12mm;min-height:272mm;}
+    body.print-doc #printRoot .ed.autoh{min-height:0;}
   }
 </style>
 
@@ -766,7 +769,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.27.2';
+const APP_VERSION='7.27.3';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1059,8 +1062,11 @@ function openPrint(html,land){
   const pr=document.getElementById('printRoot'); if(!pr)return;
   pr.innerHTML=`<div class="psheet${land?' land':''}">${html}</div>`;
   // 용지 방향을 동적으로 지정(명명 @page는 일부 브라우저에서 무시됨 → 직접 주입)
+  // 에디토리얼 문서(.ed)는 여백 0 — 크림 종이가 가장자리까지 차고, 브라우저 머리글·바닥글(날짜·주소·쪽수)도 사라진다.
+  // 여백 몫은 @media print의 .ed 패딩(12mm)이 대신한다.
+  const isEd=/class="ed[\s"]/.test(html);
   let ps=document.getElementById('pageStyle'); if(!ps){ps=document.createElement('style');ps.id='pageStyle';document.head.appendChild(ps);}
-  ps.textContent=`@page{size:A4 ${land?'landscape':'portrait'};margin:${land?'8mm':'12mm'};}`;
+  ps.textContent=`@page{size:A4 ${land?'landscape':'portrait'};margin:${isEd?'0':(land?'8mm':'12mm')};}`;
   document.body.classList.add('print-doc');
   const done=()=>{document.body.classList.remove('print-doc');window.removeEventListener('afterprint',done);};
   window.addEventListener('afterprint',done);
