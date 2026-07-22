@@ -783,7 +783,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.28.5';
+const APP_VERSION='7.28.6';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -2693,8 +2693,10 @@ function newEstimate(type){
   state.estOpen=est.id;render();
 }
 function estCalc(est){
-  const secs=(est.sections||[]).map(s=>({name:s.name,
-    total:s.items.reduce((a,it)=>{const q=+it.qty||0;return a+((+it.mp||0)+(+it.lp||0))*q;},0)}));
+  /* 공종별 자재(m)·노무(l) 합계도 따로 — 갑지에서 자재비/노무비를 나눠 보여준다 */
+  const secs=(est.sections||[]).map(s=>{let m=0,l=0;
+    (s.items||[]).forEach(it=>{const q=+it.qty||0;m+=(+it.mp||0)*q;l+=(+it.lp||0)*q;});
+    return{name:s.name,m,l,total:m+l};});
   const direct=secs.reduce((a,b)=>a+b.total,0);
   let ind=[];
   if(est.type==='construction'){
@@ -2925,6 +2927,7 @@ const edEstSecs=(est,cal)=>{
     num:si+1,
     name:one?'공사 내역':(sec.name||'-'),
     total:cal.secs[si].total,
+    m:cal.secs[si].m,l:cal.secs[si].l,
     items:(sec.items||[]).filter(it=>(it.name||'').trim()||+it.qty||(+it.mp||0)+(+it.lp||0))
   }));
 };
@@ -2958,17 +2961,22 @@ function edEstCover(est,cal,hasDetail,forceCmp){
   const dash='<span class="dash">—</span>';
   const secs=edEstSecs(est,cal);
   let body='';
-  /* 갑지는 직접공사·간접공사 두 그룹 — 그룹 머리에 각자의 합계, 맨 아래에서 총금액으로 합쳐진다 */
-  const head=(num,name,amt)=>{body+=`<tr class="ed-sec"><td><span class="sn">${String(num).padStart(2,'0')}</span>${esc(name)}</td><td class="n">${amt?numf(amt):dash}</td><td></td></tr>`;};
-  const child=(name,amt)=>{body+=`<tr class="ed-sumr"><td>${esc(name)}</td><td class="n">${amt?numf(amt):dash}</td><td class="etc"></td></tr>`;};
-  const hasInd=est.type==='construction'&&cal.ind.length;
+  /* 갑지는 직접공사·간접공사 두 그룹 — 시공 견적서는 공종별 자재비·노무비를 나눠 보여주고 금액으로 합친다 */
+  const isCon=est.type==='construction';
+  const hasInd=isCon&&cal.ind.length;
+  const cells=(m,l,amt)=>isCon
+    ?`<td class="n">${m?numf(m):dash}</td><td class="n">${l?numf(l):dash}</td><td class="n">${amt?numf(amt):dash}</td>`
+    :`<td class="n">${amt?numf(amt):dash}</td><td class="etc"></td>`;
+  const head=(num,name,m,l,amt)=>{body+=`<tr class="ed-sec"><td><span class="sn">${String(num).padStart(2,'0')}</span>${esc(name)}</td>${cells(m,l,amt)}</tr>`;};
+  const child=(name,m,l,amt)=>{body+=`<tr class="ed-sumr"><td>${esc(name)}</td>${cells(m,l,amt)}</tr>`;};
   if(hasInd){
-    head(1,'직접공사',cal.direct);
-    secs.forEach(s=>child(s.name,s.total));
-    head(2,'간접공사',cal.indirect);
-    cal.ind.forEach(x=>child(x[0],x[1]));
+    const mSum=secs.reduce((a,s)=>a+(s.m||0),0),lSum=secs.reduce((a,s)=>a+(s.l||0),0);
+    head(1,'직접공사',mSum,lSum,cal.direct);
+    secs.forEach(s=>child(s.name,s.m,s.l,s.total));
+    head(2,'간접공사',0,0,cal.indirect);
+    cal.ind.forEach(x=>child(x[0],0,0,x[1]));
   }else{
-    secs.forEach(s=>head(s.num,s.name,s.total));
+    secs.forEach(s=>head(s.num,s.name,s.m,s.l,s.total));
   }
   const rowN=secs.length+(hasInd?2+cal.ind.length:0);
   const cmp=forceCmp||rowN>=12;
@@ -2989,7 +2997,9 @@ function edEstCover(est,cal,hasDetail,forceCmp){
       <div class="ed-vat">VAT ${esc(est.vat||'별도')}</div>
     </div>
     <div class="ed-lab" style="margin:16px 0 2px">SUMMARY</div>
-    <table class="edt"><thead><tr><th>구분</th><th style="width:20%">금액</th><th style="width:26%">비고</th></tr></thead>
+    <table class="edt"><thead>${isCon
+      ?`<tr><th>구분</th><th style="width:16%">자재비</th><th style="width:16%">노무비</th><th style="width:17%">금액</th></tr>`
+      :`<tr><th>구분</th><th style="width:20%">금액</th><th style="width:26%">비고</th></tr>`}</thead>
     <tbody>${body}</tbody></table>
     <div class="ed-tots">
       ${hasInd?`<div class="tr"><span>직접공사</span><b>${numf(cal.direct)}<i>원</i></b></div>
