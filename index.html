@@ -797,7 +797,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.32.0';
+const APP_VERSION='7.33.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1725,7 +1725,7 @@ function printOrder(po){
     <div><div class="ed-lab">DUE DATE</div><div class="ed-val">${items[0].dueDate?esc(edDot(items[0].dueDate)):'—'}</div></div>
   </div>
   <div class="ed-band b2">
-    <div><div class="ed-lab">PROJECT</div><div class="ed-val">${esc(p.info.name||'')}</div></div>
+    <div><div class="ed-lab">DELIVERY <small style="letter-spacing:.1em">받을 곳</small></div><div class="ed-val" style="font-size:13px">${esc((p.info.address||'').trim()||'—')}</div></div>
     <div><div class="ed-lab">MANAGER</div><div class="ed-val">${esc(p.info.manager||co.ceo||'')}</div></div>
     <div><div class="ed-lab">TEL</div><div class="ed-val">${esc(co.tel||'')}</div></div>
   </div>
