@@ -542,6 +542,23 @@
   .psheet .ed.cmp2 .ed-tots{margin-top:10px;}
   .psheet .ed.cmp2 .ed-tots .tr{padding:5px 2px;}
   .psheet .ed.cmp2 .ed-note{margin-top:10px;line-height:1.55;font-size:9px;}
+  /* 발주서 한 장 맞춤 자동압축 — 품목 13개↑ ocmp, 19개↑ ocmp2 (printOrder 전용, 견적서 cmp와 별개) */
+  .psheet .ed.ocmp .ed-title{margin-top:16px;}
+  .psheet .ed.ocmp .ed-band{margin-top:16px;}
+  .psheet .ed.ocmp .ed-band>div{padding:9px 20px 10px;}
+  .psheet .ed.ocmp .edt thead th{padding:8px;}
+  .psheet .ed.ocmp .edt td{padding:6px 8px;}
+  .psheet .ed.ocmp .ed-tots{margin-top:14px;}
+  .psheet .ed.ocmp .ed-tots .tr{padding:6px 2px;}
+  .psheet .ed.ocmp .ed-note{margin-top:12px;}
+  .psheet .ed.ocmp2 .ed-title{font-size:24px;margin-top:10px;}
+  .psheet .ed.ocmp2 .ed-band{margin-top:12px;}
+  .psheet .ed.ocmp2 .ed-band>div{padding:7px 20px 8px;}
+  .psheet .ed.ocmp2 .edt thead th{padding:6px 8px;}
+  .psheet .ed.ocmp2 .edt td{padding:4px 8px;font-size:10.5px;line-height:1.4;}
+  .psheet .ed.ocmp2 .ed-tots{margin-top:10px;}
+  .psheet .ed.ocmp2 .ed-tots .tr{padding:4px 2px;}
+  .psheet .ed.ocmp2 .ed-note{margin-top:9px;font-size:9px;line-height:1.5;}
   .psheet .ed-tots{margin:26px 0 0 auto;width:48%;min-width:300px;font-size:11px;}
   .psheet .ed-tots .tr{display:flex;justify-content:space-between;align-items:baseline;padding:9px 2px;border-top:1px solid #E7E1D3;color:#6B6558;}
   .psheet .ed-tots .tr b{font-weight:400;color:#1D1B16;font-size:11.5px;}
@@ -797,7 +814,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.34.0';
+const APP_VERSION='7.35.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -839,7 +856,9 @@ const numf=n=>(Number(n)||0).toLocaleString('ko-KR',{maximumFractionDigits:2});
 const proj=()=>DB.projects.find(p=>p.id===DB.active)||DB.projects[0];
 const dkey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const todayStr=()=>dkey(new Date());
-const fdate=d=>{if(!d)return'—';const[y,m,day]=d.split('-');return`${m}.${day}`;};
+const fdate=d=>{if(!d)return'—';const[y,m,day]=String(d).split('T')[0].split('-');return`${m}.${day}`;};
+/* 날짜+시간 표시 — 시간이 00:00(미지정)이면 날짜만 */
+const fdt=v=>{if(!v)return'—';const[d,t]=String(v).split('T');return fdate(d)+(t&&t.slice(0,5)!=='00:00'?` ${t.slice(0,5)}`:'');};
 const fdateF=d=>{if(!d)return'—';const[y,m,day]=d.split('-');return`${y}. ${m}. ${day}`;};
 const weeks=(a,b)=>Math.max(1,Math.ceil((new Date(b)-new Date(a))/6048e5));
 const daysBetween=(a,b)=>Math.round((new Date(b)-new Date(a))/864e5);
@@ -1612,7 +1631,7 @@ function vOrders(c,inSite){
       if(!pos.length)return'';
       const rows=pos.map(po=>{const items=pr.orders.filter(o=>o.po===po),it=items[0];
         const total=items.reduce((s,o)=>s+(+o.qty||0)*(+o.price||0),0);
-        return`<tr><td class="strong num">${esc(po)}</td><td>${esc(it.supplier||'—')}</td><td class="num">${fdate(it.orderDate)}</td><td class="num">${it.dueDate?fdate(it.dueDate):'—'}</td><td class="r num">${items.length}</td><td class="r num">${total?won(total):'—'}</td><td>${pill(it.status||'발주전',ORD_ST)}</td></tr>`;}).join('');
+        return`<tr><td class="strong num">${esc(po)}</td><td>${esc(it.supplier||'—')}</td><td class="num">${fdate(it.orderDate)}</td><td class="num">${it.dueDate?fdt(it.dueDate):'—'}</td><td class="r num">${items.length}</td><td class="r num">${total?won(total):'—'}</td><td>${pill(it.status||'발주전',ORD_ST)}</td></tr>`;}).join('');
       return`<div class="card"><div class="card-h"><span class="ct">${esc(pr.info.name)}</span><span class="cs">발주서 ${pos.length}건</span><div class="spacer" style="flex:1"></div>
         <button class="btn sm no-print" data-openord="${pr.id}">열기</button></div>
       <div class="tbl-wrap"><table><thead><tr><th>발주번호</th><th>공급처</th><th>발주일</th><th>납기일</th><th class="r">품목</th><th class="r">금액</th><th>상태</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;}).join('')||`<div class="card">${emptyB('아직 발주서가 없습니다.','')}</div>`}`;
@@ -1639,7 +1658,7 @@ function orderCard(p,po){
       <span class="ct">${esc(po)}</span>
       <input class="oh" data-pf="supplier" placeholder="공급처 (업체 리스트에서 선택)" value="${esc(it.supplier)}" style="width:170px" list="dl-vendors">
       <span class="sub">발주</span><input class="oh" type="date" data-pf="orderDate" value="${esc(it.orderDate)}">
-      <span class="sub">납기</span><input class="oh" type="date" data-pf="dueDate" value="${esc(it.dueDate)}">
+      <span class="sub">납기</span><input class="oh" type="datetime-local" data-pf="dueDate" value="${esc(it.dueDate&&!String(it.dueDate).includes('T')?it.dueDate+'T00:00':(it.dueDate||''))}">
       <select class="oh" data-pf="status">${Object.keys(ORD_ST).map(s=>`<option ${it.status===s?'selected':''}>${s}</option>`).join('')}</select>
       <label class="sub" style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap"><input type="checkbox" data-sp-toggle ${sp?'checked':''}> 금액 표시</label>
       <div class="spacer" style="flex:1"></div>
@@ -1706,7 +1725,12 @@ function wireOrders(c,p){
   c.querySelectorAll('[data-addrow]').forEach(b=>b.onclick=()=>{const po=b.dataset.addrow;const it=p.orders.find(o=>o.po===po)||{};
     p.orders.push({id:uid(),po,supplier:it.supplier||'',item:'',spec:'',qty:'',unit:'',price:'',orderDate:it.orderDate||'',dueDate:it.dueDate||'',status:it.status||'발주전'});save();render();
     setTimeout(()=>{const rows=document.querySelectorAll('.ordcard[data-po="'+cssAttr(po)+'"] tr[data-oid] input[data-of="item"]');rows[rows.length-1]?.focus();},30);});
-  c.querySelectorAll('[data-delrow]').forEach(b=>b.onclick=()=>{p.orders=p.orders.filter(o=>o.id!==b.dataset.delrow);save();render();});
+  c.querySelectorAll('[data-delrow]').forEach(b=>b.onclick=()=>{
+    /* 재렌더 후 스크롤 복원 — 패드에서 행 삭제 시 화면이 아래로 튀는 문제 방지 */
+    const y=window.scrollY;
+    p.orders=p.orders.filter(o=>o.id!==b.dataset.delrow);save();render();
+    requestAnimationFrame(()=>window.scrollTo(0,y));
+  });
   c.querySelectorAll('[data-del-po]').forEach(b=>b.onclick=()=>{if(confirm('이 발주서를 삭제할까요?')){p.orders=p.orders.filter(o=>o.po!==b.dataset.delPo);save();render();}});
   c.querySelectorAll('[data-move-po]').forEach(sel=>sel.onchange=()=>{
     const tid=sel.value; if(!tid)return;
@@ -1729,13 +1753,17 @@ function printOrder(po){
   const sp=!!items[0].showPrice, co=CO();
   const total=items.reduce((s,o)=>s+(+o.qty||0)*(+o.price||0),0);
   const dash='<span class="dash">—</span>';
-  const html=`<div class="ed">
+  /* 납기 = 날짜.시간 (00:00은 미지정으로 보고 날짜만) */
+  const dueTxt=v=>{if(!v)return'—';const[d,t]=String(v).split('T');return edDot(d)+(t&&t.slice(0,5)!=='00:00'?` ${t.slice(0,5)}`:'');};
+  /* 품목이 많으면 자동압축해 한 장에 — 13개↑ ocmp, 19개↑ ocmp2 */
+  const cmpCls=items.length>=19?' ocmp2':items.length>=13?' ocmp':'';
+  const html=`<div class="ed${cmpCls}">
   ${edTop(esc(po))}
   ${edTitle('Order.','발 주 서')}
   <div class="ed-band">
     <div><div class="ed-lab">SUPPLIER</div><div class="ed-val">${esc(items[0].supplier||'—')} <small>귀중</small></div></div>
     <div><div class="ed-lab">ORDER DATE</div><div class="ed-val">${items[0].orderDate?esc(edDot(items[0].orderDate)):'—'}</div></div>
-    <div><div class="ed-lab">DUE DATE</div><div class="ed-val">${items[0].dueDate?esc(edDot(items[0].dueDate)):'—'}</div></div>
+    <div><div class="ed-lab">DUE DATE</div><div class="ed-val">${esc(dueTxt(items[0].dueDate))}</div></div>
   </div>
   <div class="ed-band b2">
     <div><div class="ed-lab">DELIVERY <small style="letter-spacing:.1em">받을 곳</small></div><div class="ed-val" style="font-size:13px">${esc((p.info.address||'').trim()||'—')}</div></div>
@@ -2227,7 +2255,7 @@ function exportOrderXlsx(po){
   h+=`<tr><td colspan="${W}" style="font-size:19pt;font-weight:bold;letter-spacing:9px;padding:6px 0;color:#171C26">발 주 서 <span style="font-size:9pt;color:#4A7C50;letter-spacing:2px">PURCHASE ORDER</span></td></tr>`;
   const half=Math.floor(W/2);
   h+=`<tr><td ${xlb}>발주번호</td><td ${xtd} colspan="${half-1}">${esc(po)}</td><td ${xlb}>발주일</td><td ${xtd} colspan="${W-half-1}">${items[0].orderDate||'—'}</td></tr>`;
-  h+=`<tr><td ${xlb}>현&nbsp;&nbsp;장</td><td ${xtd} colspan="${half-1}">${esc(p.info.name||'')}</td><td ${xlb}>납기일</td><td ${xtd} colspan="${W-half-1}">${items[0].dueDate||'—'}</td></tr>`;
+  h+=`<tr><td ${xlb}>현&nbsp;&nbsp;장</td><td ${xtd} colspan="${half-1}">${esc(p.info.name||'')}</td><td ${xlb}>납기일</td><td ${xtd} colspan="${W-half-1}">${items[0].dueDate?esc(String(items[0].dueDate).replace('T00:00','').replace('T',' ')):'—'}</td></tr>`;
   h+=`<tr><td ${xlb}>공급처</td><td ${xtd} colspan="${half-1}">${esc(items[0].supplier||'')}</td><td ${xlb}>담&nbsp;&nbsp;당</td><td ${xtd} colspan="${W-half-1}">${esc(p.info.manager||co.ceo||'')} / ${esc(co.tel||'')}</td></tr>`;
   h+=`<tr><td colspan="${W}" style="padding:3px"></td></tr>`;
   h+=`<tr><td ${xth}>No</td><td ${xth}>품목</td><td ${xth}>규격</td><td ${xth}>수량</td><td ${xth}>단위</td>${sp?`<td ${xth}>단가</td><td ${xth}>금액</td>`:`<td ${xth}>비고</td>`}</tr>`;
