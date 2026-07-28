@@ -797,7 +797,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.33.0';
+const APP_VERSION='7.34.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1645,6 +1645,7 @@ function orderCard(p,po){
       <div class="spacer" style="flex:1"></div>
       <button class="btn sm no-print" data-print-po="${esc(po)}">${svg(IC.print)}발주서</button>
       <button class="btn sm no-print" data-xls-po="${esc(po)}">엑셀</button>
+      ${DB.projects.length>1?`<select class="oh no-print" data-move-po="${esc(po)}" title="이 발주서를 다른 프로젝트로 이동"><option value="">프로젝트 이동…</option>${DB.projects.filter(x=>x.id!==p.id).map(x=>`<option value="${x.id}">${esc(x.info.name)}</option>`).join('')}</select>`:''}
       <button class="icon-btn no-print" data-del-po="${esc(po)}" title="발주서 삭제">${svg(IC.trash)}</button>
     </div>
     <div class="tbl-wrap"><table class="ordtable"><thead><tr>
@@ -1707,6 +1708,18 @@ function wireOrders(c,p){
     setTimeout(()=>{const rows=document.querySelectorAll('.ordcard[data-po="'+cssAttr(po)+'"] tr[data-oid] input[data-of="item"]');rows[rows.length-1]?.focus();},30);});
   c.querySelectorAll('[data-delrow]').forEach(b=>b.onclick=()=>{p.orders=p.orders.filter(o=>o.id!==b.dataset.delrow);save();render();});
   c.querySelectorAll('[data-del-po]').forEach(b=>b.onclick=()=>{if(confirm('이 발주서를 삭제할까요?')){p.orders=p.orders.filter(o=>o.po!==b.dataset.delPo);save();render();}});
+  c.querySelectorAll('[data-move-po]').forEach(sel=>sel.onchange=()=>{
+    const tid=sel.value; if(!tid)return;
+    const po=sel.dataset.movePo, t=DB.projects.find(x=>x.id===tid);
+    if(!t){sel.value='';return;}
+    if(!confirm('발주서 '+po+'을(를) "'+t.info.name+'" 프로젝트로 이동할까요?')){sel.value='';return;}
+    const items=p.orders.filter(o=>o.po===po);
+    p.orders=p.orders.filter(o=>o.po!==po);
+    const newPo=t.orders.some(o=>o.po===po)?nextPO(t):po;
+    items.forEach(o=>{o.po=newPo;t.orders.push(o);});
+    save();render();
+    toast(newPo===po?'발주서가 "'+t.info.name+'"(으)로 이동했습니다':'"'+t.info.name+'"(으)로 이동 — 번호 중복으로 '+newPo+'(으)로 변경되었습니다');
+  });
   c.querySelectorAll('[data-print-po]').forEach(b=>b.onclick=()=>printOrder(b.dataset.printPo));
   c.querySelectorAll('[data-xls-po]').forEach(b=>b.onclick=()=>exportOrderXlsx(b.dataset.xlsPo));
 }
