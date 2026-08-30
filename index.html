@@ -396,40 +396,63 @@
   .psheet .foot{margin-top:16px;font-size:12px;color:#555;}
   /* ── 공사 일정표(간트) — 견적서와 같은 에디토리얼(.ed) 언어. 크림 종이·헤어라인·모노 숫자.
      .ed 안의 표는 방화벽(th/td{border:none})에 막히므로 여기서 다시 명시한다. ── */
-  .psheet .edg-wrap{margin-top:20px;}
+  /* 일정표만 흑백 — .ed 공용 색(따뜻한 베이지)을 중성 회색으로 덮는다.
+     견적서·발주서는 그대로 두므로 이 규칙은 반드시 .edg 안에서만 쓴다. */
+  .psheet .ed.edg{color:#1A1A1A;}
+  .psheet .ed.edg .ed-title,.psheet .ed.edg .ed-sub,.psheet .ed.edg .ed-co{color:#1A1A1A;}
+  .psheet .ed.edg .ed-no{color:#9A9A9A;}
+  .psheet .ed.edg .ed-lab{color:#8A8A8A;}
+  .psheet .ed.edg .ed-val{color:#1A1A1A;}
+  .psheet .ed.edg .ed-val small{color:#7A7A7A;}
+  .psheet .ed.edg .dash{color:#B0B0B0;}
+  .psheet .ed.edg .ed-band{border-top:1px solid #1A1A1A;border-bottom:1px solid #C9C9C9;}
+  .psheet .ed.edg .ed-band>div{border-left:1px solid #DCDCDC;}
+  .psheet .ed.edg .ed-band>div:first-child{border-left:none;}
+  /* 머리는 한 줄로 조인다 — 공정이 늘수록 아래 표가 중요하다 */
+  .psheet .ed.edg .edg-head{margin-bottom:2px;}
+  .psheet .ed.edg .ed-title{font-size:21px;margin-top:2px;}
+  .psheet .ed.edg .ed-sub{font-size:8.5px;letter-spacing:.5em;margin-top:5px;}
+  .psheet .ed.edg .edg-brand{text-align:right;}
+  .psheet .ed.edg .edg-brand .ed-no{margin-top:3px;}
+  .psheet .ed.edg .ed-band{margin-top:12px;}
+  .psheet .ed.edg .ed-band>div{padding:9px 18px 10px;}
+  .psheet .ed.edg .ed-val{font-size:12px;margin-top:5px;}
+  .psheet .edg-wrap{margin-top:12px;}
+  /* 폼(틀)은 흑백 — 색은 공정 막대에만 쓴다. 그래야 일정이 먼저 눈에 들어온다 */
   .psheet table.edg-t{width:100%;border-collapse:collapse;table-layout:fixed;}
-  .psheet .ed .edg-t th,.psheet .ed .edg-t td{border:1px solid #E0D9C9;height:19px;padding:0;text-align:center;overflow:hidden;color:#2A2721;vertical-align:middle;}
-  .psheet .ed .edg-t th.edg-hd{font-size:8px;font-weight:700;letter-spacing:.22em;color:#8D877B;background:#EDE7DB;}
-  .psheet .ed .edg-t th.edg-mo{font-size:8.5px;font-weight:600;letter-spacing:.16em;color:#6B6558;background:#EDE7DB;}
-  .psheet .ed .edg-t th.edg-dt{font-size:8.5px;font-weight:600;line-height:1.06;background:#F3EFE5;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
-  .psheet .ed .edg-t th.edg-dt .dw{display:block;font-size:7.5px;font-weight:500;color:#948D7E;font-family:inherit;}
-  .psheet .ed .edg-t th.edg-dt.sun{color:#B4564A;} .psheet .ed .edg-t th.edg-dt.sat{color:#4A6B94;}
-  .psheet .ed .edg-t th.edg-dt.we{background:#E3DACA;}
-  .psheet .ed .edg-t td.edg-no{font-size:8.5px;color:#A9A292;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#F6F2E9;}
-  .psheet .ed .edg-t td.edg-ph{text-align:left;padding:0 8px;font-size:10px;font-weight:500;color:#1D1B16;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#F6F2E9;}
+  .psheet .ed .edg-t th,.psheet .ed .edg-t td{border:1px solid #D5D5D5;height:19px;padding:0;text-align:center;overflow:hidden;color:#2B2B2B;vertical-align:middle;}
+  .psheet .ed .edg-t th.edg-hd{font-size:8px;font-weight:700;letter-spacing:.22em;color:#6E6E6E;background:#E6E6E6;}
+  .psheet .ed .edg-t th.edg-mo{font-size:8.5px;font-weight:600;letter-spacing:.16em;color:#4A4A4A;background:#E6E6E6;}
+  .psheet .ed .edg-t th.edg-dt{font-size:8.5px;font-weight:600;line-height:1.06;background:#F2F2F2;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+  .psheet .ed .edg-t th.edg-dt .dw{display:block;font-size:7.5px;font-weight:500;color:#8A8A8A;font-family:inherit;}
+  .psheet .ed .edg-t th.edg-dt.we{background:#DCDCDC;color:#3A3A3A;}
+  .psheet .ed .edg-t td.edg-no{font-size:8.5px;color:#8A8A8A;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#F4F4F4;}
+  .psheet .ed .edg-t td.edg-ph{text-align:left;padding:0 8px;font-size:10px;font-weight:500;color:#1A1A1A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#F4F4F4;}
   .psheet .ed .edg-t td.edg-ph .sw{display:inline-block;width:6px;height:6px;margin-right:6px;vertical-align:middle;}
-  .psheet .ed .edg-t td.edg-we{background:#ECE5D6;}
+  .psheet .ed .edg-t td.edg-we{background:#EDEDED;}
   .psheet .ed .edg-t td.edg-bar{padding:0 4px;text-align:left;}
-  .psheet .ed .edg-t .edg-bl{font-size:8px;font-weight:600;color:#1D1B16;white-space:nowrap;letter-spacing:-.01em;}
-  .psheet .ed .edg-t td.edg-bigo{background:#FBF9F4;}
+  .psheet .ed .edg-t .edg-bl{font-size:8px;font-weight:600;color:#1A1A1A;white-space:nowrap;letter-spacing:-.01em;}
+  .psheet .ed .edg-t td.edg-bigo{background:#FCFCFC;}
   /* 맨 아래 비고 — 현장에서 손으로 적는 자리 */
-  .psheet .ed .edg-t tr.edg-memo td{height:34px;background:#FBF9F4;}
-  .psheet .ed .edg-t tr.edg-memo td.edg-memol{font-size:8px;font-weight:700;letter-spacing:.22em;color:#8D877B;background:#EDE7DB;}
+  .psheet .ed .edg-t tr.edg-memo td{height:34px;background:#FCFCFC;}
+  .psheet .ed .edg-t tr.edg-memo td.edg-memol{font-size:8px;font-weight:700;letter-spacing:.22em;color:#6E6E6E;background:#E6E6E6;}
   /* 공정이 많으면 한 장에 넣기 위해 조인다. 견적서의 .cmp 와 이름이 겹치면 그쪽 규칙까지
      끌려오므로(과거 .edt 사고) 일정표 전용 이름을 쓴다. */
-  .psheet .ed.edg.edgc .ed-title{margin-top:14px;}
-  .psheet .ed.edg.edgc .ed-band{margin-top:14px;}
-  .psheet .ed.edg.edgc .ed-band>div{padding:9px 20px 10px;}
-  .psheet .ed.edg.edgc .edg-wrap{margin-top:12px;}
+  .psheet .ed.edg.edgc .ed-title{font-size:18px;margin-top:0;}
+  .psheet .ed.edg.edgc .ed-sub{margin-top:4px;}
+  .psheet .ed.edg.edgc .ed-band{margin-top:9px;}
+  .psheet .ed.edg.edgc .ed-band>div{padding:7px 18px 8px;}
+  .psheet .ed.edg.edgc .ed-val{font-size:11px;margin-top:4px;}
+  .psheet .ed.edg.edgc .edg-wrap{margin-top:9px;}
   .psheet .ed.edg.edgc .edg-t th,.psheet .ed.edg.edgc .edg-t td{height:15px;}
   .psheet .ed.edg.edgc .edg-t td.edg-ph{font-size:9px;}
   .psheet .ed.edg.edgc .edg-t tr.edg-memo td{height:24px;}
   .psheet .ed.edg.edgc .edg-legend{margin-top:8px;}
   .psheet .ed.edg.edgc .edg-foot{margin-top:7px;}
-  .psheet .edg-legend{display:flex;gap:18px;margin-top:12px;font-size:8.5px;color:#8D877B;align-items:center;flex-wrap:wrap;letter-spacing:.04em;}
+  .psheet .edg-legend{display:flex;gap:18px;margin-top:10px;font-size:8.5px;color:#7A7A7A;align-items:center;flex-wrap:wrap;letter-spacing:.04em;}
   .psheet .edg-legend span{display:inline-flex;align-items:center;}
-  .psheet .edg-legend i{display:inline-block;width:15px;height:9px;margin-right:6px;border:1px solid #DDD6C8;vertical-align:middle;}
-  .psheet .edg-foot{margin-top:11px;font-size:9px;color:#8D877B;letter-spacing:.02em;}
+  .psheet .edg-legend i{display:inline-block;width:15px;height:9px;margin-right:6px;border:1px solid #CFCFCF;vertical-align:middle;}
+  .psheet .edg-foot{margin-top:9px;font-size:9px;color:#7A7A7A;letter-spacing:.02em;}
   /* 견적서 출력 시트 */
   .psheet .ecov{display:flex;flex-direction:column;align-items:center;min-height:250mm;padding-top:30px;}
   .psheet .ecov-title{font-size:21px;font-weight:700;letter-spacing:.5px;color:#1c1c1c;border-bottom:1px solid #ddd;padding:0 20px 22px;width:100%;text-align:center;}
@@ -842,7 +865,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='8.30.2';
+const APP_VERSION='8.30.3';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1498,7 +1521,7 @@ function printSchedule(){
   const dateTh=days.map(d=>{const dow=d.getDay(),we=isWe(d);
     return`<th class="edg-dt${dow===0?' sun':dow===6?' sat':''}${we?' we':''}">${d.getDate()}<span class="dw">${dows[dow]}</span></th>`;}).join('');
   // 공정 막대 행 — 기간만큼 colspan으로 연속 채움
-  const totalRows=Math.max(order.length,16);   /* 참고 양식처럼 빈 줄을 남겨 현장에서 손으로 채우게 */
+  const totalRows=Math.max(order.length,20);   /* 참고 양식처럼 빈 줄을 남겨 현장에서 손으로 채우게 */
   let rows='';
   for(let r=0;r<totalRows;r++){
     const ph=order[r];
@@ -1521,14 +1544,16 @@ function printSchedule(){
   rows+=`<tr class="edg-memo"><td class="edg-memol" colspan="2">비 고</td><td colspan="${n+1}"></td></tr>`;
   /* 회사설정의 '공사일정표 로고 위치'를 그대로 따른다. 로고를 넣으면 글자 회사명은
      빼서 브랜드가 두 번 나오지 않게 한다 ('안 넣음'이면 견적서와 같은 글자 머리). */
-  const schLogo=docLogo(CO().schedLogoPos||'오른쪽',96);
-  const head=schLogo
-    ? `<div style="margin-bottom:4px">${schLogo}</div><div class="ed-top"><div></div><div class="ed-no">№ ${esc(edDot(todayStr()))}</div></div>`
-    : edTop(edDot(todayStr()));
-  /* 공정이 17줄을 넘으면 가로 A4 한 장을 넘긴다 — 그때만 자동으로 조인다 */
-  const html=`<div class="ed edg autoh${totalRows>=17?' edgc':''}">
+  const schLogo=docLogo(CO().schedLogoPos||'오른쪽',74);
+  /* 머리는 한 줄 — 제목(왼쪽) · 로고와 발행번호(오른쪽).
+     일정표는 공정이 늘수록 아래 표가 중요해서 위쪽이 자리를 뺏으면 안 된다. */
+  const head=`<div class="ed-hrow edg-head">
+      <div>${edTitle('Schedule.','공 사 일 정 표')}</div>
+      <div class="edg-brand">${schLogo||`<div class="ed-co">${esc(edBrand(CO().name))}</div>`}<div class="ed-no">№ ${esc(edDot(todayStr()))}</div></div>
+    </div>`;
+  /* 머리를 줄인 뒤 실측: 21줄까지 한 장에 들어간다. 그 이상만 자동으로 조인다 */
+  const html=`<div class="ed edg autoh${totalRows>=22?' edgc':''}">
     ${head}
-    ${edTitle('Schedule.','공 사 일 정 표')}
     <div class="ed-band">
       <div><div class="ed-lab">PROJECT</div><div class="ed-val">${esc(i.name||'—')}</div></div>
       <div><div class="ed-lab">SITE</div><div class="ed-val">${esc((i.address||i.siteInfo||'').trim()||'—')}</div></div>
@@ -1549,7 +1574,7 @@ function printSchedule(){
       <span><i style="background:${mix('#7B8395',.34)}"></i>공정 기간</span>
       <span><i style="background:${mix('#12A45A',.20)}"></i>완료</span>
       <span><i style="background:rgba(180,86,74,.20)"></i>지연</span>
-      <span><i style="background:#ECE5D6"></i>주말 · 공휴일</span>
+      <span><i style="background:#EDEDED"></i>주말 · 공휴일</span>
     </div>
     <div class="edg-foot">※ 상기 공사일정은 현장 상황에 따라 일부 공정에 변동이 있을 수 있습니다.</div>
   </div>`;
