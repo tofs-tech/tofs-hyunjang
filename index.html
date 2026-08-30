@@ -649,21 +649,24 @@
   .psheet .ctrcov-addr{font-size:13px;color:#555;}
   .psheet .ctrmain{position:relative;min-height:250mm;padding-top:36px;}
   .psheet .ctr-h1{font-size:27px;font-weight:700;letter-spacing:1px;margin-bottom:6px;}
-  /* 계약서 로고 — 올린 로고 이미지만 보인다. 글자 회사명을 따로 찍던 것은 로고에 이미
-     THINKOF_SPACE 가 들어 있어 두 번 나오던 문제로 뺐다 (2026-08-30) */
-  .psheet .ctr-logo{position:absolute;top:70px;right:0;text-align:center;}
-  .psheet .ctr-logo svg{display:block;margin:0 auto 4px;}
-  .psheet table.ctr-tbl{width:100%;border-collapse:collapse;margin-top:70px;border-top:2px solid #222;font-size:12.5px;}
-  .psheet .ctr-tbl .k{width:150px;font-weight:800;letter-spacing:1px;padding:11px 4px;border-bottom:1px solid #ddd;vertical-align:top;}
-  .psheet .ctr-tbl .v{padding:11px 6px;border-bottom:1px solid #ddd;}
+  /* 계약서 표 — 테두리를 한 규칙으로 통일한다. 바깥 굵게 · 안쪽 얇게, 색은 하나.
+     예전엔 전역 `.psheet td{border:1px solid #bbb}` 와 개별 규칙의 #ddd 가 섞이고
+     서명표의 (갑)칸만 2px 검정 밑줄이 있어 굵기·색이 들쭉날쭉했다. (2026-08-30)
+     계약서에는 회사 로고를 넣지 않는다 — 사장님 지시. */
+  /* 바깥은 2px — border-collapse 에서는 소수점(1.6px)이 1px 로 내려가 안쪽과 같아진다 */
+  .psheet table.ctr-tbl,.psheet table.ctr-sign-tbl{width:100%;border-collapse:collapse;border:2px solid #222;}
+  .psheet .ctr-tbl td,.psheet .ctr-sign-tbl td{border:1px solid #9E9E9E;}
+  .psheet table.ctr-tbl{margin-top:70px;font-size:12.5px;}
+  .psheet .ctr-tbl .k{width:150px;font-weight:800;letter-spacing:1px;padding:11px 8px;vertical-align:middle;}
+  .psheet .ctr-tbl .v{padding:11px 10px;}
   .psheet .ctr-tbl .v.sub2{color:#333;padding-left:26px;}
   .psheet .ctr-oath{margin-top:56px;text-align:center;font-size:13.5px;line-height:2.1;}
   .psheet .ctr-date{margin-top:56px;text-align:right;font-size:15px;font-weight:800;}
   .psheet .ctrsign{min-height:250mm;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:40px;}
-  .psheet table.ctr-sign-tbl{width:100%;border-collapse:collapse;border-top:2px solid #222;font-size:13px;}
-  .psheet .ctr-sign-tbl .pt{width:90px;font-size:14px;letter-spacing:2px;padding:10px 4px;vertical-align:middle;border-bottom:2px solid #222;text-align:left;line-height:1.9;}
-  .psheet .ctr-sign-tbl .k{width:90px;color:#444;padding:10px 6px;border-bottom:1px solid #ddd;}
-  .psheet .ctr-sign-tbl .v{padding:10px 6px;border-bottom:1px solid #ddd;}
+  .psheet table.ctr-sign-tbl{font-size:13px;}
+  .psheet .ctr-sign-tbl .pt{width:104px;font-size:14px;font-weight:700;letter-spacing:2px;padding:10px 4px;vertical-align:middle;text-align:center;line-height:1.9;}
+  .psheet .ctr-sign-tbl .k{width:96px;color:#444;padding:10px 8px;}
+  .psheet .ctr-sign-tbl .v{padding:10px 10px;}
   .psheet .ctr-attach{margin-top:60px;font-size:14px;font-weight:800;}
   .psheet .ctrterms-h1{text-align:center;font-size:17px;font-weight:800;letter-spacing:3px;margin:10px 0 26px;}
   .psheet .ctr-art{margin-bottom:18px;}
@@ -870,7 +873,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='8.30.4';
+const APP_VERSION='8.30.5';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -4012,7 +4015,6 @@ function ctrCoverHtml(ctr){
   </div>`;
 }
 function ctrMainHtml(ctr){
-  const co=CO();
   const amt=+ctr.amount||0;
   const payAmts=ctrPayAmounts(ctr);   /* 끝수를 맞춰 합이 계약총금액과 정확히 떨어지게 */
   const payRows=ctr.payments.map((pm,i)=>({pm,won:payAmts[i]})).filter(x=>x.pm.label).map((x,idx)=>
@@ -4020,7 +4022,6 @@ function ctrMainHtml(ctr){
   return`<div class="ctrmain">
     <div class="ctrcov-line"></div>
     <div class="ctr-h1">인테리어 공사계약서</div>
-    <div class="ctr-logo">${coLogo(86)}</div>
     <table class="ctr-tbl">
       <tr><td class="k">공 사 명</td><td class="v">${esc(ctr.siteName||'')}</td></tr>
       <tr><td class="k">공 사 장 소</td><td class="v">${esc(ctr.siteAddr||'')}</td></tr>
