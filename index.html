@@ -430,7 +430,7 @@
   .psheet .ed .edg-t td.edg-ph{text-align:left;padding:0 8px;font-size:10px;font-weight:500;color:#1A1A1A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#F4F4F4;}
   .psheet .ed .edg-t td.edg-ph .sw{display:inline-block;width:6px;height:6px;margin-right:6px;vertical-align:middle;}
   .psheet .ed .edg-t td.edg-we{background:#EDEDED;}
-  .psheet .ed .edg-t td.edg-bar{padding:0 4px;text-align:left;}
+  .psheet .ed .edg-t td.edg-bar{padding:0 4px;text-align:center;}
   .psheet .ed .edg-t .edg-bl{font-size:8px;font-weight:600;color:#1A1A1A;white-space:nowrap;letter-spacing:-.01em;}
   .psheet .ed .edg-t td.edg-bigo{background:#FCFCFC;}
   /* 맨 아래 비고 — 현장에서 손으로 적는 자리 */
@@ -453,6 +453,11 @@
   .psheet .edg-legend span{display:inline-flex;align-items:center;}
   .psheet .edg-legend i{display:inline-block;width:15px;height:9px;margin-right:6px;border:1px solid #CFCFCF;vertical-align:middle;}
   .psheet .edg-foot{margin-top:9px;font-size:9px;color:#7A7A7A;letter-spacing:.02em;}
+  /* 로고는 시트 맨 아래로 — 세로로 남는 자리를 margin-top:auto 가 먹어 바닥에 붙는다.
+     .ed.autoh 는 display:block 이라 그대로면 안 붙는다. 일정표만 flex 로 되돌린다. */
+  .psheet .ed.edg.autoh{display:flex;flex-direction:column;min-height:178mm;}
+  .psheet .ed.edg .edg-sign{margin-top:auto;padding-top:16px;}
+  .psheet .ed.edg .edg-sign svg,.psheet .ed.edg .edg-sign img{display:inline-block;}
   /* 견적서 출력 시트 */
   .psheet .ecov{display:flex;flex-direction:column;align-items:center;min-height:250mm;padding-top:30px;}
   .psheet .ecov-title{font-size:21px;font-weight:700;letter-spacing:.5px;color:#1c1c1c;border-bottom:1px solid #ddd;padding:0 20px 22px;width:100%;text-align:center;}
@@ -865,7 +870,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='8.30.3';
+const APP_VERSION='8.30.4';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1544,12 +1549,14 @@ function printSchedule(){
   rows+=`<tr class="edg-memo"><td class="edg-memol" colspan="2">비 고</td><td colspan="${n+1}"></td></tr>`;
   /* 회사설정의 '공사일정표 로고 위치'를 그대로 따른다. 로고를 넣으면 글자 회사명은
      빼서 브랜드가 두 번 나오지 않게 한다 ('안 넣음'이면 견적서와 같은 글자 머리). */
-  const schLogo=docLogo(CO().schedLogoPos||'오른쪽',74);
-  /* 머리는 한 줄 — 제목(왼쪽) · 로고와 발행번호(오른쪽).
+  /* 로고는 시트 오른쪽 아래(서명 자리)에 둔다. 가로 위치는 회사설정의
+     '공사일정표 로고 위치'를 그대로 따르고, '안 넣음'이면 머리에 글자 회사명을 쓴다. */
+  const schLogo=docLogo(CO().schedLogoPos||'오른쪽',110);
+  /* 머리는 한 줄 — 제목(왼쪽) · 발행번호(오른쪽).
      일정표는 공정이 늘수록 아래 표가 중요해서 위쪽이 자리를 뺏으면 안 된다. */
   const head=`<div class="ed-hrow edg-head">
       <div>${edTitle('Schedule.','공 사 일 정 표')}</div>
-      <div class="edg-brand">${schLogo||`<div class="ed-co">${esc(edBrand(CO().name))}</div>`}<div class="ed-no">№ ${esc(edDot(todayStr()))}</div></div>
+      <div class="edg-brand">${schLogo?'':`<div class="ed-co">${esc(edBrand(CO().name))}</div>`}<div class="ed-no">№ ${esc(edDot(todayStr()))}</div></div>
     </div>`;
   /* 머리를 줄인 뒤 실측: 21줄까지 한 장에 들어간다. 그 이상만 자동으로 조인다 */
   const html=`<div class="ed edg autoh${totalRows>=22?' edgc':''}">
@@ -1577,6 +1584,7 @@ function printSchedule(){
       <span><i style="background:#EDEDED"></i>주말 · 공휴일</span>
     </div>
     <div class="edg-foot">※ 상기 공사일정은 현장 상황에 따라 일부 공정에 변동이 있을 수 있습니다.</div>
+    ${schLogo?`<div class="edg-sign">${schLogo}</div>`:''}
   </div>`;
   showPreview('공사 일정표',html,true);
 }
