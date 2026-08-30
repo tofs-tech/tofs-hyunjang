@@ -189,6 +189,15 @@
   .chip{display:flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;padding:3px 6px;border-radius:5px;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
   .chip .ck{width:12px;height:12px;flex:none;}
   .chip.done{opacity:.72;}
+  /* 달력 공정 칩 — 끌어서 이동 · × 눌러 삭제 */
+  .chip .cnm{overflow:hidden;text-overflow:ellipsis;flex:1;}
+  .chip .cdel{flex:none;border:0;background:none;padding:3px 5px;margin:-3px -4px -3px 0;font:inherit;font-size:13px;line-height:1;color:inherit;opacity:.45;cursor:pointer;}
+  .chip .cdel:hover{opacity:1;}
+  .chip[data-sid]{touch-action:none;}
+  .chip.dragging{opacity:.45;transform:scale(.96);}
+  .cell.dropto{box-shadow:inset 0 0 0 2px var(--good);background:color-mix(in srgb,var(--good) 9%,transparent);}
+  body.cal-dragging{cursor:grabbing;user-select:none;}
+  body.cal-dragging .chip{cursor:grabbing;}
   /* 홈 대시보드 */
   .hcard{cursor:pointer;transition:.12s;margin-top:14px;}
   .hcard:hover{border-color:var(--accent);box-shadow:0 4px 18px rgba(20,25,40,.09);}
@@ -715,7 +724,8 @@ function docLogo(pos,baseW,mt){
 /* ===== storage (로컬 캐시 + Supabase 클라우드 동기화) ===== */
 const KEY='tofs-hyunjang-v3';
 const DEFAULT_TRADES=['목공','철거','설비','타일','페인트','도배','필름','가구','전기','창호','금속','청소','통신'];
-let DB, state={tab:'home', calMonth:'2026-07', schedView:'timeline', siteSub:'sched', photoFilter:'전체', expScope:'one', estOpen:null, ctrOpen:null};
+/* schedView=null 이면 공정이 없는 현장은 달력으로 연다 — 날짜를 눌러 바로 추가하라고 */
+let DB, state={tab:'home', calMonth:'2026-07', schedView:null, siteSub:'sched', photoFilter:'전체', expScope:'one', estOpen:null, ctrOpen:null};
 const load=()=>{try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r);}catch(e){}return null;};
 const uid=()=>'id'+Math.random().toString(36).slice(2,9);
 
@@ -814,7 +824,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='7.35.0';
+const APP_VERSION='8.30.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1205,15 +1215,25 @@ function vSchedule(c){
     hi=[p.info.end,eds[eds.length-1]].filter(Boolean).sort().slice(-1)[0]; }
   if(!lo||!hi){ const base=(p.info.start||today).slice(0,7); const [by,bm]=base.split('-').map(Number);
     lo=lo||`${base}-01`; hi=hi||dkey(new Date(by,bm,0)); }
-  const view=state.schedView||'timeline';
-  const scBody = view==='calendar' ? calMarkup(p,lo,hi,today) : ganttMarkup(p,lo,hi,today);
+  /* 공정이 하나도 없으면 달력으로 연다. 한 번이라도 직접 고르면 그 선택을 따른다. */
+  const view=state.schedView||(p.schedule.length?'timeline':'calendar');
+  /* 달력은 공사기간이 아니라 '한 달 전체'를 그린다 — 기간 밖 날짜에도 공정을 넣을 수 있어야 하니까 */
+  const mk=state.calMonth||(p.info.start||today).slice(0,7);
+  const scBody = view==='calendar' ? calMarkup(p,mk,today) : ganttMarkup(p,lo,hi,today);
   const scN=p.schedule.length, scDone=p.schedule.filter(s=>s.status==='완료').length, scProg=p.schedule.filter(s=>s.status==='진행중').length;
   const todos=p.todos||[];
   c.innerHTML=`${subtabs}
   <div class="calbar">
     <div>
-      <div class="mo num" style="min-width:auto;font-size:15px">${fdateF(lo)} <span class="sub" style="font-weight:600">~</span> ${fdateF(hi)}</div>
-      <div class="sub" style="font-size:11.5px;margin-top:3px">공사기간 ${weeks(lo,hi)}주 · 공정 ${scN}개${scDone?` · <span style="color:var(--good);font-weight:600">완료 ${scDone}</span>`:''}${scProg?` · <span style="color:var(--accent);font-weight:600">진행 ${scProg}</span>`:''}</div>
+      ${view==='calendar'
+        ? `<div style="display:flex;align-items:center;gap:6px">
+             <button class="btn sm" id="calPrev" title="지난 달">◀</button>
+             <div class="mo num" style="min-width:112px;font-size:16px">${+mk.slice(0,4)}년 ${+mk.slice(5,7)}월</div>
+             <button class="btn sm" id="calNext" title="다음 달">▶</button>
+             <button class="btn sm" id="calToday" title="이번 달로">오늘</button>
+           </div>`
+        : `<div class="mo num" style="min-width:auto;font-size:15px">${fdateF(lo)} <span class="sub" style="font-weight:600">~</span> ${fdateF(hi)}</div>`}
+      <div class="sub" style="font-size:11.5px;margin-top:3px">공사기간 ${fdateF(lo)}~${fdateF(hi)} · ${weeks(lo,hi)}주 · 공정 ${scN}개${scDone?` · <span style="color:var(--good);font-weight:600">완료 ${scDone}</span>`:''}${scProg?` · <span style="color:var(--accent);font-weight:600">진행 ${scProg}</span>`:''}</div>
     </div>
     <div style="flex:1"></div>
     <div class="seg" id="schSeg"><button data-sv="timeline" class="${view==='timeline'?'on':''}">타임라인</button><button data-sv="calendar" class="${view==='calendar'?'on':''}">달력</button></div>
@@ -1221,7 +1241,7 @@ function vSchedule(c){
     <button class="btn no-print" id="noticeBtn">${svg(IC.share)}공사 안내문</button>
     <button class="btn no-print" id="printSched">${svg(IC.print)}일정표 PDF</button>
   </div>
-  ${view==='calendar'?`<div class="tip">💡 <b>날짜를 누르면</b> 그 날짜부터 시작하는 공정을 바로 추가할 수 있어요. 공정 칩을 누르면 수정됩니다.</div>`:''}
+  ${view==='calendar'?`<div class="tip">💡 <b>빈 날짜를 누르면</b> 공정을 바로 추가합니다 · <b>공정을 끌어다 놓으면</b> 날짜가 옮겨집니다(기간 유지) · <b>×</b>를 누르면 삭제, 이름을 누르면 수정됩니다.</div>`:''}
   ${scBody}
   ${view==='timeline'?`<div class="glegend"><span class="lg"><i class="gsw dash"></i>예정</span><span class="lg"><i class="gsw fill"></i>진행중</span><span class="lg"><i class="gsw done"></i>완료</span><span class="lg"><i class="gsw wknd"></i>주말·공휴일</span><span class="lg"><i class="gsw tdy"></i>오늘</span></div>`:''}
   <div class="todos">
@@ -1240,12 +1260,17 @@ function vSchedule(c){
   c.querySelectorAll('[data-qadd]').forEach(el=>el.onclick=e=>{if(e.target.closest('[data-e-type]'))return;openQuickPhase(el.dataset.qadd);});
   c.querySelectorAll('.subtabs [data-sub]').forEach(b=>b.onclick=()=>{state.siteSub=b.dataset.sub;render();});
   c.querySelectorAll('#schSeg [data-sv]').forEach(b=>b.onclick=()=>{state.schedView=b.dataset.sv;render();});
+  /* 달력 월 이동 */
+  {const pv=document.getElementById('calPrev');if(pv)pv.onclick=()=>{state.calMonth=shiftMonth(mk,-1);render();};
+   const nx=document.getElementById('calNext');if(nx)nx.onclick=()=>{state.calMonth=shiftMonth(mk,1);render();};
+   const td=document.getElementById('calToday');if(td)td.onclick=()=>{state.calMonth=today.slice(0,7);render();};}
   const ti=document.getElementById('todoInput'),tt=document.getElementById('todoTrade'),tdd=document.getElementById('todoDate');
   const addTodo=()=>{if(!ti.value.trim())return;p.todos=p.todos||[];const tr=tt.value.trim();addTrade(tr);p.todos.push({id:uid(),text:ti.value.trim(),done:false,trade:tr,tag:'현장',author:p.info.manager||'',date:tdd.value||todayStr()});save();render();};
   document.getElementById('todoAdd').onclick=addTodo; ti.onkeydown=e=>{if(e.key==='Enter')addTodo();};
   c.querySelectorAll('[data-todo]').forEach(b=>b.onclick=()=>{const t=p.todos.find(x=>x.id===b.dataset.todo);t.done=!t.done;save();render();});
   c.querySelectorAll('[data-todo-del]').forEach(b=>b.onclick=()=>{p.todos=p.todos.filter(x=>x.id!==b.dataset.todoDel);save();render();});
   wire(c);
+  wireCalChips(c);
 }
 
 /* 간트 타임라인 — 공정(행) × 날짜(열), 기간 막대. 인테리어 공정표 형식 */
@@ -1287,24 +1312,71 @@ function ganttMarkup(p,lo,hi,today){
   </div></div>`;
 }
 
-/* 연속 달력 — 공사기간 전체를 주 단위로 표시 */
-function calMarkup(p,lo,hi,today){
+/* 한 달 달력 — 공정이 없어도 항상 그린다. 빈 칸을 눌러 추가하고, 칩을 끌어 옮긴다. */
+function calMarkup(p,mk,today){
   const dows=['일','월','화','수','목','금','토'];
-  const loD=new Date(lo), hiD=new Date(hi);
-  const start=new Date(loD); start.setDate(loD.getDate()-loD.getDay());
-  const end=new Date(hiD); end.setDate(hiD.getDate()+(6-hiD.getDay()));
+  const [my,mm]=mk.split('-').map(Number);
+  const first=new Date(my,mm-1,1), last=new Date(my,mm,0);
+  const start=new Date(first); start.setDate(1-first.getDay());
+  const end=new Date(last); end.setDate(last.getDate()+(6-last.getDay()));
   const days=[]; const cur=new Date(start); while(cur<=end){days.push(new Date(cur));cur.setDate(cur.getDate()+1);}
-  const cells=days.map((d,idx)=>{
-    const k=dkey(d), dow=d.getDay(), inRange=k>=lo&&k<=hi, showMo=d.getDate()===1||idx===0;
+  const cells=days.map(d=>{
+    const k=dkey(d), dow=d.getDay(), thisMo=d.getMonth()===mm-1, showMo=d.getDate()===1;
     const items=p.schedule.filter(s=>s.start<=k&&k<=s.end);
     const chips=items.map(s=>{const col=tradeColor(s.phase);const dn=s.status==='완료';
-      return`<div class="chip ${dn?'done':''}" style="background:${mix(col,.15)};color:${col}" data-e-type="schedule" data-e-id="${s.id}" title="${esc(s.phase)} (${s.status})">
-        ${dn?`<span class="ck">${svg(IC.check)}</span>`:''}<span style="overflow:hidden;text-overflow:ellipsis">${esc(s.phase)}</span></div>`;}).join('');
-    return`<div class="cell ${inRange?'':'out'} ${(d.getMonth()%2)?'alt':''} ${k===today?'today':''}" data-qadd="${k}" style="cursor:pointer" title="눌러서 공정 추가">
+      return`<div class="chip ${dn?'done':''}" style="background:${mix(col,.15)};color:${col}" data-sid="${s.id}" data-day="${k}" data-e-type="schedule" data-e-id="${s.id}" title="${esc(s.phase)} (${s.status}) · ${esc(s.start)}~${esc(s.end)} — 끌어서 날짜 이동">
+        ${dn?`<span class="ck">${svg(IC.check)}</span>`:''}<span class="cnm">${esc(s.phase)}</span><button class="cdel" data-schdel="${s.id}" title="${esc(s.phase)} 삭제">×</button></div>`;}).join('');
+    return`<div class="cell ${thisMo?'':'out'} ${k===today?'today':''}" data-qadd="${k}" style="cursor:pointer" title="눌러서 공정 추가">
       <span class="dn ${dow===0?'s0':''} ${dow===6?'s6':''}">${d.getDate()}${showMo?`<span class="mlab">${d.getMonth()+1}월</span>`:''}</span>${HOLIDAYS[k]?`<span class="hol">${HOLIDAYS[k]}</span>`:''}
       <div class="chips">${chips}</div></div>`;
   }).join('');
   return`<div class="cal">${dows.map((d,i)=>`<div class="dow s${i}">${d}</div>`).join('')}${cells}</div>`;
+}
+/* ── 달력 칩: 끌어서 날짜 이동 · × 눌러 삭제 (마우스·터치 공용) ── */
+const shiftDate=(k,n)=>{const d=new Date(k);d.setDate(d.getDate()+n);return dkey(d);};  /* 월 이동은 기존 shiftMonth() 재사용 */
+let calDragEndAt=0;
+/* 드래그로 끝난 손짓이 클릭으로 번져 수정창·추가창을 열지 않게 막는다 */
+document.addEventListener('click',e=>{if(calDragEndAt&&Date.now()-calDragEndAt<350){e.stopPropagation();e.preventDefault();}},true);
+function wireCalChips(c){
+  c.querySelectorAll('[data-schdel]').forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    const p=proj(), s=p.schedule.find(x=>x.id===b.dataset.schdel); if(!s)return;
+    if(!confirm(`'${s.phase}' 공정을 삭제할까요?`))return;
+    p.schedule=p.schedule.filter(x=>x.id!==b.dataset.schdel); save(); render(); toast('공정을 삭제했습니다');});
+  const cal=c.querySelector('.cal'); if(!cal)return;
+  const dateAt=(x,y)=>{const el=document.elementFromPoint(x,y);const cell=el&&el.closest('.cell');return cell?cell.dataset.qadd:null;};
+  let st=null;
+  const clearMark=()=>cal.querySelectorAll('.cell.dropto').forEach(el=>el.classList.remove('dropto'));
+  const onMove=e=>{
+    if(!st)return;
+    if(!st.moved){ if(Math.abs(e.clientX-st.x)<6&&Math.abs(e.clientY-st.y)<6)return;
+      st.moved=true; st.ch.classList.add('dragging'); document.body.classList.add('cal-dragging'); }
+    e.preventDefault(); clearMark();
+    const k=dateAt(e.clientX,e.clientY);
+    if(k&&k!==st.from){const cell=cal.querySelector(`.cell[data-qadd="${k}"]`); if(cell)cell.classList.add('dropto');}};
+  const onUp=e=>{
+    document.removeEventListener('pointermove',onMove);
+    document.removeEventListener('pointerup',onUp);
+    document.removeEventListener('pointercancel',onUp);
+    clearMark(); document.body.classList.remove('cal-dragging');
+    const s0=st; st=null; if(!s0)return;
+    s0.ch.classList.remove('dragging');
+    if(!s0.moved)return;                       /* 안 움직였으면 평소대로 클릭(수정) */
+    calDragEndAt=Date.now();
+    const to=dateAt(e.clientX,e.clientY);
+    if(!to||to===s0.from)return;
+    const p=proj(), s=p.schedule.find(x=>x.id===s0.sid); if(!s)return;
+    const n=daysBetween(s0.from,to);
+    s.start=shiftDate(s.start,n); s.end=shiftDate(s.end,n);
+    save(); render(); toast(`${s.phase} → ${fdateF(s.start)} 로 옮겼습니다`);};
+  cal.querySelectorAll('.chip[data-sid]').forEach(ch=>{
+    ch.addEventListener('pointerdown',e=>{
+      if(e.pointerType==='mouse'&&e.button!==0)return;
+      if(e.target.closest('[data-schdel]'))return;
+      st={ch,sid:ch.dataset.sid,from:ch.dataset.day,x:e.clientX,y:e.clientY,moved:false};
+      document.addEventListener('pointermove',onMove,{passive:false});
+      document.addEventListener('pointerup',onUp);
+      document.addEventListener('pointercancel',onUp);});});
 }
 /* ── 달력 날짜 클릭 → 빠른 공정 추가. 기본 공정은 원터치, 직접 입력도 가능 ── */
 function openQuickPhase(dateK){
