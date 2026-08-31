@@ -873,7 +873,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='8.30.5';
+const APP_VERSION='9.1.1';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -3838,6 +3838,24 @@ function wonHangul(n){
   }
   return out;
 }
+/* 금액 입력 — 사람이 쓰는 대로 받는다: "21,600,000" · "21600000원" · "2160만" · "1억2000만".
+   type="number" 로 두면 콤마를 아예 못 치고, 중간에 값이 무효가 되면 value가 ''이 되어
+   적어둔 금액이 통째로 날아간다. 그래서 text로 받고 여기서 숫자로 되돌린다.
+   억/만은 무시하지 않고 해석한다 — 빼먹으면 계약금액이 10,000배 어긋난다. */
+function moneyNum(s){
+  const t=String(s==null?'':s).replace(/[\s,원정]/g,'');
+  if(!/[억만]/.test(t)){const d=t.replace(/[^0-9.]/g,'').split('.')[0];return d?Math.floor(+d):0;}
+  let total=0,cur='';
+  for(const ch of t){
+    if(ch==='.'||(ch>='0'&&ch<='9')){cur+=ch;continue;}
+    const u=ch==='억'?1e8:ch==='만'?1e4:0;
+    if(u){total+=(parseFloat(cur)||0)*u;cur='';}
+  }
+  return Math.floor(total+(parseFloat(cur)||0));
+}
+/* 계약총금액 밑에 띄우는 한글 금액 — 0을 몇 개 쳤는지 눈으로 잡으라고 */
+const ctrAmtKo=n=>{n=Math.floor(+n||0);
+  return n?`일금 ${wonHangul(n)}원정 (부가세 별도)`:'금액을 적으면 여기에 한글 금액이 나옵니다';};
 /* 도급 계약조건 제1~16조 (사장님 표준계약서 원문) */
 const CTR_TERMS=[
 {t:'제 1 조 【기본원칙】',b:['1. 도급인(이하 "갑"이라 한다)과 수급인(이하 "을"이라 한다)은 서로 대등한 입장에서 상호신의를 바탕으로 서로 협력하여 성실히 계약을 이행한다.']},
@@ -3892,6 +3910,15 @@ function vContract(c){
   c.querySelectorAll('[data-del-ctr]').forEach(b=>b.onclick=()=>{if(!confirm('이 계약서를 삭제할까요?'))return;p.contracts=p.contracts.filter(x=>x.id!==b.dataset.delCtr);save();render();});
 }
 function ctrField(k,label,type,val,full){return`<div class="field ${full?'full':''}"><label>${label}</label><input data-ctrf="${k}" type="${type}" value="${esc(val==null?'':val)}" ${type==='number'?'step="any"':''}></div>`;}
+/* 계약총금액 칸 — 계약서에서 제일 중요한 숫자다. 한 줄을 통째로 주고, 콤마를 찍어 보여주고,
+   지금이 '직접 입력'인지 '견적서 연동 중'인지 라벨에 붙여 둔다. 안 그러면 적는 칸으로 안 보인다. */
+function ctrMoneyField(k,label,val,badge){
+  const n=+val||0;
+  return`<div class="field full money"><label>${label} ${badge||''}</label>
+    <input data-ctrf="${k}" data-money type="text" inputmode="numeric" autocomplete="off"
+      placeholder="예: 21,600,000" value="${n?esc(numf(n)):''}">
+    <div class="hint" data-money-ko>${esc(ctrAmtKo(n))}</div></div>`;
+}
 /* ── 견적서 ↔ 계약서 금액 연동 ──
    견적서를 고르면 계약총금액이 그 견적의 총액(부가세 별도)을 따라간다.
    대금 지급 조건의 비율(%)은 이 금액으로 계산되므로, 견적을 고치면
@@ -3928,8 +3955,9 @@ function ctrEditor(c,p,ctr){
     </select>
     <div class="sub" style="font-size:11px;margin-top:5px">${
       linked ? `견적서 총액이 <b>계약총금액</b>으로 들어오고, 아래 비율(%)이 그 금액으로 계산됩니다. 견적서를 고치면 계약서도 따라갑니다. 금액을 직접 고치면 연동이 풀립니다.`
-      : ests.length ? '견적서를 고르면 계약총금액과 대금 지급 금액이 자동으로 채워집니다.'
-      : '이 현장에 만들어둔 견적서가 없습니다. 견적서 탭에서 먼저 만드세요.'}</div></div>`;
+      : ests.length ? '아래 <b>계약총금액</b> 칸에 직접 적으시면 됩니다. 견적서를 고르면 그 총액이 자동으로 채워집니다.'
+      : '아래 <b>계약총금액</b> 칸에 직접 적으시면 됩니다. (이 현장에 만들어둔 견적서가 없습니다 — 견적서 탭에서 만들면 연동할 수 있습니다.)'}</div></div>`;
+  const amtBadge=`<span class="tag" style="font-size:9px;vertical-align:2px">${linked?'견적서 연동 중':'직접 입력'}</span>`;
   c.innerHTML=`
   <div class="vhead">
     <button class="btn sm" id="ctrBack">← 목록</button>
@@ -3948,7 +3976,7 @@ function ctrEditor(c,p,ctr){
     ${ctrField('date','계약일','date',ctr.date)}
     ${ctrField('start','착공일','date',ctr.start)}
     ${ctrField('end','준공예정일','date',ctr.end)}
-    ${ctrField('amount','계약총금액 (부가세별도)','number',ctr.amount)}
+    ${ctrMoneyField('amount','계약총금액 (부가세별도)',ctr.amount,amtBadge)}
     ${ctrField('defectRate','하자보수 보증금율','text',ctr.defectRate)}
     ${ctrField('defectMonths','하자담보 책임기간(개월)','text',ctr.defectMonths)}
     ${ctrField('delayRate','지체상금율','text',ctr.delayRate)}
@@ -3994,11 +4022,32 @@ function ctrEditor(c,p,ctr){
          toast(`견적서 연동 — 계약총금액 ${won(ctr.amount)}`);return;}}
      save();render();toast('견적서 연동을 해제했습니다');
    };}
+  /* 계약총금액 — 치는 동안 콤마를 찍고 밑의 한글 금액을 같이 굴린다 */
+  {const mi=c.querySelector('[data-money]'),koEl=c.querySelector('[data-money-ko]');
+   const koPaint=n=>{if(koEl)koEl.textContent=ctrAmtKo(n);};
+   if(mi)mi.addEventListener('input',()=>{
+     const raw=mi.value;
+     /* "2160만"처럼 단위를 쓰는 중에는 손대지 않는다 — 고쳐 쓰면 커서가 튄다. 정리는 칸을 벗어날 때 */
+     if(/[억만]/.test(raw)){koPaint(moneyNum(raw));return;}
+     const before=raw.slice(0,mi.selectionStart||0).replace(/[^0-9]/g,'').length;
+     const n=moneyNum(raw),out=n?numf(n):(/[0-9]/.test(raw)?'0':'');
+     mi.value=out;
+     /* 콤마가 끼어들어도 커서가 끝으로 튀지 않게 — 앞쪽 숫자 개수를 기준으로 되돌린다 */
+     let i=0,seen=0;while(i<out.length&&seen<before){if(out[i]>='0'&&out[i]<='9')seen++;i++;}
+     try{mi.setSelectionRange(i,i);}catch(e){}
+     koPaint(n);
+   });}
   c.querySelectorAll('[data-ctrf]').forEach(inp=>inp.onchange=()=>{
-    /* 금액을 손으로 고치면 연동을 푼다 — 안 그러면 다음에 열 때 되돌아간다 */
-    if(inp.dataset.ctrf==='amount'&&ctr.estId){ctr.estId='';toast('금액을 직접 입력해 견적서 연동을 해제했습니다');
-      ctr.amount=inp.value;save();render();return;}
-    ctr[inp.dataset.ctrf]=inp.value;save();payRefresh();});
+    const money=inp.hasAttribute('data-money');
+    const v=money?moneyNum(inp.value):inp.value;
+    if(money){inp.value=v?numf(v):'';
+      const ko=c.querySelector('[data-money-ko]');if(ko)ko.textContent=ctrAmtKo(v);}
+    if(inp.dataset.ctrf==='amount'&&ctr.estId){
+      if(v===Math.floor(+ctr.amount||0))return;   /* 다시 쳐 넣었을 뿐이면 연동 유지 */
+      /* 금액을 손으로 고치면 연동을 푼다 — 안 그러면 다음에 열 때 되돌아간다 */
+      ctr.estId='';ctr.amount=v;save();render();
+      toast('금액을 직접 입력해 견적서 연동을 해제했습니다');return;}
+    ctr[inp.dataset.ctrf]=v;save();payRefresh();});
   c.querySelectorAll('tr[data-pay]').forEach(tr=>{
     const pm=ctr.payments.find(x=>x.id===tr.dataset.pay);if(!pm)return;
     tr.querySelectorAll('.ci').forEach(inp=>inp.addEventListener('input',()=>{pm[inp.dataset.pf]=inp.value;save();payRefresh();}));
