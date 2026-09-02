@@ -867,13 +867,15 @@ async function enterApp(){
     DB.priceSeedV=3;save();
   }
   DB.projects.forEach(pr=>{pr.estimates=pr.estimates||[];pr.contracts=pr.contracts||[];});
+  try{await rvtSyncOnLoad(true);}catch(e){}   /* 레빗에서 보낸 자료 반영 (표 없음·오프라인이면 조용히) */
   state.calMonth=(proj().info.start||todayStr()).slice(0,7);
   const lb=document.getElementById('logoutBtn');if(lb){lb.hidden=false;lb.onclick=()=>doLogout(false);}
   render();
+  {const pend=rvtPending(proj());if(pend)rvtLinkDialog(proj(),pend);}   /* 같은 이름의 레빗 자료가 있으면 처음 한 번 연결 확인 */
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.1.1';
+const APP_VERSION='9.2.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -903,7 +905,8 @@ document.addEventListener('visibilitychange',async()=>{
   if(!session||!DB||syncBusy||syncDirty)return;
   try{const row=await sbLoad();
     if(row&&row.updated_at&&(!lastSyncedAt||row.updated_at>lastSyncedAt)&&row.data&&row.data.projects){
-      DB=row.data;lastSyncedAt=row.updated_at;render();setSync('ok','저장됨');}}catch(e){}});
+      DB=row.data;lastSyncedAt=row.updated_at;render();setSync('ok','저장됨');}
+    if(await rvtSyncOnLoad(false))render();}catch(e){}});
 
 /* ===== helpers ===== */
 /* iOS 홈화면(설치형) 앱에서 자동 포커스가 키보드를 막는 버그가 있어 터치 기기는 자동 포커스 안 함 */
@@ -1629,13 +1632,16 @@ function vMaterials(c){
     ${p.materials.length?`<button class="btn sm no-print" id="matToDB">전체 자재DB로</button>`:''}
     <button class="btn accent no-print" id="specbookBtn">${svg(IC.print)}스펙북 PDF</button>${addBtn('materials','마감재 추가')}</div>
   <div class="tip">💡 <b>활용 팁</b> — 그룹은 <b>거실·주방</b>처럼 공간으로 나눠도 되고 <b>목공·도배</b>처럼 공정으로 나눠도 됩니다. 상태를 <b>확정</b>으로 바꾸면 발주 탭에서 발주로 연결하기 좋습니다.</div>
+  ${(()=>{if(p.rvt&&p.rvt.project){const l=p.rvt.last||{};return`<div class="card" style="padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="tag" title="레빗 일람표와 연결됨">R 레빗 연동</span><span class="sub">${esc(p.rvt.project)} · 마지막 ${p.rvt.lastAt?rvtWhen(p.rvt.lastAt):'—'} · 추가 ${l.added||0} · 갱신 ${l.updated||0} · 제외 ${l.gone||0}</span><div class="spacer"></div><button class="btn sm no-print" id="rvtNow">지금 확인</button></div>`;}
+    const pend=rvtPending(p);if(pend)return`<div class="card" style="padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="tag">R</span><span class="sub">레빗에서 보낸 자료가 있습니다 — <b>${esc(pend.project)}</b> (${((pend.payload||{}).items||[]).length}개 품목)</span><div class="spacer"></div><button class="btn sm accent no-print" id="rvtLink">연결하기</button></div>`;
+    return'';})()}
   ${p.materials.length?groups.map(g=>{const items=p.materials.filter(m=>m.group===g);
     const sub=items.reduce((s,m)=>s+matAmt(m),0);
     return`<div class="card"><div class="card-h"><span class="ct">${esc(g)}</span><span class="cs">${items.length}개 품목${sub?` · 소계 ${won(sub)}`:''}</span>
     <div class="spacer"></div><button class="btn sm no-print" data-matdb="${esc(g)}">자재DB로</button></div>
     <div class="tbl-wrap"><table><thead><tr><th style="width:64px">사진</th><th>공정</th><th>품명</th><th>브랜드</th><th>규격</th><th class="c">단위</th><th class="r">수량</th><th class="r">단가</th><th class="r">금액</th><th>상태</th><th>비고</th><th class="c" style="width:62px" title="체크하면 스펙북 PDF에서 빠집니다">숨김</th><th></th></tr></thead>
     <tbody>${items.map(m=>`<tr><td>${m.img?`<img src="${m.img}" data-imgzoom style="width:48px;height:48px;object-fit:cover;border-radius:7px;cursor:zoom-in;display:block">`:'<span class="sub">—</span>'}</td>
-      <td><span class="tag">${esc(m.phase||'—')}</span></td><td class="strong">${esc(m.name)}${estLinked(p,m)?' <span class="tag" style="font-size:9px;vertical-align:2px" title="견적서 품목과 연동 — 여기서 고치면 견적서에도 반영됩니다">견적 연동</span>':''}${detailLine(m.detail)}</td><td>${esc(m.brand||'—')}</td>
+      <td><span class="tag">${esc(m.phase||'—')}</span></td><td class="strong">${esc(m.name)}${estLinked(p,m)?' <span class="tag" style="font-size:9px;vertical-align:2px" title="견적서 품목과 연동 — 여기서 고치면 견적서에도 반영됩니다">견적 연동</span>':''}${m.rvt?(m.rvt.gone?' <span class="tag" style="font-size:9px;vertical-align:2px;color:var(--bad)" title="레빗 마지막 전송에 없는 품목 — 행은 남겨 두었습니다">레빗 제외</span>':' <span class="tag" style="font-size:9px;vertical-align:2px" title="레빗에서 관리 — 품명·브랜드·규격·세부내역·단위·수량은 레빗이 갱신합니다">R</span>'):''}${detailLine(m.detail)}</td><td>${esc(m.brand||'—')}</td>
       <td class="num sub">${esc(m.spec||'—')}</td><td class="c sub">${esc(m.unit||'')}</td><td class="r num">${esc(m.qty||'—')}</td>
       <td class="r num">${+m.price?numf(m.price):'<span class="sub">—</span>'}</td><td class="r num strong">${matAmt(m)?numf(matAmt(m)):'<span class="sub">—</span>'}</td>
       <td>${pill(m.status||'미정',MAT_ST)}</td><td class="sub">${esc(m.note||'—')}</td><td class="c">${sbHideBox(p,m.id)}</td>${rowAct('materials',m.id)}</tr>`).join('')}</tbody>
@@ -1653,6 +1659,8 @@ function vMaterials(c){
   if(toDB)toDB.onclick=()=>saveMaterialsToPriceDB(p.materials);
   c.querySelectorAll('[data-matdb]').forEach(b=>b.onclick=()=>
     saveMaterialsToPriceDB(p.materials.filter(m=>m.group===b.dataset.matdb)));
+  const rn=c.querySelector('#rvtNow');if(rn)rn.onclick=async()=>{rn.disabled=true;const ch=await rvtSyncOnLoad(true);render();if(!ch)toast('레빗에서 새로 보낸 자료가 없습니다');};
+  const rl=c.querySelector('#rvtLink');if(rl)rl.onclick=()=>{const pend=rvtPending(p);if(pend)rvtLinkDialog(p,pend);};
   c.querySelector('#specbookBtn').onclick=openSpecbook;
   wire(c);
   wireHide(c,p);
@@ -3497,8 +3505,9 @@ function syncEstToMaterials(p){
       }
     }
     const upd=(k,v)=>{const nv=v==null?'':v;if((m[k]==null?'':m[k])!==nv){m[k]=nv;changed=true;}};
-    upd('name',it.name);upd('detail',it.detail);upd('spec',it.spec);
-    upd('unit',it.unit);upd('qty',it.qty);upd('price',it.mp);
+    const rvtOwned=!!(m.rvt&&!m.rvt.gone);   /* 레빗 연동 행은 레빗 소유 칸을 견적서가 못 덮는다 */
+    if(!rvtOwned){upd('name',it.name);upd('detail',it.detail);upd('spec',it.spec);upd('unit',it.unit);upd('qty',it.qty);}
+    upd('price',it.mp);
   })));
   return changed;
 }
@@ -3509,6 +3518,113 @@ function syncMaterialToEst(p,m){
   const it=estItemById(p,m.estId);if(!it)return;
   it.name=m.name||'';it.detail=m.detail||'';it.spec=m.spec||'';
   it.unit=m.unit||'';it.qty=m.qty||'';it.mp=m.price||'';
+}
+/*RVT-BEGIN*/
+/* ===== 레빗 연동 — 레빗 일람표 → 마감재 리스트 (한 방향, 레빗이 주인) =====
+   열쇠 = m.rvt.key ("MAT:TL-1"). 레빗 소유 칸 = 품명·브랜드·규격·세부내역·단위·수량.
+   앱 소유 칸(단가·사진·구입처·상태·비고·숨김)은 어떤 경우에도 건드리지 않는다.
+   설계서: docs/superpowers/specs/2026-09-03-revit-app-link-design.md */
+const RVT_OWNED=['name','brand','spec','detail','unit','qty'];
+const RVT_PHASE={'타일':'타일','도배지':'도배','페인트':'페인트','필름':'필름','골조':'목공','위생도기':'설비','조명':'전기','전기기구':'전기','가구':'가구','케이스워크':'가구'};
+const rvtPhase=cls=>RVT_PHASE[String(cls||'').trim()]||'';
+const rvtCleanName=s=>String(s||'').replace(/^#?\s*tofs_/i,'').replace(/^#/,'').replace(/_/g,' ').replace(/\s+/g,' ').trim();
+const rvtNorm=s=>String(s||'').toLowerCase().replace(/[\s_\-·,./()#*]/g,'');
+/* 보낸 품목 → 레빗 소유 칸 값 */
+function rvtFields(it){
+  const qty=(it.qty==null||it.qty==='')?'':String(+(+it.qty).toFixed(2));
+  return{name:it.name||it.code||'',brand:it.brand||'',spec:it.spec||'',detail:it.detail||'',unit:it.unit||'',qty};
+}
+/* 병합 — {added,updated,gone,unchanged,changed}. changed=true면 호출한 쪽이 save() */
+function rvtMerge(p,payload){
+  p.materials=p.materials||[];
+  const items=(payload&&payload.items)||[];
+  const res={added:0,updated:0,gone:0,unchanged:0,changed:false};
+  const seen=new Set();
+  const at=(payload&&payload.sentAt)||new Date().toISOString();
+  items.forEach(it=>{
+    if(!it||!it.key||seen.has(it.key))return;seen.add(it.key);
+    const f=rvtFields(it);
+    const m=p.materials.find(x=>x.rvt&&x.rvt.key===it.key);
+    if(!m){
+      const nm={id:uid(),group:it.cls||it.src||'레빗',phase:rvtPhase(it.cls||it.src),status:'미정',price:'',img:'',note:'',
+        rvt:{key:it.key,src:it.src||'',code:it.code||'',at}};
+      Object.assign(nm,f);p.materials.push(nm);res.added++;res.changed=true;return;
+    }
+    let ch=false;
+    RVT_OWNED.forEach(k=>{const nv=f[k];if((m[k]==null?'':String(m[k]))!==String(nv)){m[k]=nv;ch=true;}});
+    if(m.rvt.gone){delete m.rvt.gone;ch=true;}
+    m.rvt.code=it.code||m.rvt.code;m.rvt.src=it.src||m.rvt.src;
+    if(ch){m.rvt.at=at;res.updated++;res.changed=true;}else res.unchanged++;
+  });
+  p.materials.forEach(m=>{if(m.rvt&&m.rvt.key&&!seen.has(m.rvt.key)&&!m.rvt.gone){m.rvt.gone=true;res.gone++;res.changed=true;}});
+  return res;
+}
+/* 연결 대화상자용 — 보낸 품목과 닮은 기존(미연결) 행. 코드가 이름·비고에 있으면 최우선, 아니면 낱말 겹침 */
+function rvtSuggest(p,it){
+  const cand=(p.materials||[]).filter(m=>!m.rvt);
+  const c=rvtNorm(it.code);
+  const byCode=c?cand.find(m=>rvtNorm(m.name).includes(c)||rvtNorm(m.note).includes(c)):null;
+  if(byCode)return byCode;
+  const toks=String(it.name||'').toLowerCase().split(/[\s_\-·,./()#*]+/).map(t=>t.trim()).filter(t=>t.length>=2);
+  let best=null,bs=0;
+  cand.forEach(m=>{const nm=rvtNorm(m.name);const s=toks.filter(t=>nm.includes(t)).length;if(s>bs){bs=s;best=m;}});
+  return bs>0?best:null;
+}
+/*RVT-END*/
+/* ── 레빗 연동: Supabase revit_sync 읽기 + 앱 열 때 자동 반영 ── */
+let rvtRows=null, rvtAt=0;
+const rvtWhen=iso=>{const d=new Date(iso);if(isNaN(d))return'—';const z=n=>String(n).padStart(2,'0');return`${z(d.getMonth()+1)}.${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;};
+async function rvtFetchRows(){await fresh();
+  const r=await fetch(SB_URL+'/rest/v1/revit_sync?select=project,revit_doc,payload,updated_at&user_id=eq.'+session.uid,{headers:sbH()});
+  if(r.status===404)return null;   /* 표가 아직 없음 — 조용히 */
+  if(!r.ok)throw new Error('revit_sync '+r.status);
+  return await r.json();}
+/* 연결된 현장마다 새 전송분(updated_at이 바뀐 것)만 병합. 바뀐 게 있으면 true */
+async function rvtSyncOnLoad(force){
+  if(!session||!DB)return false;
+  if(!force&&Date.now()-rvtAt<60000)return false;
+  let rows;try{rows=await rvtFetchRows();}catch(e){return false;}
+  rvtAt=Date.now();rvtRows=rows||[];
+  let changed=false;
+  DB.projects.forEach(p=>{
+    if(!p.rvt||!p.rvt.project)return;
+    const row=rvtRows.find(r=>r.project===p.rvt.project);if(!row)return;
+    if(p.rvt.seenAt===row.updated_at)return;
+    const res=rvtMerge(p,row.payload||{});
+    p.rvt.seenAt=row.updated_at;p.rvt.lastAt=row.updated_at;p.rvt.last={added:res.added,updated:res.updated,gone:res.gone};
+    changed=true;
+    if(res.added||res.updated||res.gone)toast(`레빗 반영 · ${p.info.name}: 추가 ${res.added} · 갱신 ${res.updated} · 제외 ${res.gone}`);
+  });
+  if(changed)save();
+  return changed;
+}
+/* 미연결 현장에 같은 이름의 레빗 자료가 있나 (연결 안 함으로 둔 것은 제외) */
+const rvtPending=p=>(!p.rvt||!p.rvt.project)&&rvtRows?(rvtRows.find(r=>r.project===p.info.name&&!(p.rvtIgnore||[]).includes(r.project))||null):null;
+/* 처음 한 번 — 품목마다 새로 추가 / 기존 행에 연결 을 고르고 [연결] */
+function rvtLinkDialog(p,row){
+  const items=((row.payload||{}).items||[]);
+  const free=()=>(p.materials||[]).filter(x=>!x.rvt);
+  const opts=sel=>free().map(x=>`<option value="${x.id}" ${sel&&sel.id===x.id?'selected':''}>${esc(x.name)}${x.spec?' · '+esc(x.spec):''}</option>`).join('');
+  const ov=document.createElement('div');ov.className='overlay';
+  ov.innerHTML=`<div class="modal" role="dialog" aria-modal="true" style="max-width:760px"><h2>레빗과 연결 · ${esc(p.info.name)}</h2>
+    <div class="msub">레빗 파일 <b>${esc(row.revit_doc||row.project)}</b>에서 보낸 품목 ${items.length}개가 있습니다. 연결하면 앱을 열 때마다 <b>품명·브랜드·규격·세부내역·단위·수량</b>은 레빗이 갱신하고, <b>단가·사진·구입처·상태</b>는 여기서 관리합니다. 레빗에서 사라진 품목은 지우지 않고 "레빗 제외" 표시만 합니다.</div>
+    <div class="tbl-wrap" style="max-height:52vh;overflow:auto"><table><thead><tr><th>코드</th><th>품목(레빗)</th><th class="r">수량</th><th>앱 마감재</th></tr></thead><tbody>
+    ${items.map(it=>{const s=rvtSuggest(p,it);return`<tr><td class="num">${esc(it.code)}</td><td class="strong">${esc(it.name)}<div class="sub">${esc(it.spec||'')}</div></td><td class="r num">${esc(it.qty)} ${esc(it.unit||'')}</td>
+      <td><select data-rvtkey="${esc(it.key)}"><option value="">새로 추가</option>${opts(s)}</select></td></tr>`;}).join('')}
+    </tbody></table></div>
+    <div class="modal-foot"><button type="button" class="btn ghost" id="rvtNo">연결 안 함</button><div class="right"><button type="button" class="btn" id="rvtLater">나중에</button><button type="button" class="btn green" id="rvtYes">연결</button></div></div></div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.querySelector('#rvtLater').onclick=close;
+  ov.querySelector('#rvtNo').onclick=()=>{(p.rvtIgnore=p.rvtIgnore||[]).push(row.project);save();close();render();};
+  ov.querySelector('#rvtYes').onclick=()=>{
+    ov.querySelectorAll('[data-rvtkey]').forEach(sel=>{if(!sel.value)return;
+      const m=p.materials.find(x=>x.id===sel.value),it=items.find(i=>i.key===sel.dataset.rvtkey);
+      if(m&&it&&!m.rvt)m.rvt={key:it.key,src:it.src||'',code:it.code||'',at:row.updated_at};});
+    p.rvt={project:row.project,linkedAt:new Date().toISOString()};
+    const res=rvtMerge(p,row.payload||{});
+    p.rvt.seenAt=row.updated_at;p.rvt.lastAt=row.updated_at;p.rvt.last={added:res.added,updated:res.updated,gone:res.gone};
+    save();close();render();toast(`레빗 연결 완료 · 추가 ${res.added} · 갱신 ${res.updated}`);};
 }
 function openEstSpecbook(est){
   const p=proj();
@@ -4251,6 +4367,12 @@ function openForm(type,existing,preset){
     <div class="modal-foot">${editing&&type!=='info'&&type!=='company'?`<button type="button" class="btn ghost" id="delBtn" style="color:var(--bad)">${svg(IC.trash)}삭제</button>`:type==='info'?`<button type="button" class="btn ghost" id="delProjBtn" style="color:var(--bad)">${svg(IC.trash)}프로젝트 삭제</button>`:'<span></span>'}
     <div class="right"><button type="button" class="btn" id="cancelBtn">취소</button><button type="submit" class="btn green" form="entForm">${editing?'저장':'추가'}</button></div></div></div>`;
   document.body.appendChild(overlayEl);
+  if(type==='materials'&&data.rvt&&!data.rvt.gone){   /* 레빗 연동 행 — 레빗 소유 칸은 여기서 못 고친다 */
+    RVT_OWNED.forEach(k=>{const el=overlayEl.querySelector(`[name="${k}"]`);if(!el)return;el.readOnly=true;el.style.background='var(--surface-3)';el.title='레빗에서 관리 — 레빗에서 고치고 다시 보내세요';});
+    const h=document.createElement('div');h.className='msub';h.style.cssText='margin:-6px 0 10px';
+    h.innerHTML='<b>R 레빗 연동 품목</b> — 품명·브랜드·규격·세부내역·단위·수량은 레빗에서 고치고 <b>앱으로 보내기</b>를 다시 누르세요. 단가·사진·상태·비고는 여기서 관리합니다.';
+    overlayEl.querySelector('#entForm').before(h);
+  }
   const close=()=>{overlayEl.remove();overlayEl=null;};
   overlayEl.addEventListener('mousedown',e=>{if(e.target===overlayEl)close();});
   document.addEventListener('keydown',function k(e){if(e.key==='Escape'){close();document.removeEventListener('keydown',k);}});
