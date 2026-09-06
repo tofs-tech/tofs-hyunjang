@@ -875,7 +875,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.2.0';
+const APP_VERSION='9.4.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1571,7 +1571,7 @@ function printSchedule(){
       <div><div class="ed-lab">PROJECT</div><div class="ed-val">${esc(i.name||'—')}</div></div>
       <div><div class="ed-lab">SITE</div><div class="ed-val">${esc((i.address||i.siteInfo||'').trim()||'—')}</div></div>
       <div><div class="ed-lab">PERIOD</div><div class="ed-val">${edDot(start)} <span class="dash">—</span> ${edDot(end)} <small>${weeks(start,end)}주 · ${n}일</small></div></div>
-      <div><div class="ed-lab">MANAGER</div><div class="ed-val">${esc(i.manager||'—')}${i.contact?` <small>${esc(i.contact)}</small>`:''}</div></div>
+      <div><div class="ed-lab">MANAGER</div><div class="ed-val">${esc(i.manager||'—')}</div></div>
     </div>
     <div class="edg-wrap">
       <table class="edg-t">
