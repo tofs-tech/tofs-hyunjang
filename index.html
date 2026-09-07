@@ -879,7 +879,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.4.2';
+const APP_VERSION='9.4.3';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -985,7 +985,6 @@ const TABS=[
   {id:'est',label:'견적서'},
   {id:'contract',label:'계약서'},
   {id:'orders',label:'발주서'},
-  {id:'specbook',label:'스펙북'},
   {id:'vendors',label:'업체'},
   {id:'price',label:'단가·마감재'},
   {id:'drive',label:'드라이브'},
@@ -1007,7 +1006,7 @@ function render(){ refreshTrades(); renderProjSelect(); renderHead(); renderTabs
   const npb=document.getElementById('newProjBtn');if(npb)npb.style.display=state.tab==='home'?'none':'';
   /* 홈·단가 탭은 회사 전체 화면이라 프로젝트 헤더 숨김 */
   document.getElementById('phead').style.display=(state.tab==='home'||state.tab==='price'||state.tab==='vendors'||state.tab==='laborco')?'none':'';
-  ({home:vHome,schedule:vSchedule,est:vEstimates,contract:vContract,materials:vMaterials,orders:vOrders,specbook:vSpecbook,vendors:vVendors,price:vPrice,drive:vDrive,expenses:vExpenses,laborco:vLaborCo,settle:vSettle}[state.tab])(c);
+  ({home:vHome,schedule:vSchedule,est:vEstimates,contract:vContract,materials:vMaterials,orders:vOrders,vendors:vVendors,price:vPrice,drive:vDrive,expenses:vExpenses,laborco:vLaborCo,settle:vSettle}[state.tab])(c);
 }
 const isArchived=p=>p.info.status==='완료'||p.info.status==='취소';
 function renderProjSelect(){const s=document.getElementById('projSelect');
@@ -1246,20 +1245,19 @@ function vSchedule(c){
   const p=proj();
   /* 현장관리 = 일정 + 현장일지·사진 + 마감재 + 발주 (하위 탭) */
   const raw=state.siteSub||'sched';
-  const sub=raw==='sched'?'sched':(raw==='mat'?'mat':(raw==='ord'?'ord':(raw==='spec'?'spec':(raw==='labor'?'labor':'site')))); /* 구버전 log/photo 값은 site로 흡수 */
+  const sub=raw==='sched'?'sched':(raw==='ord'?'ord':((raw==='spec'||raw==='mat')?'spec':(raw==='labor'?'labor':'site'))); /* 구버전 log/photo 값은 site로, mat(옛 마감재 탭)는 spec으로 흡수 (2026-09-07 통합) */
   const subtabs=`<div class="subtabs">
     <button class="${sub==='sched'?'on':''}" data-sub="sched">일정</button>
     <button class="${sub==='site'?'on':''}" data-sub="site">현장일지 · 사진</button>
     <button class="${sub==='labor'?'on':''}" data-sub="labor">노무비</button>
-    <button class="${sub==='mat'?'on':''}" data-sub="mat">마감재</button>
-    <button class="${sub==='ord'?'on':''}" data-sub="ord">발주서</button>
     <button class="${sub==='spec'?'on':''}" data-sub="spec">스펙북</button>
+    <button class="${sub==='ord'?'on':''}" data-sub="ord">발주서</button>
   </div>`;
   if(sub!=='sched'){
     c.innerHTML=subtabs+`<div id="siteBody"></div>`;
     c.querySelectorAll('[data-sub]').forEach(b=>b.onclick=()=>{state.siteSub=b.dataset.sub;render();});
     const body=document.getElementById('siteBody');
-    if(sub==='mat')vMaterials(body); else if(sub==='ord')vOrders(body,true); else if(sub==='spec')vSpecbook(body,true); else if(sub==='labor')vLabor(body,p); else renderSiteSub(body,p);
+    if(sub==='spec')vMaterials(body); else if(sub==='ord')vOrders(body,true); else if(sub==='labor')vLabor(body,p); else renderSiteSub(body,p);
     return;
   }
   const today=todayStr();
@@ -1630,11 +1628,11 @@ function vMaterials(c){
   const groups=[...new Set(p.materials.map(m=>m.group))];
   const hidN=p.materials.filter(m=>sbHidden(p,m.id)).length;
   c.innerHTML=`
-  <div class="vhead"><div><div class="t">마감재 리스트</div><div class="d">공간·공정별 그룹으로 이 현장의 마감재 사양을 정리합니다.${hidN?` <b style="color:var(--sub)">· 숨김 ${hidN}개는 스펙북 PDF에서 빠집니다</b>`:''}</div></div><div class="spacer"></div>
+  <div class="vhead"><div><div class="t">스펙북</div><div class="d">이 현장의 마감재 사양을 공간·공정별 그룹으로 정리하고, 그대로 고객용 스펙북으로 내보냅니다. 견적서 품목과 연동됩니다.${hidN?` <b style="color:var(--sub)">· 숨김 ${hidN}개는 스펙북 PDF에서 빠집니다</b>`:''}</div></div><div class="spacer"></div>
     <label class="sub no-print" style="display:flex;align-items:center;gap:6px;margin-right:10px;cursor:pointer;white-space:nowrap"><input type="checkbox" id="sbPriceT" ${state.sbPrice?'checked':''}>스펙북에 단가 표시</label>
     <button class="btn sm no-print" id="matFromDB">자재DB에서 가져오기</button>
     ${p.materials.length?`<button class="btn sm no-print" id="matToDB">전체 자재DB로</button>`:''}
-    <button class="btn accent no-print" id="specbookBtn">${svg(IC.print)}스펙북 PDF</button>${addBtn('materials','마감재 추가')}</div>
+    <button class="btn accent no-print" id="specbookBtn">${svg(IC.print)}스펙북 미리보기 · 보내기</button>${addBtn('materials','마감재 추가')}</div>
   <div class="tip">💡 <b>활용 팁</b> — 그룹은 <b>거실·주방</b>처럼 공간으로 나눠도 되고 <b>목공·도배</b>처럼 공정으로 나눠도 됩니다. 상태를 <b>확정</b>으로 바꾸면 발주 탭에서 발주로 연결하기 좋습니다.</div>
   ${(()=>{if(p.rvt&&p.rvt.project){const l=p.rvt.last||{};return`<div class="card" style="padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="tag" title="레빗 일람표와 연결됨">R 레빗 연동</span><span class="sub">${esc(p.rvt.project)} · 마지막 ${p.rvt.lastAt?rvtWhen(p.rvt.lastAt):'—'} · 추가 ${l.added||0} · 갱신 ${l.updated||0} · 제외 ${l.gone||0}</span><div class="spacer"></div><button class="btn sm no-print" id="rvtNow">지금 확인</button></div>`;}
     const pend=rvtPending(p);if(pend)return`<div class="card" style="padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="tag">R</span><span class="sub">레빗에서 보낸 자료가 있습니다 — <b>${esc(pend.project)}</b> (${((pend.payload||{}).items||[]).length}개 품목)</span><div class="spacer"></div><button class="btn sm accent no-print" id="rvtLink">연결하기</button></div>`;
@@ -1763,7 +1761,7 @@ function openSpecbook(){
   const p=proj();
   if(!(p.materials||[]).length){toast('등록된 마감재가 없습니다');return;}
   if(!(p.materials||[]).some(m=>!sbHidden(p,m.id))){toast('마감재가 모두 숨김 처리되어 있습니다 — 숨김 체크를 하나 이상 해제해 주세요');return;}
-  showPreview('마감재 스펙북',specbookPages(p,!!state.sbPrice),false);
+  showPreview('스펙북',specbookPages(p,!!state.sbPrice),false);
 }
 
 /* ===== 발주 (inline-editable multi-row) ===== */
@@ -3638,43 +3636,7 @@ function openEstSpecbook(est){
   if(!items.length){alert('이 견적서와 연동된 마감재가 없습니다.\n\n· 품목의 품명이 단가·마감재 DB(구분: 마감재)와 일치하거나\n· 품목 행 오른쪽의 "스펙" 체크를 켜면\n마감재 내역에 자동으로 올라가고 스펙북이 만들어집니다.');return;}
   showPreview('스펙북',specbookPages(p,!!state.sbPrice,items,fdateF(est.date)||est.date||todayStr()),false);
 }
-function vSpecbook(c,inSite){
-  const p=proj();
-  if(syncEstToMaterials(p))save();   /* 견적서 변경분을 먼저 끌어온다 */
-  const mats=p.materials||[];
-  const shown=mats.filter(m=>!sbHidden(p,m.id));   /* 숨김 뺀 것 = 고객이 보게 될 것 */
-  c.innerHTML=`
-  <div class="vhead"><div><div class="t">스펙북${inSite?` <span class="sub" style="font-size:12px">— ${esc(p.info.name)}</span>`:''}</div>
-    <div class="d"><b>견적서 내역·마감재 내역과 같은 데이터</b>입니다. 견적서 품목이 단가·마감재 DB(구분: 마감재)와 품명이 일치하거나 품목 행의 "스펙" 체크를 켜면 자동으로 올라오고, 카드를 눌러 고치면 견적서·마감재 내역에도 같이 반영됩니다.</div></div>
-    <div class="spacer"></div>
-    <button class="btn sm" id="sbGoEst">견적서로</button>
-    <button class="btn sm" id="sbGoMat">마감재 리스트로</button>
-    <label class="sub no-print" style="display:flex;align-items:center;gap:6px;margin:0 10px;cursor:pointer;white-space:nowrap"><input type="checkbox" id="sbPriceT2" ${state.sbPrice?'checked':''}>스펙북에 단가 표시</label>
-    <button class="btn accent" id="sbPdf">${svg(IC.print)}스펙북 미리보기 · 보내기</button></div>
-  ${mats.length?`<div class="card"><div class="card-h"><span class="ct">스펙북 품목</span><span class="cs">${shown.length}개 품목${mats.length-shown.length?` · 숨김 ${mats.length-shown.length}개`:''}</span></div>
-    <div class="pad" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">${mats.map(m=>{
-      const det=[m.brand,(m.detail||'').trim()].filter(Boolean).join(' — ');
-      return`<div data-sbedit="${m.id}" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;${sbHidden(p,m.id)?'opacity:.45':''}">
-        <div style="height:130px;background:var(--line)">${m.img?`<img src="${m.img}" style="width:100%;height:100%;object-fit:cover">`:`<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--sub);font-size:11px">사진 없음 — 눌러서 추가</div>`}</div>
-        <div style="padding:10px 12px">
-          <div class="strong" style="font-size:13px">${esc(m.name)}${estLinked(p,m)?' <span class="tag" style="font-size:9px;vertical-align:2px">견적 연동</span>':''}</div>
-          ${detailLine(det)}
-          <div class="sub" style="font-size:11.5px;margin-top:2px">${esc(m.spec||'—')}</div>
-          <div class="sub" style="font-size:11.5px">${esc(m.group||'')}${m.qty?` · ${esc(m.qty)} ${esc(m.unit||'')}`:''}${+m.price?` · <span class="num">${won(m.price)}</span>`:''}</div>
-          <div style="margin-top:7px;padding-top:7px;border-top:1px solid var(--line)">${sbHideBox(p,m.id,'고객에게 숨김')}</div>
-        </div></div>`;}).join('')}</div></div>`
-   :`<div class="card">${emptyB('아직 스펙북에 올라온 품목이 없습니다.','<div class="sub" style="line-height:1.8;text-align:left">① 견적서 품목의 <b>품명</b>이 단가·마감재 DB(구분: <b>마감재</b>)와 일치하면 자동으로 올라옵니다.<br>② DB에 없는 품목은 견적서 품목 행 오른쪽의 <b>"스펙" 체크</b>를 켜세요.<br>③ 마감재 탭에서 직접 추가한 품목도 여기 함께 나타납니다.</div>')}</div>`}`;
-  document.getElementById('sbGoEst').onclick=()=>{state.tab='est';render();};
-  document.getElementById('sbGoMat').onclick=()=>{state.tab='schedule';state.siteSub='mat';render();};
-  document.getElementById('sbPriceT2').onchange=e=>{state.sbPrice=e.target.checked;};
-  document.getElementById('sbPdf').onclick=()=>{
-    if(!mats.length){toast('스펙북에 올라온 품목이 없습니다 — 견적서를 쓰거나 마감재를 등록해 주세요');return;}
-    if(!shown.length){toast('품목이 모두 숨김 처리되어 있습니다 — 숨김 체크를 하나 이상 해제해 주세요');return;}
-    showPreview('스펙북',specbookPages(p,!!state.sbPrice,shown),false);
-  };
-  c.querySelectorAll('[data-sbedit]').forEach(el=>el.onclick=()=>{const m=(p.materials||[]).find(x=>x.id===el.dataset.sbedit);if(m)openForm('materials',m);});
-  wireHide(c,p);
-}
+/* (옛 카드형 스펙북 화면 vSpecbook은 2026-09-07 현장관리>스펙북(표 화면)으로 통합되며 제거) */
 
 /* ===== 단가·마감재 DB ===== */
 const PRICE_KINDS=['마감재','시공자재','시공단가'];
