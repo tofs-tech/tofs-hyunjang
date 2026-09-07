@@ -723,6 +723,7 @@
   <div id="content"></div>
 </div>
 <datalist id="dl-trades"></datalist>
+<datalist id="dl-groups"></datalist>
 <datalist id="dl-vendors"></datalist>
 <div id="printRoot"></div>
 
@@ -879,7 +880,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.4.4';
+const APP_VERSION='9.4.5';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -3902,6 +3903,7 @@ function openPricePicker(onPick,opts){
   const list=ov.querySelector('#ppList'),qi=ov.querySelector('#ppQ'),cnt=ov.querySelector('#ppCnt'),catsEl=ov.querySelector('#ppCats'),kindsEl=ov.querySelector('#ppKinds');
   const wire=()=>list.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{
     const it=DB.priceDB.find(x=>x.id===b.dataset.pick);if(!it)return;
+    if(opts&&opts.single){ov.remove();onPick(it);return;}   /* 한 개만 고르는 용도(마감재 입력창) — 닫기만 하고 render()는 안 부른다 */
     onPick(it);added++;cnt.textContent=added+'개 담음';
     b.textContent='✓';b.disabled=true;setTimeout(()=>{b.textContent='담기';b.disabled=false;},700);
   });
@@ -4253,7 +4255,7 @@ const FORMS={
     {k:'phase',l:'공정명',req:1,full:1,dl:'trades',hint:'기본 공정 목록에서 선택하거나 새로 입력'},{k:'start',l:'시작일',t:'date',req:1},{k:'end',l:'종료일',t:'date',req:1},
     {k:'status',l:'상태',t:'select',opt:Object.keys(SCH_ST)},{k:'note',l:'비고'}]},
   materials:{title:'마감재',sub:'그룹·공정별 마감재를 입력합니다.',fields:[
-    {k:'group',l:'그룹',req:1,hint:'예: 거실, 주방, 바닥'},{k:'phase',l:'공정',dl:'trades',hint:'기본 공정에서 선택'},
+    {k:'group',l:'그룹',req:1,dl:'groups',hint:'이 현장의 기존 그룹·DB 분류에서 고르거나 새로 입력'},{k:'phase',l:'공정',dl:'trades',hint:'기본 공정에서 선택'},
     {k:'name',l:'품명',req:1,full:1},{k:'detail',l:'세부내역',full:1,hint:'품명만으로 부족한 설명 — 구성·시공범위·옵션 등'},
     {k:'brand',l:'브랜드'},{k:'spec',l:'규격'},
     {k:'unit',l:'단위',hint:'예: 박스, ㎡, 개'},{k:'qty',l:'수량'},
@@ -4344,6 +4346,26 @@ function openForm(type,existing,preset){
     <div class="modal-foot">${editing&&type!=='info'&&type!=='company'?`<button type="button" class="btn ghost" id="delBtn" style="color:var(--bad)">${svg(IC.trash)}삭제</button>`:type==='info'?`<button type="button" class="btn ghost" id="delProjBtn" style="color:var(--bad)">${svg(IC.trash)}프로젝트 삭제</button>`:'<span></span>'}
     <div class="right"><button type="button" class="btn" id="cancelBtn">취소</button><button type="submit" class="btn green" form="entForm">${editing?'저장':'추가'}</button></div></div></div>`;
   document.body.appendChild(overlayEl);
+  if(type==='materials'){
+    /* 그룹 선택 목록 — 이 현장에 이미 있는 그룹 먼저, 그 다음 단가 DB 분류 (2026-09-07 사장님 요청) */
+    const dg=document.getElementById('dl-groups');
+    if(dg){const p=proj();const own=[...new Set((p&&p.materials||[]).map(m=>m.group).filter(Boolean))];
+      const cats=PRICE_CATS.filter(ct=>!own.includes(ct));
+      dg.innerHTML=[...own.map(g=>`<option value="${esc(g)}">이 현장</option>`),...cats.map(g=>`<option value="${esc(g)}">DB 분류</option>`)].join('');}
+    if(!(data.rvt&&!data.rvt.gone)){
+      /* 단가·마감재 DB에서 골라 칸 채우기 — 고르면 이 창의 빈 칸이 채워지고, 고친 뒤 추가/저장 */
+      const bar=document.createElement('div');bar.style.cssText='display:flex;align-items:center;gap:10px;margin:-4px 0 12px;flex-wrap:wrap';
+      bar.innerHTML=`<button type="button" class="btn sm accent" id="matPickDB">${svg(IC.box)}단가·마감재 DB에서 고르기</button><span class="sub" style="font-size:11.5px">고르면 품명·브랜드·규격·단위·단가·사진이 채워집니다</span>`;
+      overlayEl.querySelector('#entForm').before(bar);
+      bar.querySelector('#matPickDB').onclick=()=>openPricePicker(it=>{
+        const setv=(k,v,force)=>{const el=overlayEl&&overlayEl.querySelector(`[name="${k}"]`);if(!el)return;if(force||!el.value)el.value=v==null?'':v;};
+        setv('group',it.cat||'');setv('name',it.name||'',true);setv('detail',it.detail||'',true);setv('brand',it.brand||'',true);
+        setv('spec',it.spec||'',true);setv('unit',it.unit||'',true);setv('price',+it.mp||'',true);setv('note',it.note||'');
+        if(it.img){setv('img',it.img,true);const pv=overlayEl.querySelector('[data-imgprev="img"]');if(pv){pv.src=it.img;pv.style.display='';}const cl=overlayEl.querySelector('[data-imgclear="img"]');if(cl)cl.style.display='';}
+        toast(`'${it.name}' 을 불러왔습니다 — 수량·상태를 채우고 ${editing?'저장':'추가'}를 누르세요`);
+      },{kind:'전체',single:true});
+    }
+  }
   if(type==='materials'&&data.rvt&&!data.rvt.gone){   /* 레빗 연동 행 — 레빗 소유 칸은 여기서 못 고친다 */
     RVT_OWNED.forEach(k=>{const el=overlayEl.querySelector(`[name="${k}"]`);if(!el)return;el.readOnly=true;el.style.background='var(--surface-3)';el.title='레빗에서 관리 — 레빗에서 고치고 다시 보내세요';});
     const h=document.createElement('div');h.className='msub';h.style.cssText='margin:-6px 0 10px';
