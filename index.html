@@ -698,6 +698,10 @@
     body.print-doc #printRoot .ed.edg.autoh{padding:9mm 10mm;min-height:209mm;}
     body.print-doc #printRoot .edcover-grid{padding:12mm 12mm 0;} /* 하단 로고는 회사정보 구분선 위에 얹힌다 */
     body.print-doc #printRoot .ed.edcover{padding-bottom:4mm;} /* 표지 하단 묶음(로고·회사정보)을 더 아래로 */
+    /* 계약서도 @page 여백 0 — 브라우저 머리글·바닥글(날짜·주소·쪽수)이 안 찍히도록. 여백 12mm는 각 장의 패딩이 대신한다 */
+    body.print-doc #printRoot .ctrcov,body.print-doc #printRoot .ctrmain{padding:calc(12mm + 36px) 12mm 12mm;}
+    body.print-doc #printRoot .ctrsign{padding:12mm 12mm calc(12mm + 40px);}
+    body.print-doc #printRoot .ctrterms{padding:12mm;}
   }
 </style>
 
@@ -875,7 +879,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.4.1';
+const APP_VERSION='9.4.2';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1173,7 +1177,7 @@ function openPrint(html,land){
   // 용지 방향을 동적으로 지정(명명 @page는 일부 브라우저에서 무시됨 → 직접 주입)
   // 에디토리얼 문서(.ed)는 여백 0 — 크림 종이가 가장자리까지 차고, 브라우저 머리글·바닥글(날짜·주소·쪽수)도 사라진다.
   // 여백 몫은 @media print의 .ed 패딩(12mm)이 대신한다.
-  const isEd=/class="ed[\s"]/.test(html);
+  const isEd=/class="(ed[\s"]|ctr(cov|main|sign|terms))/.test(html); /* 계약서도 여백 0 — 브라우저 날짜·주소·쪽수 제거 (2026-09-07) */
   let ps=document.getElementById('pageStyle'); if(!ps){ps=document.createElement('style');ps.id='pageStyle';document.head.appendChild(ps);}
   ps.textContent=`@page{size:A4 ${land?'landscape':'portrait'};margin:${isEd?'0':(land?'8mm':'12mm')};}`;
   document.body.classList.add('print-doc');
