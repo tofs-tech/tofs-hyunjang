@@ -879,7 +879,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.4.3';
+const APP_VERSION='9.4.4';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1630,7 +1630,7 @@ function vMaterials(c){
   c.innerHTML=`
   <div class="vhead"><div><div class="t">스펙북</div><div class="d">이 현장의 마감재 사양을 공간·공정별 그룹으로 정리하고, 그대로 고객용 스펙북으로 내보냅니다. 견적서 품목과 연동됩니다.${hidN?` <b style="color:var(--sub)">· 숨김 ${hidN}개는 스펙북 PDF에서 빠집니다</b>`:''}</div></div><div class="spacer"></div>
     <label class="sub no-print" style="display:flex;align-items:center;gap:6px;margin-right:10px;cursor:pointer;white-space:nowrap"><input type="checkbox" id="sbPriceT" ${state.sbPrice?'checked':''}>스펙북에 단가 표시</label>
-    <button class="btn sm no-print" id="matFromDB">자재DB에서 가져오기</button>
+    <button class="btn sm no-print" id="matFromDB">단가·마감재 DB에서 담기</button>
     ${p.materials.length?`<button class="btn sm no-print" id="matToDB">전체 자재DB로</button>`:''}
     <button class="btn accent no-print" id="specbookBtn">${svg(IC.print)}스펙북 미리보기 · 보내기</button>${addBtn('materials','마감재 추가')}</div>
   <div class="tip">💡 <b>활용 팁</b> — 그룹은 <b>거실·주방</b>처럼 공간으로 나눠도 되고 <b>목공·도배</b>처럼 공정으로 나눠도 됩니다. 상태를 <b>확정</b>으로 바꾸면 발주 탭에서 발주로 연결하기 좋습니다.</div>
@@ -3723,14 +3723,14 @@ const detailLine=d=>(d||'').trim()?`<div class="sub" style="font-weight:400;font
 const finThumb=x=>x.img?`<img src="${x.img}" style="width:54px;height:42px;object-fit:cover;border-radius:6px">`:`<div style="width:54px;height:42px;border-radius:6px;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:9.5px;color:var(--sub)">사진</div>`;
 /* 견적서와 같은 순서: 품명 → 세부내역 → 규격 (3방향 연동이라 눈에 익은 자리가 같아야 한다) */
 function priceFinTable(rows){
-  return`<table><thead><tr><th style="width:60px">사진</th><th>분류</th><th>품명</th><th>세부내역</th><th>규격</th><th>브랜드·모델</th><th class="c">단위</th><th class="r">가격</th><th>구입처</th><th>비고</th><th></th></tr></thead>
+  return`<table><thead><tr><th style="width:60px">사진</th><th>분류</th><th>품명</th><th>세부내역</th><th>규격</th><th>브랜드·모델</th><th class="c">단위</th><th class="r">가격</th><th>구입처</th><th>비고</th><th></th><th></th></tr></thead>
     <tbody>${rows.map(x=>`<tr><td>${finThumb(x)}</td><td><span class="tag">${esc(x.cat||'—')}</span></td><td class="strong">${esc(x.name)}</td><td class="sub">${esc(x.detail||'—')}</td><td class="sub num">${esc(x.spec||'—')}</td><td class="sub">${esc(x.brand||'—')}</td>
-      <td class="c sub">${esc(x.unit||'')}</td><td class="r num">${+x.mp?won(x.mp):'—'}</td><td class="sub">${esc(x.vendor||'—')}</td><td class="sub">${esc(x.note||'')}</td>${rowAct('price',x.id)}</tr>`).join('')}</tbody></table>`;
+      <td class="c sub">${esc(x.unit||'')}</td><td class="r num">${+x.mp?won(x.mp):'—'}</td><td class="sub">${esc(x.vendor||'—')}</td><td class="sub">${esc(x.note||'')}</td><td class="no-print"><button class="btn sm" data-tosb="${x.id}" title="현재 현장의 스펙북에 담기" style="white-space:nowrap">스펙북 담기</button></td>${rowAct('price',x.id)}</tr>`).join('')}</tbody></table>`;
 }
 function priceGenTable(rows,showKind){
-  return`<table><thead><tr>${showKind?'<th>구분</th>':''}<th>분류</th><th>품명</th><th>세부내역</th><th>규격</th><th class="c">단위</th><th class="r">자재 단가</th><th class="r">노무 단가</th><th>비고</th><th></th></tr></thead>
+  return`<table><thead><tr>${showKind?'<th>구분</th>':''}<th>분류</th><th>품명</th><th>세부내역</th><th>규격</th><th class="c">단위</th><th class="r">자재 단가</th><th class="r">노무 단가</th><th>비고</th><th></th><th></th></tr></thead>
     <tbody>${rows.map(x=>`<tr>${showKind?`<td><span class="tag">${esc(x.kind||'시공자재')}</span></td>`:''}<td><span class="tag">${esc(x.cat||'—')}</span></td><td class="strong">${esc(x.name)}${x.brand?` <span class="sub" style="font-weight:400">· ${esc(x.brand)}</span>`:''}</td><td class="sub">${esc(x.detail||'—')}</td><td class="sub num">${esc(x.spec||'—')}</td>
-      <td class="c sub">${esc(x.unit||'')}</td><td class="r num">${+x.mp?won(x.mp):'—'}</td><td class="r num">${+x.lp?won(x.lp):'—'}</td><td class="sub">${esc(x.note||'')}</td>${rowAct('price',x.id)}</tr>`).join('')}</tbody></table>`;
+      <td class="c sub">${esc(x.unit||'')}</td><td class="r num">${+x.mp?won(x.mp):'—'}</td><td class="r num">${+x.lp?won(x.lp):'—'}</td><td class="sub">${esc(x.note||'')}</td><td class="no-print"><button class="btn sm" data-tosb="${x.id}" title="현재 현장의 스펙북에 담기" style="white-space:nowrap">스펙북 담기</button></td>${rowAct('price',x.id)}</tr>`).join('')}</tbody></table>`;
 }
 function vPrice(c){
   migratePrice();
@@ -3758,6 +3758,15 @@ function vPrice(c){
   c.querySelectorAll('[data-e-type="price"]').forEach(b=>b.onclick=()=>{const it=DB.priceDB.find(x=>x.id===b.dataset.eId);openForm('price',it);});
   c.querySelectorAll('[data-d-type="price"]').forEach(b=>b.onclick=()=>{if(!confirm('삭제할까요?'))return;DB.priceDB=DB.priceDB.filter(x=>x.id!==b.dataset.dId);save();render();});
   c.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>openForm('price',null,{kind:kindF!=='전체'?kindF:'시공자재',cat:catF!=='전체'?catF:''}));
+  /* 행 → 현재 현장 스펙북에 담기 (2026-09-07) */
+  c.querySelectorAll('[data-tosb]').forEach(b=>b.onclick=()=>{
+    const p=proj();if(!p){toast('먼저 현장을 만들어 주세요');return;}
+    const it=DB.priceDB.find(x=>x.id===b.dataset.tosb);if(!it)return;
+    if((p.materials||[]).some(m=>m.name===it.name&&(m.spec||'')===(it.spec||''))){toast(`'${it.name}' 은 이미 ${p.info.name} 스펙북에 있습니다`);return;}
+    matFromPrice(p,it);save();
+    b.textContent='✓ 담음';b.disabled=true;setTimeout(()=>{b.textContent='스펙북 담기';b.disabled=false;},900);
+    toast(`'${it.name}' → ${p.info.name} 스펙북에 담았습니다`);
+  });
 }
 /* 분류(카테고리) 직접 관리 — 추가·이름변경·삭제 */
 function openCatManager(){
@@ -3843,13 +3852,15 @@ function saveMaterialsToPriceDB(items){
   toast('자재DB 저장: '+[a?`신규 ${a}개`:'',u?`갱신 ${u}개`:''].filter(Boolean).join(' · '));
 }
 /* 자재DB → 현장 마감재. 분류가 그룹이 되고, 수량은 현장에서 채운다. */
+/* 단가 DB 품목 → 현장 스펙북(마감재) 행. 스펙북 피커와 DB 탭의 "스펙북 담기"가 같이 쓴다 */
+function matFromPrice(p,it){
+  p.materials.push({id:uid(),group:it.cat||'미분류',phase:'',name:it.name||'',brand:it.brand||'',
+    spec:it.spec||'',unit:it.unit||'',qty:'',price:it.mp||'',status:'미정',img:it.img||'',note:it.note||'',detail:it.detail||''});
+}
 function importMaterialsFromDB(){
   const p=proj();
-  openPricePicker(it=>{
-    p.materials.push({id:uid(),group:it.cat||'미분류',phase:'',name:it.name||'',brand:it.brand||'',
-      spec:it.spec||'',unit:it.unit||'',qty:'',price:it.mp||'',status:'미정',img:it.img||'',note:it.note||'',detail:it.detail||''});
-    save();
-  },{kind:'마감재'});
+  /* 구분을 마감재로 잠그지 않는다 — 시공자재·시공단가도 스펙북에 담을 수 있어야 한다 (2026-09-07 사장님 요청) */
+  openPricePicker(it=>{matFromPrice(p,it);save();},{kind:'전체'});
 }
 function saveItemsToPriceDB(items,cat){
   let a=0,u=0;
