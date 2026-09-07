@@ -880,7 +880,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.4.5';
+const APP_VERSION='9.4.6';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1716,7 +1716,7 @@ function specbookPages(p,sp,itemsArg,dateStr){
   ruler.remove();
   const MAXH=250*pxPerMm;            /* 내용 262mm − 하단 회사 푸터 몫 12mm */
 
-  const pages=[];
+  const pages=[edSpecFrontCover(p,d)];   /* 첫 장 = 표지 (견적서 전면 표지와 동일 구성) */
   let edEl=null, tbody=null, pageEmpty=true;
   const overflow=()=>inner.scrollHeight>MAXH;
   const newPage=()=>{inner.innerHTML=`<div class="ed autoh">${pageHead}</div>`;edEl=inner.firstElementChild;tbody=null;pageEmpty=true;};
@@ -3159,8 +3159,16 @@ const edEstSecs=(est,cal)=>{
     items:(sec.items||[]).filter(it=>(it.name||'').trim()||+it.qty||(+it.mp||0)+(+it.lp||0))
   }));
 };
-/* 전면 표지 — 프로젝트명·날짜·회사 로고. 로고 위치(9분할)와 폭(mm)은 견적서 편집에서 지정 */
-function edEstFrontCover(est){
+/* 전면 표지 — 프로젝트명·날짜·회사 로고. 로고 위치(9분할)와 폭(mm)은 견적서 편집에서 지정.
+   견적서·스펙북이 같은 표지를 쓴다(o = {date, logoPos, logoW, lab}) */
+function edEstFrontCover(est){return edFrontCover({date:est.date,logoPos:est.logoPos,logoW:est.logoW,lab:'PROJECT'});}
+/* 스펙북 표지 — 로고 위치·폭은 이 현장의 최근 견적서 설정을 따른다 (2026-09-07 사장님 요청) */
+function edSpecFrontCover(p,d){
+  const est=(p.estimates||[]).slice().reverse().find(e=>e.logoPos||e.logoW)||{};
+  return edFrontCover({date:d,logoPos:est.logoPos,logoW:est.logoW,lab:'SPEC BOOK'});
+}
+function edFrontCover(o){
+  const est=o||{};
   const i=proj().info,co=CO();
   const pos=est.logoPos||'pn',w=Math.max(10,Math.min(160,+est.logoW||40));
   /* 'pn' = 프로젝트명 바로 위(가운데 흐름), 나머지는 9분할 격자 배치 */
@@ -3176,7 +3184,7 @@ function edEstFrontCover(est){
     <div class="ed-top"><div></div><div class="ed-no">№ ${esc(edDateNo(est.date))}</div></div>
     <div class="edcover-mid">
       ${midLogo}
-      <div class="ed-lab">PROJECT</div>
+      <div class="ed-lab">${esc(est.lab||'PROJECT')}</div>
       <div class="edcover-name">${esc(i.name||'')}</div>
       <div class="edcover-date">${esc(edDot(est.date))}</div>
     </div>
