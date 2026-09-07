@@ -875,7 +875,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.4.0';
+const APP_VERSION='9.4.1';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -2494,7 +2494,7 @@ function noticeSheet(d){
   const k=Math.max(.5,Math.min(2,(+d.fontScale||100)/100));
   const fz=n=>Math.round(n*k*10)/10+'px';
   const period=d.start&&d.end?`${fdateF(d.start)} ~ ${fdateF(d.end)} <span style="font-weight:500;color:#8D877B;font-size:${fz(12)}">(약 ${weeks(d.start,d.end)}주)</span>`:esc(fdateF(d.start));
-  const row=(en,kk,v)=>`<div style="display:flex;gap:22px;padding:${fz(13)} 2px;border-bottom:1px solid #E4DED1;align-items:baseline">
+  const row=(en,kk,v)=>`<div style="display:flex;gap:22px;padding:${fz(13)} 2px;border-bottom:1px solid #E4DED1;align-items:center">
     <div style="width:130px;flex:none"><div class="ed-lab" style="font-size:${fz(8)}">${en}</div><div style="font-weight:800;font-size:${fz(12.5)};margin-top:3px">${kk}</div></div>
     <div style="font-size:${fz(15)};font-weight:600;line-height:1.55;flex:1">${v}</div></div>`;
   const crow=(kk,v)=>v?`<span style="margin-right:22px;white-space:nowrap"><span class="fl" style="font-weight:800;letter-spacing:.15em;margin-right:7px">${kk}</span><span style="color:#5A554A">${v}</span></span>`:'';
