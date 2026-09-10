@@ -59,6 +59,7 @@
     <button class="btn red" id="btnRestoreLocal" disabled>이 기기 데이터로 클라우드 복원</button>
     <button class="btn" id="btnRestoreFile" disabled>백업 파일(.json)로 클라우드 복원</button>
     <input type="file" id="file" accept="application/json,.json" hidden>
+    <div id="fromBox"></div>
     <div class="log" id="log"></div>
   </div>
 
@@ -227,14 +228,15 @@ $('btnLogin').onclick=async()=>{
 };
 
 /* --- 3. 복원 --- */
-async function restore(data,label){
+async function restore(data,label,opt){
+  opt=opt||{};
   const s=summarize(data);
   if(!s||s.np<1){alert('복원할 데이터에 현장이 없습니다. 중단합니다.');return;}
   if(!(await ensureSession())){alert('먼저 2번에서 로그인해 주세요.');return;}
   if(!cloudRow)await loadCloud();
   const cs=cloudRow?summarize(cloudRow.data):null;
   const msg=`클라우드를 덮어씁니다.\n\n[지금 클라우드] 현장 ${cs?cs.np:0}개 · 마지막 흔적 ${cs?cs.last:'—'} · ${cloudRow?new Date(cloudRow.updated_at).toLocaleString('ko-KR'):'행 없음'}\n\n[복원할 내용: ${label}] 현장 ${s.np}개 · 마지막 흔적 ${s.last} · ${s.kb} KB\n${s.rows.map(r=>' · '+r.name).join('\n')}\n\n계속할까요?`;
-  if(!confirm(msg))return;
+  if(!opt.skipConfirm&&!confirm(msg))return;
   /* 되돌릴 수 있게 지금 클라우드 내용을 남긴다 */
   if(cloudRow&&cloudRow.data){
     try{localStorage.setItem(KEY+'-cloud-before-restore-'+stamp(),JSON.stringify(cloudRow.data));}catch(e){}
@@ -261,9 +263,29 @@ $('file').onchange=e=>{
   rd.readAsText(f);e.target.value='';
 };
 
+/* ?from=http://localhost:PORT/x.json — 이 컴퓨터에서 띄운 파일 통로로 백업을 읽어 온다(파일 선택창 없이).
+   같은 컴퓨터(localhost)에서만 받고, 화면에 요약을 보여준 뒤 버튼을 눌러야 복원한다. */
+async function loadFrom(){
+  const from=new URLSearchParams(location.search).get('from');if(!from)return;
+  const box=$('fromBox');
+  let u=null;try{u=new URL(from);}catch(e){}
+  if(!u||!/^https?:$/.test(u.protocol)||!/^(localhost|127\.0\.0\.1)$/.test(u.hostname)){box.innerHTML='<div class="bad" style="margin-top:12px">from 주소는 이 컴퓨터(localhost)만 허용됩니다.</div>';return;}
+  box.innerHTML='<div class="dim" style="margin-top:12px">파일 통로에서 읽는 중… '+esc(from)+'</div>';
+  try{
+    const r=await fetch(from,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
+    const d=await r.json();const s=summarize(d);
+    if(!s){box.innerHTML='<div class="bad" style="margin-top:12px">이 앱의 백업 파일이 아닙니다.</div>';return;}
+    box.innerHTML='<div style="margin-top:14px;padding-top:10px;border-top:1px dashed #dfe3dd"><b>파일 통로에서 받은 백업</b> <span class="dim">'+esc(from)+'</span>'+summaryHtml(s)+
+      (s.np>0?'<button class="btn red" id="btnRestoreFrom">이 백업으로 클라우드 복원</button>':'<div class="dim">현장이 없어 복원에 쓸 수 없습니다.</div>')+'</div>';
+    const b=$('btnRestoreFrom');if(b)b.onclick=()=>{b.disabled=true;restore(d,'파일 통로 백업 '+from,{skipConfirm:true}).finally(()=>{b.disabled=false;});};
+    log('파일 통로에서 백업을 읽었습니다: 현장 '+s.np+'개, '+s.kb+' KB');
+  }catch(e){box.innerHTML='<div class="bad" style="margin-top:12px">파일 통로에서 읽지 못했습니다: '+esc(e.message||e)+'</div>';}
+}
+
 readLocal();
 readExtras();
 loadCloud();
+loadFrom();
 </script>
 </body>
 </html>
