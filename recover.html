@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>TOFS 현장관리 · 복구 도구</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR","Malgun Gothic",sans-serif;background:#f3f4f1;color:#1f2a22;margin:0;padding:16px;line-height:1.5}
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:20px;margin:8px 0 4px}
+  .sub{color:#5b6660;font-size:13px;margin-bottom:12px}
+  .card{background:#fff;border:1px solid #dfe3dd;border-radius:12px;padding:16px;margin-bottom:14px}
+  .card h2{font-size:15px;margin:0 0 10px}
+  .warn{background:#fff4e5;border-color:#f0c58a;color:#6b4a12}
+  .ok{color:#2f6b3a;font-weight:600} .bad{color:#b23b2e;font-weight:600} .dim{color:#7a847d}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin:6px 0}
+  td,th{border-bottom:1px solid #e6e9e4;padding:6px 4px;text-align:left;vertical-align:top}
+  th{color:#5b6660;font-weight:600;white-space:nowrap}
+  .btn{display:inline-block;border:1px solid #c9d1c8;background:#fff;border-radius:8px;padding:10px 14px;font-size:14px;cursor:pointer;margin:6px 6px 0 0;color:#1f2a22}
+  .btn.green{background:#3E5A43;color:#fff;border-color:#3E5A43}
+  .btn.red{background:#b23b2e;color:#fff;border-color:#b23b2e}
+  .btn[disabled]{opacity:.4;cursor:default}
+  input{font-size:14px;padding:9px;border:1px solid #c9d1c8;border-radius:8px;width:100%;box-sizing:border-box;margin:4px 0 8px}
+  label{font-size:12px;color:#5b6660}
+  .log{font-size:12px;color:#5b6660;white-space:pre-wrap;margin-top:10px;font-family:ui-monospace,Consolas,monospace}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:13px;margin:4px 0 8px}
+  .kv b{color:#5b6660;font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>TOFS 현장관리 · 복구 도구</h1>
+  <div class="sub">앱을 실행하지 않고, <b>이 브라우저에 남아 있는 데이터</b>와 <b>클라우드 상태</b>만 읽습니다. 3번의 버튼을 누르기 전에는 아무것도 바꾸지 않습니다.</div>
+  <div class="card warn"><b>주의</b> — 복구가 끝날 때까지 현장관리 앱 본체는 열지 마세요. 앱에서 무언가 수정하면 이 기기에 남은 사본이 지워집니다. 이 페이지는 앱을 쓰던 <b>같은 브라우저·같은 프로필</b>에서 열어야 데이터가 보입니다.</div>
+
+  <div class="card">
+    <h2>1. 이 기기(브라우저)에 저장된 데이터</h2>
+    <div id="local" class="dim">읽는 중…</div>
+    <button class="btn green" id="btnExport" disabled>이 기기 데이터를 백업 파일로 저장</button>
+  </div>
+
+  <div class="card">
+    <h2>2. 클라우드에 있는 데이터</h2>
+    <div id="cloud" class="dim">확인 중…</div>
+    <div id="loginBox" hidden>
+      <div class="sub">이 브라우저에 로그인 정보가 없습니다. 앱과 같은 계정으로 로그인하면 클라우드를 확인할 수 있습니다.</div>
+      <label>이메일</label><input id="liEmail" type="email" autocomplete="username">
+      <label>비밀번호</label><input id="liPw" type="password" autocomplete="current-password">
+      <button class="btn" id="btnLogin">로그인</button>
+    </div>
+    <button class="btn" id="btnCloud">다시 확인</button>
+  </div>
+
+  <div class="card">
+    <h2>3. 복원</h2>
+    <div class="sub">복원하면 클라우드의 지금 내용을 <b>덮어씁니다</b>. 덮어쓰기 전에 지금 클라우드 내용을 이 브라우저 안에 따로 남겨 두고, 파일로도 내려받습니다.</div>
+    <button class="btn red" id="btnRestoreLocal" disabled>이 기기 데이터로 클라우드 복원</button>
+    <button class="btn" id="btnRestoreFile" disabled>백업 파일(.json)로 클라우드 복원</button>
+    <input type="file" id="file" accept="application/json,.json" hidden>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script>
+/* ===== 앱과 같은 저장 위치·접속 정보 (index.html 과 동일) ===== */
+const KEY='tofs-hyunjang-v3', SES_KEY=KEY+'-session';
+const SB_URL='https://ygwadlnjzsldswrxiklw.supabase.co';
+const SB_KEY='sb_publishable_mWyTLDE0tyH-g0wnxJeulw_Z-r8c1mA';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const log=m=>{$('log').textContent+=new Date().toLocaleTimeString('ko-KR')+'  '+m+'\n';};
+let localDB=null, cloudRow=null, session=null;
+
+/* --- 요약 --- */
+const isBlank=p=>((p.info&&p.info.name||'').trim()==='새 프로젝트')&&!(p.schedule||[]).length&&!(p.expenses||[]).length&&!(p.estimates||[]).length&&!(p.contracts||[]).length&&!(p.logs||[]).length&&!(p.materials||[]).length&&!+(p.info&&p.info.amount);
+function summarize(d){
+  if(!d||typeof d!=='object'||!Array.isArray(d.projects))return null;
+  const json=JSON.stringify(d);
+  const today=new Date().toISOString().slice(0,10);
+  const dates=(json.match(/20\d\d-\d\d-\d\d/g)||[]).filter(x=>x<=today).sort();
+  const real=d.projects.filter(p=>!isBlank(p));
+  return {
+    np:real.length, blank:d.projects.length-real.length,
+    kb:Math.round(json.length/1024),
+    last:dates.length?dates[dates.length-1]:'—',
+    price:(d.priceDB||[]).length, vendors:(d.vendors||[]).length, workers:(d.workersDB||[]).length,
+    rows:real.map(p=>({name:(p.info&&p.info.name)||'(이름 없음)',status:(p.info&&p.info.status)||'',
+      period:((p.info&&p.info.start)||'')+' ~ '+((p.info&&p.info.end)||''),
+      est:(p.estimates||[]).length,ctr:(p.contracts||[]).length,sch:(p.schedule||[]).length,
+      logs:(p.logs||[]).length,photos:(p.photos||[]).length,mat:(p.materials||[]).length}))
+  };
+}
+function summaryHtml(s){
+  if(!s)return'<span class="bad">이 앱의 데이터 형식이 아닙니다.</span>';
+  let h=`<div class="kv"><b>현장</b><span>${s.np}개${s.blank?` <span class="dim">(빈 '새 프로젝트' ${s.blank}개 제외)</span>`:''}</span>
+    <b>마지막 흔적 날짜</b><span>${esc(s.last)}</span>
+    <b>단가 DB</b><span>${s.price}건 · 업체 ${s.vendors} · 작업자 ${s.workers}</span>
+    <b>용량</b><span>${s.kb} KB</span></div>`;
+  if(s.rows.length){
+    h+='<table><tr><th>현장</th><th>상태</th><th>기간</th><th>견적</th><th>계약</th><th>공정</th><th>일지</th><th>사진</th><th>마감재</th></tr>';
+    h+=s.rows.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.status)}</td><td>${esc(r.period)}</td><td>${r.est}</td><td>${r.ctr}</td><td>${r.sch}</td><td>${r.logs}</td><td>${r.photos}</td><td>${r.mat}</td></tr>`).join('');
+    h+='</table>';
+  }
+  return h;
+}
+
+/* --- 1. 이 기기 --- */
+function readLocal(){
+  let raw=null;try{raw=localStorage.getItem(KEY);}catch(e){}
+  if(!raw){$('local').innerHTML='<span class="bad">이 브라우저에는 저장된 앱 데이터가 없습니다.</span> <span class="dim">앱을 쓰던 브라우저(프로필)가 맞는지 확인해 주세요.</span>';return;}
+  try{localDB=JSON.parse(raw);}catch(e){$('local').innerHTML='<span class="bad">저장된 데이터를 읽지 못했습니다 (형식 오류).</span>';return;}
+  const s=summarize(localDB);
+  $('local').innerHTML=summaryHtml(s);
+  if(s){
+    $('btnExport').disabled=false;
+    if(s.np>0){$('btnRestoreLocal').disabled=false;}
+    else $('local').innerHTML+='<div class="dim">이 기기에는 빈 데이터만 있어 복원에 쓸 수 없습니다.</div>';
+  }
+}
+function stamp(){const d=new Date(),p=n=>String(n).padStart(2,'0');return`${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;}
+function download(obj,name){
+  try{const blob=new Blob([JSON.stringify(obj)],{type:'application/json'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);return true;}catch(e){return false;}
+}
+$('btnExport').onclick=()=>{if(download(localDB,`tofs-백업-${stamp()}.json`))log('이 기기 데이터를 백업 파일로 내려받았습니다.');else log('파일 저장 실패');};
+
+/* --- 2. 클라우드 --- */
+function loadSession(){try{session=JSON.parse(localStorage.getItem(SES_KEY)||'null');}catch(e){session=null;}return session;}
+function storeSession(j){
+  session={access_token:j.access_token,refresh_token:j.refresh_token,exp:Date.now()+(((j.expires_in||3600)-90)*1000),
+    uid:(j.user&&j.user.id)||(session&&session.uid),email:(j.user&&j.user.email)||(session&&session.email)};
+  try{localStorage.setItem(SES_KEY,JSON.stringify(session));}catch(e){}
+}
+async function sbAuth(path,body){
+  const r=await fetch(SB_URL+'/auth/v1/'+path,{method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw j;return j;
+}
+async function ensureSession(){
+  if(!session)loadSession();
+  if(!session)return false;
+  if(Date.now()>session.exp){
+    try{storeSession(await sbAuth('token?grant_type=refresh_token',{refresh_token:session.refresh_token}));}
+    catch(e){session=null;try{localStorage.removeItem(SES_KEY);}catch(x){}return false;}
+  }
+  return true;
+}
+const sbH=()=>({apikey:SB_KEY,Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'});
+async function loadCloud(){
+  $('cloud').innerHTML='<span class="dim">확인 중…</span>';
+  if(!(await ensureSession())){$('cloud').innerHTML='<span class="dim">로그인이 필요합니다.</span>';$('loginBox').hidden=false;
+    try{$('liEmail').value=localStorage.getItem(KEY+'-email')||'';}catch(e){}return;}
+  $('loginBox').hidden=true;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/app_state?select=data,updated_at&user_id=eq.'+session.uid,{headers:sbH()});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    cloudRow=(await r.json())[0]||null;
+    if(!cloudRow){$('cloud').innerHTML='<span class="bad">클라우드에 이 계정의 데이터 행이 없습니다.</span>';}
+    else{
+      const when=new Date(cloudRow.updated_at).toLocaleString('ko-KR');
+      $('cloud').innerHTML=`<div class="kv"><b>계정</b><span>${esc(session.email||'')}</span><b>마지막 저장</b><span>${esc(when)}</span></div>`+summaryHtml(summarize(cloudRow.data));
+    }
+    $('btnRestoreFile').disabled=false;
+  }catch(e){$('cloud').innerHTML='<span class="bad">클라우드를 읽지 못했습니다: '+esc(e.message||e)+'</span>';}
+}
+$('btnCloud').onclick=loadCloud;
+$('btnLogin').onclick=async()=>{
+  const b=$('btnLogin');b.disabled=true;b.textContent='확인 중…';
+  try{storeSession(await sbAuth('token?grant_type=password',{email:$('liEmail').value.trim(),password:$('liPw').value}));
+    try{localStorage.setItem(KEY+'-email',$('liEmail').value.trim());}catch(e){}
+    await loadCloud();}
+  catch(e){alert('로그인 실패: '+((e&&(e.msg||e.error_description||e.error))||'인터넷 연결을 확인해 주세요'));}
+  finally{b.disabled=false;b.textContent='로그인';}
+};
+
+/* --- 3. 복원 --- */
+async function restore(data,label){
+  const s=summarize(data);
+  if(!s||s.np<1){alert('복원할 데이터에 현장이 없습니다. 중단합니다.');return;}
+  if(!(await ensureSession())){alert('먼저 2번에서 로그인해 주세요.');return;}
+  if(!cloudRow)await loadCloud();
+  const cs=cloudRow?summarize(cloudRow.data):null;
+  const msg=`클라우드를 덮어씁니다.\n\n[지금 클라우드] 현장 ${cs?cs.np:0}개 · 마지막 흔적 ${cs?cs.last:'—'} · ${cloudRow?new Date(cloudRow.updated_at).toLocaleString('ko-KR'):'행 없음'}\n\n[복원할 내용: ${label}] 현장 ${s.np}개 · 마지막 흔적 ${s.last} · ${s.kb} KB\n${s.rows.map(r=>' · '+r.name).join('\n')}\n\n계속할까요?`;
+  if(!confirm(msg))return;
+  /* 되돌릴 수 있게 지금 클라우드 내용을 남긴다 */
+  if(cloudRow&&cloudRow.data){
+    try{localStorage.setItem(KEY+'-cloud-before-restore-'+stamp(),JSON.stringify(cloudRow.data));}catch(e){}
+    download(cloudRow.data,`tofs-복원전-클라우드-${stamp()}.json`);
+  }
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/app_state?on_conflict=user_id',{method:'POST',headers:Object.assign(sbH(),{Prefer:'resolution=merge-duplicates,return=minimal'}),
+      body:JSON.stringify({user_id:session.uid,data:data,updated_at:new Date().toISOString()})});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    try{localStorage.setItem(KEY,JSON.stringify(data));}catch(e){}
+    log(`복원 완료 (${label}) — 현장 ${s.np}개. 이제 앱을 열어도 됩니다.`);
+    alert(`복원 완료 — 현장 ${s.np}개\n\n이제 현장관리 앱을 열어 확인하세요.`);
+    await loadCloud();
+  }catch(e){log('복원 실패: '+(e.message||e));alert('복원 실패: '+(e.message||e));}
+}
+$('btnRestoreLocal').onclick=()=>restore(localDB,'이 기기 데이터');
+$('btnRestoreFile').onclick=()=>$('file').click();
+$('file').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{let d=null;try{d=JSON.parse(rd.result);}catch(x){alert('백업 파일을 읽을 수 없습니다 (형식 오류)');return;}
+    if(!summarize(d)){alert('이 앱의 백업 파일이 아닙니다');return;}
+    restore(d,'파일 '+f.name);};
+  rd.readAsText(f);e.target.value='';
+};
+
+readLocal();
+loadCloud();
+</script>
+</body>
+</html>
