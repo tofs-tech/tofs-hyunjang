@@ -38,6 +38,7 @@
     <h2>1. 이 기기(브라우저)에 저장된 데이터</h2>
     <div id="local" class="dim">읽는 중…</div>
     <button class="btn green" id="btnExport" disabled>이 기기 데이터를 백업 파일로 저장</button>
+    <div id="extras"></div>
   </div>
 
   <div class="card">
@@ -124,6 +125,24 @@ function readLocal(){
     if(s.np>0){$('btnRestoreLocal').disabled=false;}
     else $('local').innerHTML+='<div class="dim">이 기기에는 빈 데이터만 있어 복원에 쓸 수 없습니다.</div>';
   }
+}
+/* 앱이 따로 남겨 둔 사본들: -prev(클라우드 데이터로 바뀌기 직전의 이 기기 캐시), -conflict-*(다른 기기와 충돌해 못 올린 변경분), -cloud-before-restore-*(복원 직전 클라우드) */
+function readExtras(){
+  const box=$('extras');const items=[];
+  try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(!k||k.indexOf(KEY+'-')!==0)continue;
+    let label=null;
+    if(k===KEY+'-prev')label='직전 사본 — 앱이 클라우드 데이터로 바뀌기 전에 이 기기에 있던 것';
+    else if(k.indexOf(KEY+'-conflict-')===0)label='충돌 변경분 '+k.slice((KEY+'-conflict-').length)+' — 다른 기기가 먼저 저장해 못 올린 것';
+    else if(k.indexOf(KEY+'-cloud-before-restore-')===0)label='복원 직전 클라우드 '+k.slice((KEY+'-cloud-before-restore-').length);
+    if(!label)continue;
+    let d=null;try{d=JSON.parse(localStorage.getItem(k));}catch(e){}
+    const s=summarize(d);if(!s)continue;items.push({k,label,d,s});}}catch(e){}
+  if(!items.length){box.innerHTML='';return;}
+  box.innerHTML=items.map((it,i)=>`<div style="margin-top:14px;padding-top:10px;border-top:1px dashed #dfe3dd"><b>${esc(it.label)}</b>${summaryHtml(it.s)}
+    <button class="btn" data-x="${i}" data-act="dl">백업 파일로 저장</button>${it.s.np>0?`<button class="btn red" data-x="${i}" data-act="rs">이 사본으로 클라우드 복원</button>`:''}</div>`).join('');
+  box.querySelectorAll('button[data-x]').forEach(b=>{b.onclick=()=>{const it=items[+b.dataset.x];
+    if(b.dataset.act==='dl'){if(download(it.d,`tofs-백업-${stamp()}.json`))log(it.label+' 을(를) 파일로 내려받았습니다.');}
+    else restore(it.d,it.label);};});
 }
 function stamp(){const d=new Date(),p=n=>String(n).padStart(2,'0');return`${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;}
 function download(obj,name){
@@ -243,6 +262,7 @@ $('file').onchange=e=>{
 };
 
 readLocal();
+readExtras();
 loadCloud();
 </script>
 </body>

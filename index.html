@@ -813,6 +813,16 @@ const isBlankProject=p=>{if(!p||!p.info)return true;const i=p.info;
     &&!((p.schedule||[]).length||(p.expenses||[]).length||(p.estimates||[]).length||(p.contracts||[]).length||(p.logs||[]).length||(p.materials||[]).length||(p.photos||[]).length||(p.todos||[]).length||(p.orders||[]).length||+(i.amount||0));};
 const hasReal=d=>!!(d&&Array.isArray(d.projects)&&d.projects.some(p=>!isBlankProject(p)));
 const cacheLocal=()=>{try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}};
+/* 클라우드에서 받은 데이터를 화면·캐시에 앉힌다. 이 기기 캐시에 다른 실데이터가 있었다면
+   덮기 전에 `-prev` 로 한 벌 남긴다 — 오늘(2026-09-10) 데스크탑 캐시가 유일한 최신 사본이었던 것처럼,
+   클라우드가 잘못됐을 때 되돌릴 마지막 실마리다. recover.html 이 이 사본을 보여준다. */
+function adoptCloud(row){
+  try{const cur=localStorage.getItem(KEY),nxt=JSON.stringify(row.data);
+    if(cur&&cur!==nxt){let old=null;try{old=JSON.parse(cur);}catch(e){}
+      if(old&&hasReal(old))localStorage.setItem(KEY+'-prev',cur);}
+    localStorage.setItem(KEY,nxt);}catch(e){}
+  DB=row.data;lastSyncedAt=row.updated_at;cloudState='loaded';
+}
 
 /* save(): 로컬에 즉시 캐시 + 클라우드로 자동 업로드(1.2초 모아서) */
 const save=()=>{cacheLocal(); queueSync(); return true;};
@@ -834,7 +844,7 @@ async function syncConflict(row){
   const hadReal=hasReal(DB);
   try{localStorage.setItem(KEY+'-conflict-'+bkStamp(),JSON.stringify(DB));pruneConflicts();}catch(e){}
   if(row&&hasReal(row.data)){
-    DB=row.data;lastSyncedAt=row.updated_at;cloudState='loaded';cacheLocal();
+    adoptCloud(row);
     try{render();}catch(e){}
     setSync('ok','최신본 받음');
     if(hadReal)conflictDialog();
@@ -920,7 +930,7 @@ async function enterApp(){
   setSync('busy','불러오는 중');
   let row=null, loadOk=false; try{row=await sbLoad();loadOk=true;}catch(e){}
   const local=load();
-  if(loadOk&&row&&hasReal(row.data)){DB=row.data;lastSyncedAt=row.updated_at;cloudState='loaded';cacheLocal();setSync('ok','저장됨');}
+  if(loadOk&&row&&hasReal(row.data)){adoptCloud(row);setSync('ok','저장됨');}
   else if(loadOk){ /* 서버는 응답했는데 현장이 없다(행 없음, 또는 빈 '새 프로젝트'뿐) */
     cloudState='empty';lastSyncedAt=row?row.updated_at:null;
     if(local&&hasReal(local)){
@@ -963,7 +973,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.4.8';
+const APP_VERSION='9.4.9';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -993,7 +1003,7 @@ document.addEventListener('visibilitychange',async()=>{
   if(!session||!DB||syncBusy||syncDirty)return;
   try{const row=await sbLoad();
     if(row&&row.updated_at&&row.updated_at!==lastSyncedAt&&hasReal(row.data)){
-      DB=row.data;lastSyncedAt=row.updated_at;cloudState='loaded';cacheLocal();render();setSync('ok','저장됨');}
+      adoptCloud(row);render();setSync('ok','저장됨');}
     if(await rvtSyncOnLoad(false))render();}catch(e){}});
 
 /* ===== helpers ===== */
