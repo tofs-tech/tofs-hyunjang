@@ -526,8 +526,19 @@
   /* 종이색 흰색 설정 (body.ed-white) — 아이보리 대신 흰 종이 */
   body.ed-white .pv-page:has(> .psheet > .ed){background:#fff;}
   body.ed-white #printRoot:has(.ed){background:#fff;}
-  .psheet .ed{min-height:262mm;display:flex;flex-direction:column;color:#1D1B16;font-size:12px;letter-spacing:-.01em;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  /* 미리보기 = 인쇄 = 이미지, 세로 .ed 문서는 한 기하로 통일 (2026-09-09) — 예전엔 미리보기 182mm·이미지 812px·인쇄 186mm 폭이
+     제각각이라 안내문 한 장 맞춤이 어디서는 맞고 어디서는 넘쳤다. 종이 210×296mm, 안쪽 여백 12mm, 내용 186×272mm.
+     실측 분할 무대(pv-page)도 이 폭으로 재므로 인쇄와 같은 줄바꿈이 나온다. 가로(.land) 일정표는 그대로. */
+  .pv-page:not(.land):has(> .psheet > .ed){padding:12mm;min-height:296mm;}
+  .psheet .ed{min-height:272mm;display:flex;flex-direction:column;color:#1D1B16;font-size:12px;letter-spacing:-.01em;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .psheet .ed.autoh{min-height:0;display:block;} /* 실측 분할용 — 페이지 높이를 강제하면 분할 측정이 깨진다 */
+  /* 이미지 저장(sheetToBlob)용 A4 기하 — 예전엔 860px 폭 캔버스라 A4보다 옆으로 넓은 그림이 됐고, 종이에 맞춰 찍으면
+     위아래 44mm가 비고 글씨는 작아졌다. 인쇄와 같은 안쪽 여백에 높이는 A4 그대로(297mm). @media print 규칙의 복사본 — 저쪽을 고치면 여기도. */
+  .img-doc .psheet .ed{padding:12mm;min-height:297mm;}
+  .img-doc .psheet .ed.autoh{min-height:297mm;}
+  .img-doc .psheet .ed.edg,.img-doc .psheet .ed.edg.autoh{padding:9mm 10mm;min-height:210mm;}
+  .img-doc .psheet .edcover-grid{padding:12mm 12mm 0;}
+  .img-doc .psheet .ed.edcover{padding-bottom:4mm;}
   /* 앱 화면·다른 문서의 표 스타일(어두운 헤더·전체 테두리)이 새어 들어오지 않게 원천 차단 */
   .psheet .ed table{border:none;background:transparent;}
   .psheet .ed th,.psheet .ed td{border:none;background:transparent;color:inherit;font-weight:inherit;text-align:left;}
@@ -788,16 +799,61 @@ const SB_URL='https://ygwadlnjzsldswrxiklw.supabase.co';
 const SB_KEY='sb_publishable_mWyTLDE0tyH-g0wnxJeulw_Z-r8c1mA';
 const SES_KEY=KEY+'-session';
 let session=null, lastSyncedAt=null, syncT=null, syncBusy=false, syncDirty=false, refT=null;
+/* cloudState: 'unknown'(서버 응답 없음) | 'loaded'(최신본 받음) | 'empty'(서버는 응답했는데 현장 없음)
+   syncForce: 복원처럼 사장님이 명시적으로 덮어쓰기를 택했을 때만 true — 충돌 검사를 한 번 건너뛴다 */
+let cloudState='unknown', syncForce=false;
+
+/* ===== 2026-09-10 데이터 유실 사고 뒤 세운 원칙 =====
+   ① 서버 응답을 못 받았으면 절대 올리지 않는다. 빈 데이터·예시 데이터는 더더욱.
+   ② 올릴 때는 "내가 마지막으로 받은 버전(lastSyncedAt) 그대로일 때만" 덮어쓴다.
+      다른 기기가 먼저 저장했으면 내 변경분은 따로 보관하고 최신본을 받는다(syncConflict).
+   ③ 빈 '새 프로젝트'뿐인 데이터는 실데이터로 치지 않는다(hasReal). */
+const isBlankProject=p=>{if(!p||!p.info)return true;const i=p.info;
+  return (((i.name||'').trim()==='새 프로젝트')||!(i.name||'').trim())
+    &&!((p.schedule||[]).length||(p.expenses||[]).length||(p.estimates||[]).length||(p.contracts||[]).length||(p.logs||[]).length||(p.materials||[]).length||(p.photos||[]).length||(p.todos||[]).length||(p.orders||[]).length||+(i.amount||0));};
+const hasReal=d=>!!(d&&Array.isArray(d.projects)&&d.projects.some(p=>!isBlankProject(p)));
+const cacheLocal=()=>{try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}};
 
 /* save(): 로컬에 즉시 캐시 + 클라우드로 자동 업로드(1.2초 모아서) */
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){} queueSync(); return true;};
+const save=()=>{cacheLocal(); queueSync(); return true;};
 
 function setSync(mode,txt){const el=document.getElementById('syncChip');if(!el)return;el.hidden=false;el.className='sync '+(mode||'');el.querySelector('.tx').textContent=txt;el.title=txt;}
 function queueSync(){if(!session)return;syncDirty=true;setSync('busy','저장 중');clearTimeout(syncT);syncT=setTimeout(doSync,1200);}
-async function doSync(){if(!session||syncBusy)return;syncBusy=true;syncDirty=false;
-  try{await sbUpsert();lastSyncedAt=new Date().toISOString();setSync('ok','저장됨');}
-  catch(e){syncDirty=true;setSync('bad','오프라인 · 재시도 중');clearTimeout(syncT);syncT=setTimeout(doSync,6000);}
+async function doSync(){if(!session||syncBusy||!syncDirty)return;syncBusy=true;syncDirty=false;   /* 올릴 변경이 없으면 아무것도 안 한다 */
+  try{await sbUpsert(syncForce);syncForce=false;setSync('ok','저장됨');}
+  catch(e){
+    if(e&&e.conflict){await syncConflict(e.row);}                        /* 다른 기기가 먼저 저장 — 덮어쓰지 않는다 */
+    else{syncDirty=true;setSync('bad','오프라인 · 재시도 중');clearTimeout(syncT);syncT=setTimeout(doSync,6000);}
+  }
   finally{syncBusy=false;if(syncDirty){clearTimeout(syncT);syncT=setTimeout(doSync,1500);}}}
+
+/* 충돌 처리: 이 기기의 변경분은 로컬에 따로 남기고(최근 2개), 클라우드 최신본을 받는다.
+   클라우드가 비었거나 빈 프로젝트뿐이면 그건 실데이터가 아니므로 이 기기 것을 올린다. */
+async function syncConflict(row){
+  clearTimeout(syncT);syncDirty=false;                                  /* 걸려 있던 재시도는 취소 — 최신본을 받은 뒤 다시 올리면 안 된다 */
+  const hadReal=hasReal(DB);
+  try{localStorage.setItem(KEY+'-conflict-'+bkStamp(),JSON.stringify(DB));pruneConflicts();}catch(e){}
+  if(row&&hasReal(row.data)){
+    DB=row.data;lastSyncedAt=row.updated_at;cloudState='loaded';cacheLocal();
+    try{render();}catch(e){}
+    setSync('ok','최신본 받음');
+    if(hadReal)conflictDialog();
+  }else{lastSyncedAt=row?row.updated_at:null;syncForce=true;queueSync();}
+}
+function conflictKeys(){const ks=[];try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith(KEY+'-conflict-'))ks.push(k);}}catch(e){}return ks.sort();}
+function pruneConflicts(){try{conflictKeys().slice(0,-2).forEach(k=>localStorage.removeItem(k));}catch(e){}}
+function conflictDialog(){
+  const ov=document.createElement('div');ov.className='overlay';
+  ov.innerHTML=`<div class="modal" style="width:min(460px,100%)"><h2>다른 기기의 최신 데이터를 받았습니다</h2>
+    <div style="padding:16px 22px;line-height:1.7;font-size:13px">다른 기기에서 더 최근에 저장한 내용이 있어, 이 기기에서 방금 바꾼 내용은 <b>클라우드에 올리지 않고</b> 이 기기 안에 따로 보관했습니다.<br>화면은 최신 데이터로 바뀌었습니다. 필요하면 방금 바꾼 내용을 파일로 받아 두세요.</div>
+    <div class="modal-foot"><div class="right"><button class="btn" id="cfExp">이 기기 변경분 파일로 받기</button><button class="btn accent" id="cfOk">확인</button></div></div></div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#cfOk').onclick=()=>ov.remove();
+  ov.querySelector('#cfExp').onclick=()=>{try{const k=conflictKeys().pop();if(!k){toast('보관된 변경분이 없습니다');return;}
+    const blob=new Blob([localStorage.getItem(k)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=k.replace(KEY+'-conflict-','tofs-이기기변경분-')+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);}
+    catch(e){toast('파일 저장 실패');}};
+}
 
 async function sbAuth(path,body){const r=await fetch(SB_URL+'/auth/v1/'+path,{method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json().catch(()=>({}));if(!r.ok)throw j;return j;}
 function setSession(j){session={access_token:j.access_token,refresh_token:j.refresh_token,exp:Date.now()+(((j.expires_in||3600)-90)*1000),uid:(j.user&&j.user.id)||(session&&session.uid),email:(j.user&&j.user.email)||(session&&session.email)};
@@ -810,7 +866,23 @@ async function refreshSession(){if(!session)return;
 async function fresh(){if(session&&Date.now()>session.exp)await refreshSession();if(!session)throw new Error('no session');}
 const sbH=()=>({apikey:SB_KEY,Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'});
 async function sbLoad(){await fresh();const r=await fetch(SB_URL+'/rest/v1/app_state?select=data,updated_at&user_id=eq.'+session.uid,{headers:sbH()});if(!r.ok)throw new Error('load '+r.status);return(await r.json())[0]||null;}
-async function sbUpsert(){await fresh();const r=await fetch(SB_URL+'/rest/v1/app_state?on_conflict=user_id',{method:'POST',headers:Object.assign(sbH(),{Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify({user_id:session.uid,data:DB,updated_at:new Date().toISOString()})});if(!r.ok)throw new Error('save '+r.status);}
+/* 클라우드 저장. force 가 아니면 "내가 마지막으로 받은 버전(lastSyncedAt) 그대로일 때만" 덮어쓴다.
+   그 사이 다른 기기가 저장했으면 {conflict:true,row} 를 던진다 — 조용히 덮어쓰는 일은 없다.
+   lastSyncedAt 은 항상 서버가 돌려준 updated_at 문자열을 그대로 쓴다(기기 시계 무관). */
+async function sbUpsert(force){await fresh();
+  const body=JSON.stringify({user_id:session.uid,data:DB,updated_at:new Date().toISOString()});
+  let r;
+  if(force||!lastSyncedAt){
+    if(!force){const row=await sbLoad();if(row&&hasReal(row.data))throw {conflict:true,row};}   /* 받은 적 없는 기기: 클라우드에 실데이터가 있으면 그쪽이 최신 */
+    r=await fetch(SB_URL+'/rest/v1/app_state?on_conflict=user_id&select=updated_at',{method:'POST',headers:Object.assign(sbH(),{Prefer:'resolution=merge-duplicates,return=representation'}),body});
+  }else{
+    r=await fetch(SB_URL+'/rest/v1/app_state?user_id=eq.'+session.uid+'&updated_at=eq.'+encodeURIComponent(lastSyncedAt)+'&select=updated_at',{method:'PATCH',headers:Object.assign(sbH(),{Prefer:'return=representation'}),body});
+  }
+  if(!r.ok)throw new Error('save '+r.status);
+  const rows=await r.json().catch(()=>[]);
+  if(!rows.length){const row=await sbLoad();throw {conflict:true,row};}      /* 조건에 맞는 행 없음 = 그 사이 다른 기기가 저장했다 */
+  lastSyncedAt=rows[0].updated_at;cloudState='loaded';
+}
 
 function doLogout(force){
   if(!force&&!confirm('로그아웃할까요? 데이터는 클라우드에 안전하게 저장되어 있습니다.'))return;
@@ -846,9 +918,20 @@ function showLogin(msg){
 
 async function enterApp(){
   setSync('busy','불러오는 중');
-  let row=null; try{row=await sbLoad();}catch(e){}
-  if(row&&row.data&&row.data.projects&&row.data.projects.length){DB=row.data;lastSyncedAt=row.updated_at;setSync('ok','저장됨');}
-  else{DB=load()||seed();queueSync();} /* 클라우드가 비어있으면 이 기기 데이터(또는 예시)를 올림 */
+  let row=null, loadOk=false; try{row=await sbLoad();loadOk=true;}catch(e){}
+  const local=load();
+  if(loadOk&&row&&hasReal(row.data)){DB=row.data;lastSyncedAt=row.updated_at;cloudState='loaded';cacheLocal();setSync('ok','저장됨');}
+  else if(loadOk){ /* 서버는 응답했는데 현장이 없다(행 없음, 또는 빈 '새 프로젝트'뿐) */
+    cloudState='empty';lastSyncedAt=row?row.updated_at:null;
+    if(local&&hasReal(local)){
+      DB=local;
+      const n=local.projects.filter(p=>!isBlankProject(p)).length;
+      if(confirm(`클라우드에는 현장이 없고, 이 기기에는 현장 ${n}개가 저장되어 있습니다.\n\n이 기기의 데이터를 클라우드에 올릴까요?\n(취소 → 올리지 않고 이 기기에서만 봅니다)`))queueSync();
+      else setSync('bad','클라우드 미반영 · 이 기기만');
+    }else{DB=local||seed();setSync('ok','저장됨');}      /* 빈 데이터는 올리지 않는다 — 첫 현장을 만들 때 올라간다 */
+  }else{ /* 서버 응답 없음(오프라인·서버 정지·토큰 만료) — 절대 올리지 않는다. 이 기기 사본으로 보기만 */
+    cloudState='unknown';DB=local||seed();setSync('bad','오프라인 · 서버 연결 후 다시 확인');
+  }
   DB.trades=DB.trades||DEFAULT_TRADES.slice();
   DB.company=Object.assign({},CO_DEFAULT,DB.company||{});
   DB.priceDB=DB.priceDB||[];
@@ -880,7 +963,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.4.6';
+const APP_VERSION='9.4.8';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -909,8 +992,8 @@ document.addEventListener('visibilitychange',async()=>{
   if(Date.now()-verCheckedAt>600000)checkAppUpdate(false);
   if(!session||!DB||syncBusy||syncDirty)return;
   try{const row=await sbLoad();
-    if(row&&row.updated_at&&(!lastSyncedAt||row.updated_at>lastSyncedAt)&&row.data&&row.data.projects){
-      DB=row.data;lastSyncedAt=row.updated_at;render();setSync('ok','저장됨');}
+    if(row&&row.updated_at&&row.updated_at!==lastSyncedAt&&hasReal(row.data)){
+      DB=row.data;lastSyncedAt=row.updated_at;cloudState='loaded';cacheLocal();render();setSync('ok','저장됨');}
     if(await rvtSyncOnLoad(false))render();}catch(e){}});
 
 /* ===== helpers ===== */
@@ -1116,9 +1199,13 @@ function loadH2C(){
 async function sheetToBlob(html,land){
   await loadH2C();
   /* 에디토리얼 문서(.ed)는 크림 종이가 디자인의 일부 — 이미지로 보낼 때도 유지한다 (흰색 설정 시 흰색) */
-  const cream=/class="ed[\s"]/.test(html)?(DB.edPaper==='ivory'?'#F7F4EE':'#ffffff'):'#ffffff';
+  const isEd=/class="ed[\s"]/.test(html);
+  const cream=isEd?(DB.edPaper==='ivory'?'#F7F4EE':'#ffffff'):'#ffffff';
   const host=document.createElement('div');
-  host.style.cssText=`position:fixed;left:-12000px;top:0;background:${cream};padding:24px;width:`+(land?'1500px':'860px');
+  /* .ed 문서는 인쇄와 같은 A4 기하(210×297mm, 안쪽 12mm — CSS .img-doc)로 그린다. 예전엔 860px 폭이라 A4보다 옆으로 넓어,
+     종이에 맞춰 찍으면 위아래가 비고 글씨가 작아졌다 (2026-09-09). 다른 시트(계약서·옛 일정표)는 그대로. */
+  if(isEd){host.className='img-doc';host.style.cssText=`position:fixed;left:-12000px;top:0;background:${cream};padding:0;width:${land?'297mm':'210mm'}`;}
+  else host.style.cssText=`position:fixed;left:-12000px;top:0;background:${cream};padding:24px;width:`+(land?'1500px':'860px');
   host.innerHTML=`<div class="psheet${land?' land':''}">${html}</div>`;
   document.body.appendChild(host);
   try{
@@ -1170,7 +1257,7 @@ function showCopyModal(t,label){
   ov.addEventListener('mousedown',e=>{if(e.target===ov)close();});
   ov.querySelector('#ccClose').onclick=close;
 }
-function toast(msg){const d=document.createElement('div');d.textContent=msg;d.style.cssText='position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;padding:10px 18px;border-radius:100px;font-size:13px;font-weight:600;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.25)';document.body.appendChild(d);setTimeout(()=>d.remove(),1600);}
+function toast(msg,ms){const d=document.createElement('div');d.textContent=msg;d.style.cssText='position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;padding:10px 18px;border-radius:100px;font-size:13px;font-weight:600;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.25)';document.body.appendChild(d);setTimeout(()=>d.remove(),ms||1600);}
 function openPrint(html,land){
   const pr=document.getElementById('printRoot'); if(!pr)return;
   pr.innerHTML=`<div class="psheet${land?' land':''}">${html}</div>`;
@@ -2486,7 +2573,7 @@ function noticeData(p){
     close:'공용 부위(엘리베이터·복도)는 보양재로 보호하고 작업 후 매일 청소하겠습니다.\n정해진 기간 내 공사를 마칠 수 있도록 최선을 다하겠으며, 불편사항은 아래 연락처로 연락 주시면 즉시 조치하겠습니다.',
     manager:i.manager||CO().ceo||'',
     contact:(CO().tel||'').split('/')[0].trim()||i.contact||'',
-    logo:CO().logo||'', logoW:140, logoPos:'left', fontScale:100
+    logo:CO().logo||'', logoW:140, logoPos:'left', fontScale:100, fontAuto:true /* 글씨는 A4 한 장에 꽉 차게 자동 — noticeFit */
   },p.notice||{});
   if(autoNoisy)d.noisy=autoNoisy; /* 일정이 바뀌면 소음 안내도 항상 최신 날짜로 */
   return d;
@@ -2503,7 +2590,7 @@ function noticeSheet(d){
   const crow=(kk,v)=>v?`<span style="margin-right:22px;white-space:nowrap"><span class="fl" style="font-weight:800;letter-spacing:.15em;margin-right:7px">${kk}</span><span style="color:#5A554A">${v}</span></span>`:'';
   const logoW=Math.max(24,Math.min(600,+d.logoW||140));
   const logoAlign=d.logoPos==='center'?'center':d.logoPos==='right'?'right':'left';
-  return `<div class="ed" style="font-size:${fz(12)}">
+  return `<div class="ed" style="font-size:${fz(12)};word-break:keep-all;overflow-wrap:break-word"><!-- 게시물이라 낱말 단위로 줄바꿈 — "청/소"처럼 한 글자만 떨어지지 않게 -->
     ${edTop(edDateNo(todayStr()))}
     ${d.logo?`<div style="text-align:${logoAlign};margin-top:26px"><img src="${d.logo}" style="width:${logoW}px;max-width:100%" alt="logo"></div>`:''}
     <div class="ed-title" style="font-size:${fz(38)}">공사 안내문</div>
@@ -2532,6 +2619,42 @@ function noticeSheet(d){
     </div>
   </div>`;
 }
+/* ── 안내문 한 장 맞춤 — 인쇄와 같은 폭(186mm)으로 실제로 그려 높이를 재고, 내용 272mm(A4 297 − 위아래 12mm) 안에 들어가는
+   가장 큰 글씨 배율(%)을 이분 탐색으로 찾는다. 자동(fontAuto)이면 꽉 차게 키우고, 직접 정한 값이면 넘칠 때만 줄인다.
+   2026-09-09: 사장님이 이미지로 뽑으니 위아래가 비어 글씨가 작고, 글씨를 키워 PDF로 뽑으니 2장이 됐다 — 그래서 만들었다.
+   ⚠️ 로고 <img>는 디코딩이 끝나기 전엔 높이 0으로 재어진다(실측으로 확인) — 그래서 그릴 때마다 decode()를 기다린다. */
+async function noticeFit(d){
+  const stage=document.createElement('div');
+  stage.style.cssText='position:fixed;left:-99999px;top:0;visibility:hidden;pointer-events:none;z-index:-1';
+  const outer=document.createElement('div');outer.className='pv-page';outer.style.minHeight='0';outer.style.boxShadow='none';
+  const inner=document.createElement('div');inner.className='psheet';
+  outer.appendChild(inner);stage.appendChild(outer);document.body.appendChild(stage);
+  const ruler=document.createElement('div');ruler.style.cssText='height:100mm;position:absolute;visibility:hidden';
+  stage.appendChild(ruler);const pxPerMm=(ruler.getBoundingClientRect().height||377.95)/100;ruler.remove();
+  const BUDGET=270*pxPerMm;   /* 내용 272mm에서 2mm 안전 */
+  try{if(document.fonts&&document.fonts.ready)await document.fonts.ready;}catch(e){}
+  const fits=async k=>{
+    inner.innerHTML=noticeSheet(Object.assign({},d,{fontScale:k}));
+    const ed=inner.firstElementChild;ed.style.minHeight='0';
+    await Promise.all([...inner.querySelectorAll('img')].map(im=>im.decode().catch(()=>{})));
+    return ed.scrollHeight<=BUDGET;
+  };
+  const search=async(lo,hi)=>{while(hi-lo>1){const mid=Math.floor((lo+hi)/2);if(await fits(mid))lo=mid;else hi=mid;}return lo;}; /* lo는 들어간다고 가정 */
+  let k;
+  try{
+    if(d.fontAuto!==false)k=(await fits(200))?200:await search(50,200);
+    else{k=Math.max(50,Math.min(200,Math.round(+d.fontScale||100)));if(!(await fits(k)))k=await search(50,k);}
+  } finally { stage.remove(); }
+  return k;
+}
+/* 맞춘 배율로 그린 안내문 시트 — 미리보기·인쇄·이미지가 모두 이 결과를 쓴다. 어떻게 맞췄는지는 토스트로 알린다 */
+async function noticeFitSheet(d){
+  const k=await noticeFit(d);
+  const want=Math.round(+d.fontScale||100);
+  if(d.fontAuto!==false)toast(`글씨 크기 ${k}% — A4 한 장에 꽉 차게 맞췄습니다`,3500);
+  else if(k<want)toast(`글씨 ${want}%로는 한 장을 넘쳐 ${k}%로 줄였습니다`,3500);
+  return noticeSheet(Object.assign({},d,{fontScale:k}));
+}
 function openNotice(){
   const p=proj(); const d=noticeData(p);
   const ov=document.createElement('div');ov.className='overlay';
@@ -2546,7 +2669,12 @@ function openNotice(){
           <button type="button" class="btn sm ghost" id="ntLogoClear" style="color:var(--bad);${d.logo?'':'display:none'}">삭제</button>
         </div><span class="hint">회사 정보에 로고를 등록해두면 자동으로 불러옵니다</span></div>
       <div class="field"><label>로고 크기 (가로 px)</label><input type="number" id="ntLogoW" value="${+d.logoW||140}" min="24" max="600" step="10"></div>
-      <div class="field"><label>글씨 크기 (%)</label><input type="number" id="ntFont" value="${+d.fontScale||100}" min="50" max="200" step="5"><span class="hint">기본 100 — 크게 120, 작게 90</span></div>
+      <div class="field"><label>글씨 크기</label>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;font-size:13px;font-weight:500;color:var(--ink)"><input type="checkbox" id="ntAuto" style="width:16px;height:16px;padding:0;margin:0" ${d.fontAuto!==false?'checked':''}>한 장에 꽉 차게 자동</label>
+          <input type="number" id="ntFont" value="${+d.fontScale||100}" min="50" max="200" step="5" style="width:84px" ${d.fontAuto!==false?'disabled':''}><span class="hint">%</span>
+        </div>
+        <span class="hint">자동: A4 한 장에 들어가는 가장 큰 글씨로 맞춥니다. 직접 정하면 그 크기로 하되, 넘치면 한 장에 맞게 줄입니다</span></div>
       <div class="field"><label>로고 위치</label><select id="ntLogoPos">
         <option value="left" ${d.logoPos!=='center'&&d.logoPos!=='right'?'selected':''}>왼쪽</option>
         <option value="center" ${d.logoPos==='center'?'selected':''}>가운데</option>
@@ -2568,6 +2696,8 @@ function openNotice(){
   ov.addEventListener('mousedown',e=>{if(e.target===ov)close();});
   document.addEventListener('keydown',function k(e){if(e.key==='Escape'){close();document.removeEventListener('keydown',k);}});
   ov.querySelector('#ntCancel').onclick=close;
+  const ntAuto=ov.querySelector('#ntAuto'),ntFont=ov.querySelector('#ntFont');
+  ntAuto.onchange=()=>{ntFont.disabled=ntAuto.checked;};
   ov.querySelector('#ntLogoPick').onchange=async e=>{
     const f=e.target.files[0];if(!f)return;
     const du=await compressImage(f,900,f.type==='image/png');
@@ -2586,16 +2716,16 @@ function openNotice(){
     p.notice={unit:v('#ntUnit').trim(),manager:v('#ntMgr').trim(),start:v('#ntStart'),end:v('#ntEnd'),
       hours:v('#ntHours').trim(),works:v('#ntWorks').trim(),greet:v('#ntGreet').trim(),
       noisy:v('#ntNoisy').trim(),close:v('#ntClose').trim(),contact:v('#ntContact').trim(),
-      logo:v('#ntLogo'),logoW:+v('#ntLogoW')||140,logoPos:v('#ntLogoPos'),fontScale:+v('#ntFont')||100};
+      logo:v('#ntLogo'),logoW:+v('#ntLogoW')||140,logoPos:v('#ntLogoPos'),fontScale:+v('#ntFont')||100,fontAuto:ntAuto.checked};
     save();
   };
   ov.querySelector('#ntWord').onclick=()=>{
     collect();
     downloadWordDoc(`공사안내문_${safeName(p.info.name||'현장')}_${todayStr()}.doc`,noticeWordHtml(p.notice));
   };
-  ov.querySelector('#ntPrev').onclick=()=>{
+  ov.querySelector('#ntPrev').onclick=async()=>{
     collect(); close();
-    showPreview('공사 안내문',noticeSheet(p.notice),false);
+    showPreview('공사 안내문',await noticeFitSheet(p.notice),false); /* 한 장 맞춤 배율로 — 미리보기·인쇄·이미지 공통 */
   };
 }
 
@@ -4489,15 +4619,17 @@ async function saveNow(){
   if(b){b.disabled=true;b.textContent='저장 중…';}
   clearTimeout(syncT);syncBusy=true;syncDirty=false;
   try{
-    await sbUpsert();
-    lastSyncedAt=new Date().toISOString();setSync('ok','저장됨');
+    await sbUpsert(syncForce);syncForce=false;setSync('ok','저장됨');
     if(b)b.textContent='✓ 저장됨';
     toast('클라우드에 저장했습니다');
   }catch(e){
-    setSync('bad','저장 실패');
-    if(b)b.textContent='저장 실패';
-    toast('저장 실패 — 인터넷 연결을 확인해 주세요');
-    syncDirty=true;queueSync();             /* 자동 재시도로 넘긴다 */
+    if(e&&e.conflict){await syncConflict(e.row);if(b)b.textContent='최신본 받음';}
+    else{
+      setSync('bad','저장 실패');
+      if(b)b.textContent='저장 실패';
+      toast('저장 실패 — 인터넷 연결을 확인해 주세요');
+      syncDirty=true;queueSync();             /* 자동 재시도로 넘긴다 */
+    }
   }finally{
     syncBusy=false;
     if(b)setTimeout(()=>{b.disabled=false;b.textContent=orig;},1600);
@@ -4540,6 +4672,7 @@ function restoreBackup(file){
     DB.projects.forEach(pr=>{pr.estimates=pr.estimates||[];pr.contracts=pr.contracts||[];pr.materials=pr.materials||[];});
     syncPriceCats();
     state.tab='home';
+    syncForce=true;                          /* 사장님이 고른 복원 — 이번 한 번은 충돌 검사 없이 덮어쓴다 */
     save();render();
     toast(`복원 완료 — 현장 ${np}개 · 마감재 ${nm}개`);
   };
@@ -4552,6 +4685,7 @@ function openBackup(){
     <div style="padding:16px 22px;display:flex;flex-direction:column;gap:10px">
       <button class="btn green" id="bkExp">백업 파일로 내보내기</button>
       <button class="btn" id="bkImp">백업 파일에서 복원</button>
+      <button class="btn" id="bkTool">이전 버전 · 복구 도구 열기</button>
       <input type="file" id="bkFile" accept="application/json,.json" hidden>
       <div class="sub" style="line-height:1.65;margin-top:4px">복원은 지금 데이터를 <b>덮어씁니다</b>. 덮어쓰기 전 현재 상태를 자동으로 파일로 내려받으니, 잘못 복원해도 되돌릴 수 있습니다.</div>
     </div>
@@ -4561,6 +4695,8 @@ function openBackup(){
   ov.addEventListener('mousedown',e=>{if(e.target===ov)close();});
   ov.querySelector('#bkClose').onclick=close;
   ov.querySelector('#bkExp').onclick=()=>exportBackup();
+  /* 복구 도구는 같은 창에서 연다 — 홈 화면 설치형(iOS)은 저장소가 앱 안에만 있어서 새 창으로 열면 못 본다 */
+  ov.querySelector('#bkTool').onclick=()=>{if(syncDirty||syncBusy){toast('저장이 끝난 뒤 다시 눌러 주세요');return;}location.href='recover.html';};
   const f=ov.querySelector('#bkFile');
   ov.querySelector('#bkImp').onclick=()=>f.click();
   f.onchange=()=>{const file=f.files&&f.files[0];if(file){close();restoreBackup(file);}};
