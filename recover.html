@@ -79,6 +79,10 @@ const SB_KEY='sb_publishable_mWyTLDE0tyH-g0wnxJeulw_Z-r8c1mA';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const log=m=>{$('log').textContent+=new Date().toLocaleTimeString('ko-KR')+'  '+m+'\n';};
+/* 알림은 화면에 직접 쓴다 — 클로드 앱 안의 브라우저처럼 alert 창을 안 띄우는 곳도 있다 */
+const notice=m=>{log(m);let n=$('notice');if(!n){n=document.createElement('div');n.id='notice';n.style.cssText='margin-top:10px;padding:10px 12px;border-radius:8px;background:#fdecea;color:#b23b2e;font-size:13px';$('log').parentNode.insertBefore(n,$('log'));}n.textContent=m;try{alert(m);}catch(e){}};
+/* 백업 파일 형식: 앱 DB 객체 그대로, 또는 서버 행 배열 [{data,updated_at}] (클라우드 상태를 그대로 받은 파일) */
+const unwrap=d=>(Array.isArray(d)&&d[0]&&d[0].data&&typeof d[0].data==='object')?d[0].data:d;
 let localDB=null, cloudRow=null, session=null;
 
 /* --- 요약 --- */
@@ -231,8 +235,8 @@ $('btnLogin').onclick=async()=>{
 async function restore(data,label,opt){
   opt=opt||{};
   const s=summarize(data);
-  if(!s||s.np<1){alert('복원할 데이터에 현장이 없습니다. 중단합니다.');return;}
-  if(!(await ensureSession())){alert('먼저 2번에서 로그인해 주세요.');return;}
+  if(!s||s.np<1){notice('복원할 데이터에 현장이 없습니다. 중단합니다.');return;}
+  if(!(await ensureSession())){notice('먼저 2번에서 로그인해 주세요.');return;}
   if(!cloudRow)await loadCloud();
   const cs=cloudRow?summarize(cloudRow.data):null;
   const msg=`클라우드를 덮어씁니다.\n\n[지금 클라우드] 현장 ${cs?cs.np:0}개 · 마지막 흔적 ${cs?cs.last:'—'} · ${cloudRow?new Date(cloudRow.updated_at).toLocaleString('ko-KR'):'행 없음'}\n\n[복원할 내용: ${label}] 현장 ${s.np}개 · 마지막 흔적 ${s.last} · ${s.kb} KB\n${s.rows.map(r=>' · '+r.name).join('\n')}\n\n계속할까요?`;
@@ -257,8 +261,8 @@ $('btnRestoreFile').onclick=()=>$('file').click();
 $('file').onchange=e=>{
   const f=e.target.files[0];if(!f)return;
   const rd=new FileReader();
-  rd.onload=()=>{let d=null;try{d=JSON.parse(rd.result);}catch(x){alert('백업 파일을 읽을 수 없습니다 (형식 오류)');return;}
-    if(!summarize(d)){alert('이 앱의 백업 파일이 아닙니다');return;}
+  rd.onload=()=>{let d=null;try{d=unwrap(JSON.parse(rd.result));}catch(x){notice('백업 파일을 읽을 수 없습니다 (형식 오류): '+f.name);return;}
+    if(!summarize(d)){notice('이 앱의 백업 파일이 아닙니다: '+f.name+' — tofs-백업-날짜.json 파일을 골라 주세요');return;}
     restore(d,'파일 '+f.name);};
   rd.readAsText(f);e.target.value='';
 };
@@ -273,7 +277,7 @@ async function loadFrom(){
   box.innerHTML='<div class="dim" style="margin-top:12px">파일 통로에서 읽는 중… '+esc(from)+'</div>';
   try{
     const r=await fetch(from,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
-    const d=await r.json();const s=summarize(d);
+    const d=unwrap(await r.json());const s=summarize(d);
     if(!s){box.innerHTML='<div class="bad" style="margin-top:12px">이 앱의 백업 파일이 아닙니다.</div>';return;}
     box.innerHTML='<div style="margin-top:14px;padding-top:10px;border-top:1px dashed #dfe3dd"><b>파일 통로에서 받은 백업</b> <span class="dim">'+esc(from)+'</span>'+summaryHtml(s)+
       (s.np>0?'<button class="btn red" id="btnRestoreFrom">이 백업으로 클라우드 복원</button>':'<div class="dim">현장이 없어 복원에 쓸 수 없습니다.</div>')+'</div>';
