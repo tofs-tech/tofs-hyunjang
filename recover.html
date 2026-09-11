@@ -85,6 +85,39 @@ const notice=m=>{log(m);let n=$('notice');if(!n){n=document.createElement('div')
 const unwrap=d=>(Array.isArray(d)&&d[0]&&d[0].data&&typeof d[0].data==='object')?d[0].data:d;
 let localDB=null, cloudRow=null, session=null;
 
+/* Large company records belong in IndexedDB, not the 5MB localStorage cache. */
+let tofsStorePromise;
+function tofsStore(){
+  if(!tofsStorePromise)tofsStorePromise=new Promise((resolve,reject)=>{
+    const r=indexedDB.open('tofs-durable-v1',1);
+    r.onupgradeneeded=()=>r.result.createObjectStore('records');
+    r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);
+    r.onblocked=()=>reject(new Error('기기 저장소가 다른 창에서 사용 중입니다.'));
+  });
+  return tofsStorePromise;
+}
+async function durableGet(key){const db=await tofsStore();return new Promise((resolve,reject)=>{
+  const tx=db.transaction('records','readonly'),r=tx.objectStore('records').get(key);
+  tx.oncomplete=()=>resolve(r.result||null);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+});}
+async function durableWrite(key,value){const db=await tofsStore();return new Promise((resolve,reject)=>{
+  const tx=db.transaction('records','readwrite');tx.objectStore('records').put(value,key);
+  tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+});}
+async function durablePending(key,expected,next){const db=await tofsStore();return new Promise((resolve,reject)=>{
+  const tx=db.transaction('records','readwrite'),s=tx.objectStore('records'),r=s.get(key);let conflict=false;
+  r.onsuccess=()=>{const current=r.result?JSON.parse(r.result):null;
+    if((current?.id||null)!==expected){conflict=true;tx.abort();return;}
+    if(next===null)s.delete(key);else s.put(next,key);
+  };
+  tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
+  tx.onabort=()=>reject(conflict?{conflict:true}:tx.error);
+});}
+async function durableKeys(){const db=await tofsStore();return new Promise((resolve,reject)=>{
+  const tx=db.transaction('records','readonly'),r=tx.objectStore('records').getAllKeys();
+  tx.oncomplete=()=>resolve(r.result);tx.onerror=()=>reject(tx.error);
+});}
+
 /* --- 요약 --- */
 const isBlank=p=>((p.info&&p.info.name||'').trim()==='새 프로젝트')&&!(p.schedule||[]).length&&!(p.expenses||[]).length&&!(p.estimates||[]).length&&!(p.contracts||[]).length&&!(p.logs||[]).length&&!(p.materials||[]).length&&!+(p.info&&p.info.amount);
 function summarize(d){
@@ -119,8 +152,11 @@ function summaryHtml(s){
 }
 
 /* --- 1. 이 기기 --- */
-function readLocal(){
-  let raw=null;try{raw=localStorage.getItem(KEY);}catch(e){}
+async function readLocal(){
+  let raw=null;try{const sess=JSON.parse(localStorage.getItem(SES_KEY)||'null');
+  const pending=sess&&await durableGet(KEY+'-pending-'+sess.uid);
+  raw=pending?JSON.stringify(JSON.parse(pending).data):(sess&&await durableGet(KEY+'-cache-'+sess.uid))||localStorage.getItem(KEY);
+  }catch(e){$('local').textContent='기기 저장소 확인 실패';return;}
   if(!raw){$('local').innerHTML='<span class="bad">이 브라우저에는 저장된 앱 데이터가 없습니다.</span> <span class="dim">앱을 쓰던 브라우저(프로필)가 맞는지 확인해 주세요.</span>';return;}
   try{localDB=JSON.parse(raw);}catch(e){$('local').innerHTML='<span class="bad">저장된 데이터를 읽지 못했습니다 (형식 오류).</span>';return;}
   const s=summarize(localDB);
@@ -132,15 +168,15 @@ function readLocal(){
   }
 }
 /* 앱이 따로 남겨 둔 사본들: -prev(클라우드 데이터로 바뀌기 직전의 이 기기 캐시), -conflict-*(다른 기기와 충돌해 못 올린 변경분), -cloud-before-restore-*(복원 직전 클라우드) */
-function readExtras(){
+async function readExtras(){
   const box=$('extras');const items=[];
-  try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(!k||k.indexOf(KEY+'-')!==0)continue;
+  try{const keys=[...new Set([...Object.keys(localStorage),...await durableKeys()])];for(const k of keys){if(!k||k.indexOf(KEY+'-')!==0)continue;
     let label=null;
     if(k===KEY+'-prev')label='직전 사본 — 앱이 클라우드 데이터로 바뀌기 전에 이 기기에 있던 것';
     else if(k.indexOf(KEY+'-conflict-')===0)label='충돌 변경분 '+k.slice((KEY+'-conflict-').length)+' — 다른 기기가 먼저 저장해 못 올린 것';
     else if(k.indexOf(KEY+'-cloud-before-restore-')===0)label='복원 직전 클라우드 '+k.slice((KEY+'-cloud-before-restore-').length);
     if(!label)continue;
-    let d=null;try{d=JSON.parse(localStorage.getItem(k));}catch(e){}
+    let d=null;try{d=JSON.parse(await durableGet(k)||localStorage.getItem(k));}catch(e){}
     const s=summarize(d);if(!s)continue;items.push({k,label,d,s});}}catch(e){}
   if(!items.length){box.innerHTML='';return;}
   box.innerHTML=items.map((it,i)=>`<div style="margin-top:14px;padding-top:10px;border-top:1px dashed #dfe3dd"><b>${esc(it.label)}</b>${summaryHtml(it.s)}
@@ -198,12 +234,12 @@ async function loadCloud(){
   loadHistory();
 }
 
-/* --- 4. 이전 버전 (app_state_history_meta 뷰 — SQL 설정 뒤에 생긴다) --- */
+/* --- 4. 이전 버전 (tofs_state_history_v2_meta 뷰 — SQL 설정 뒤에 생긴다) --- */
 async function loadHistory(){
   const box=$('hist');
   if(!session){box.innerHTML='<span class="dim">로그인 뒤에 보입니다.</span>';return;}
   try{
-    const r=await fetch(SB_URL+'/rest/v1/app_state_history_meta?select=id,saved_at,updated_at,project_count,project_names,bytes&user_id=eq.'+session.uid+'&order=id.desc&limit=60',{headers:sbH()});
+    const r=await fetch(SB_URL+'/rest/v1/tofs_state_history_v2_meta?select=id,saved_at,updated_at,project_count,project_names,bytes&user_id=eq.'+session.uid+'&order=id.desc&limit=60',{headers:sbH()});
     if(r.status===404||r.status===401||r.status===403){box.innerHTML='<span class="dim">이전 버전 보관이 아직 설정되지 않았습니다.</span>';return;}
     if(!r.ok)throw new Error('HTTP '+r.status);
     const rows=await r.json();
@@ -212,7 +248,7 @@ async function loadHistory(){
     box.querySelectorAll('button[data-hid]').forEach(b=>{b.onclick=async()=>{
       b.disabled=true;
       try{
-        const r2=await fetch(SB_URL+'/rest/v1/app_state_history?select=data,saved_at&id=eq.'+b.dataset.hid,{headers:sbH()});
+        const r2=await fetch(SB_URL+'/rest/v1/tofs_state_history_v2?select=data,saved_at&id=eq.'+b.dataset.hid,{headers:sbH()});
         if(!r2.ok)throw new Error('HTTP '+r2.status);
         const row=(await r2.json())[0];if(!row){alert('그 버전을 찾지 못했습니다');return;}
         await restore(row.data,'이전 버전 '+new Date(row.saved_at).toLocaleString('ko-KR'));
@@ -233,29 +269,38 @@ $('btnLogin').onclick=async()=>{
 
 /* --- 3. 복원 --- */
 async function restore(data,label,opt){
-  opt=opt||{};
-  const s=summarize(data);
-  if(!s||s.np<1){notice('복원할 데이터에 현장이 없습니다. 중단합니다.');return;}
-  if(!(await ensureSession())){notice('먼저 2번에서 로그인해 주세요.');return;}
-  if(!cloudRow)await loadCloud();
-  const cs=cloudRow?summarize(cloudRow.data):null;
-  const msg=`클라우드를 덮어씁니다.\n\n[지금 클라우드] 현장 ${cs?cs.np:0}개 · 마지막 흔적 ${cs?cs.last:'—'} · ${cloudRow?new Date(cloudRow.updated_at).toLocaleString('ko-KR'):'행 없음'}\n\n[복원할 내용: ${label}] 현장 ${s.np}개 · 마지막 흔적 ${s.last} · ${s.kb} KB\n${s.rows.map(r=>' · '+r.name).join('\n')}\n\n계속할까요?`;
-  if(!opt.skipConfirm&&!confirm(msg))return;
-  /* 되돌릴 수 있게 지금 클라우드 내용을 남긴다 */
-  if(cloudRow&&cloudRow.data){
-    try{localStorage.setItem(KEY+'-cloud-before-restore-'+stamp(),JSON.stringify(cloudRow.data));}catch(e){}
-    download(cloudRow.data,`tofs-복원전-클라우드-${stamp()}.json`);
-  }
+  const summary=summarize(data);
+  if(!summary){notice('백업 형식을 확인할 수 없어 중단했습니다.');return;}
+  if(!(await ensureSession()))return;
+  const restoreUid=session.uid;
   try{
-    const r=await fetch(SB_URL+'/rest/v1/app_state?on_conflict=user_id',{method:'POST',headers:Object.assign(sbH(),{Prefer:'resolution=merge-duplicates,return=minimal'}),
-      body:JSON.stringify({user_id:session.uid,data:data,updated_at:new Date().toISOString()})});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    try{localStorage.setItem(KEY,JSON.stringify(data));}catch(e){}
-    log(`복원 완료 (${label}) — 현장 ${s.np}개. 이제 앱을 열어도 됩니다.`);
-    alert(`복원 완료 — 현장 ${s.np}개\n\n이제 현장관리 앱을 열어 확인하세요.`);
-    await loadCloud();
-  }catch(e){log('복원 실패: '+(e.message||e));alert('복원 실패: '+(e.message||e));}
+    const guard=await fetch(SB_URL+'/rest/v1/rpc/tofs_safety_status',{headers:sbH()});
+    if(!guard.ok)throw new Error('서버 보호 설정이 필요합니다');
+    const protection=await guard.json();if(protection.protocol!=='safe-1'||protection.enabled!==true)throw new Error('서버 보호가 활성화되지 않았습니다');
+    /* Always obtain a fresh baseline, never trust the page's earlier cloudRow. */
+    const before=await fetch(SB_URL+'/rest/v1/app_state?select=data,updated_at&user_id=eq.'+restoreUid,{headers:sbH()});
+    if(!before.ok)throw new Error('서버 원본을 확인할 수 없습니다.');
+    const rows=await before.json(),original=rows[0];
+    if(!original||!original.updated_at)throw new Error('서버 기준 자료가 없어 자동 복원을 중단합니다.');
+    if(!confirm('복원 후보: '+label+'\n현장 '+summary.np+'개\n현재 서버 자료를 별도 보관한 뒤 교체합니다. 계속할까요?'))return;
+    const key=KEY+'-cloud-before-restore-'+Date.now()+'-'+crypto.randomUUID();
+    const raw=JSON.stringify(original.data);
+    await durableWrite(key,raw);
+    if(await durableGet(key)!==raw)throw new Error('복원 전 사본 보관 실패');
+    download(original.data,'tofs-복원전-'+stamp()+'.json');
+    if(session.uid!==restoreUid)throw new Error('로그인 계정이 변경됐습니다.');
+    const r=await fetch(SB_URL+'/rest/v1/app_state?user_id=eq.'+restoreUid+'&updated_at=eq.'+encodeURIComponent(original.updated_at)+'&select=updated_at',{
+      method:'PATCH',headers:Object.assign(sbH(),{Prefer:'return=representation','X-TOFS-Client':'safe-1','X-TOFS-Base-Version':original.updated_at}),
+      body:JSON.stringify({data:data})});
+    if(!r.ok)throw new Error('서버 저장 거부 (HTTP '+r.status+')');
+    const saved=await r.json();
+    if(saved.length!==1||!saved[0].updated_at)throw new Error('다른 기기 자료가 바뀌었습니다. 덮어쓰지 않았습니다.');
+    /* Do not erase a pending outbox from another tab. The app will show a conflict. */
+    notice('서버 복원 확인 완료 · 기존 자료는 복원 전 사본과 서버 이력에 보관했습니다.');
+    await loadCloud();await loadHistory();
+  }catch(e){notice('복원 완료로 확인되지 않았습니다: '+e.message);}
 }
+
 $('btnRestoreLocal').onclick=()=>restore(localDB,'이 기기 데이터');
 $('btnRestoreFile').onclick=()=>$('file').click();
 $('file').onchange=e=>{
