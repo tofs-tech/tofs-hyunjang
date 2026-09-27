@@ -2707,47 +2707,49 @@ function noticeData(p){
 }
 function noticeSheet(d){
   const co=CO();
-  /* fontScale % — 안내문 전체 글씨 크기 배율 */
   const k=Math.max(.5,Math.min(2,(+d.fontScale||100)/100));
   const fz=n=>Math.round(n*k*10)/10+'px';
-  const period=d.start&&d.end?`${fdateF(d.start)} ~ ${fdateF(d.end)} <span style="font-weight:500;color:#8D877B;font-size:${fz(12)}">(약 ${weeks(d.start,d.end)}주)</span>`:esc(fdateF(d.start));
-  const row=(en,kk,v)=>`<div style="display:flex;gap:22px;padding:${fz(13)} 2px;border-bottom:1px solid #E4DED1;align-items:center">
-    <div style="width:130px;flex:none"><div class="ed-lab" style="font-size:${fz(8)}">${en}</div><div style="font-weight:800;font-size:${fz(12.5)};margin-top:3px">${kk}</div></div>
-    <div style="font-size:${fz(15)};font-weight:600;line-height:1.55;flex:1">${v}</div></div>`;
-  const crow=(kk,v)=>v?`<span style="margin-right:22px;white-space:nowrap"><span class="fl" style="font-weight:800;letter-spacing:.15em;margin-right:7px">${kk}</span><span style="color:#5A554A">${v}</span></span>`:'';
+  const period=d.start&&d.end?`${esc(fdateF(d.start))} ~ ${esc(fdateF(d.end))} <span style="font-weight:400;color:#777F78;font-size:${fz(12)}">(약 ${weeks(d.start,d.end)}주)</span>`:esc(fdateF(d.start));
+  const row=(label,value,emphasis=false)=>`<div style="display:grid;grid-template-columns:100px minmax(0,1fr);gap:20px;padding:${fz(18)} 0;border-bottom:1px solid #E2E7E2;align-items:baseline;break-inside:avoid">
+    <div style="font-size:${fz(13)};font-weight:500;color:#707970">${label}</div>
+    <div style="min-width:0;font-size:${fz(emphasis?17:15)};font-weight:${emphasis?600:500};line-height:1.65;color:#28372E">${value||'—'}</div></div>`;
   const logoW=Math.max(24,Math.min(600,+d.logoW||140));
   const logoAlign=d.logoPos==='center'?'center':d.logoPos==='right'?'right':'left';
-  return `<div class="ed" style="font-size:${fz(12)};word-break:keep-all;overflow-wrap:break-word"><!-- 게시물이라 낱말 단위로 줄바꿈 — "청/소"처럼 한 글자만 떨어지지 않게 -->
-    ${edTop(edDateNo(todayStr()))}
-    ${d.logo?`<div style="text-align:${logoAlign};margin-top:26px"><img src="${d.logo}" style="width:${logoW}px;max-width:100%" alt="logo"></div>`:''}
-    <div class="ed-title" style="font-size:${fz(38)}">공사 안내문</div>
-    <div class="ed-sub">INTERIOR CONSTRUCTION NOTICE</div>
-    <div style="font-size:${fz(14.5)};line-height:1.95;color:#3B372E;white-space:pre-wrap;margin-top:${fz(26)}">${esc(d.greet)}</div>
-    <div style="margin-top:${fz(24)};border-top:1.5px solid #1D1B16">
-      ${row('UNIT','공사 세대',esc(d.unit)||'—')}
-      ${row('PERIOD','공사 기간',period)}
-      ${row('HOURS','작업 시간',esc(d.hours))}
-      ${row('WORKS','공사 내용',esc(d.works))}
+  return `<div class="ed notice-refined" style="font-family:var(--sans);background:#fff;font-size:${fz(14)};word-break:keep-all;overflow-wrap:anywhere;color:#303B34">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:20px;font-size:${fz(10)};color:#748176;letter-spacing:.12em">
+      <span style="font-weight:600">${esc((co.name||'공간생각').split('(')[0].trim())}</span>
+      <span style="letter-spacing:.04em">${esc(fdateF(todayStr()))}</span>
     </div>
-    ${d.noisy?`<div style="margin-top:${fz(20)};display:flex;gap:12px;font-size:${fz(13.5)};line-height:1.8;color:#3B372E">
-      <span class="dash">—</span><div><b style="letter-spacing:.12em">소음 안내</b>&nbsp; ${esc(d.noisy)}</div></div>`:''}
-    <div style="font-size:${fz(14.5)};line-height:1.95;color:#3B372E;margin-top:${fz(20)};white-space:pre-wrap">${esc(d.close)}</div>
-    <div style="flex:1"></div>
-    <div style="border-top:1.5px solid #1D1B16;padding-top:${fz(12)};margin-top:${fz(20)}">
-      <div style="display:flex;align-items:baseline;gap:14px">
-        <span style="font-size:${fz(15)};font-weight:800">${esc(d.manager||co.ceo||'')}</span>
-        <span class="ed-lab" style="font-size:${fz(8.5)}">SITE MANAGER · 현장 책임</span>
-        <span style="margin-left:auto;font-size:${fz(15)};font-weight:800;font-variant-numeric:tabular-nums">${esc(d.contact)}</span>
+    ${d.logo?`<div style="text-align:${logoAlign};margin-top:24px"><img src="${d.logo}" style="width:${logoW}px;max-width:100%;height:auto" alt="회사 로고"></div>`:''}
+    <div style="margin-top:${fz(30)};padding-bottom:${fz(22)};border-bottom:2px solid #718D74">
+      <div style="font-size:${fz(34)};font-weight:500;letter-spacing:-.055em;line-height:1.25">공사 안내문</div>
+      <div style="margin-top:10px;font-size:${fz(9)};letter-spacing:.22em;font-weight:500;color:#7A877D">INTERIOR CONSTRUCTION NOTICE</div>
+    </div>
+    <div style="font-size:${fz(14)};line-height:1.95;color:#535C55;white-space:pre-wrap;margin-top:${fz(24)}">${esc(d.greet)}</div>
+    <div style="margin-top:${fz(22)};border-top:1px solid #B7C5B9">
+      ${row('공사 세대',esc(d.unit))}
+      ${row('공사 기간',period,true)}
+      ${row('작업 시간',esc(d.hours))}
+      ${row('공사 내용',esc(d.works))}
+    </div>
+    ${d.noisy?`<div style="margin-top:${fz(22)};padding:${fz(15)} ${fz(18)};background:#F4F6F3;border-left:2px solid #9BAF9D;break-inside:avoid">
+      <div style="font-size:${fz(12)};font-weight:600;color:#526D58;margin-bottom:5px">소음 안내</div>
+      <div style="font-size:${fz(13)};line-height:1.8;color:#535C55;white-space:pre-wrap">${esc(d.noisy)}</div></div>`:''}
+    <div style="font-size:${fz(13.5)};line-height:1.95;color:#535C55;margin-top:${fz(22)};white-space:pre-wrap">${esc(d.close)}</div>
+    <div style="flex:1;min-height:24px"></div>
+    <div style="border-top:1px solid #B7C5B9;padding-top:${fz(16)};break-inside:avoid">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap">
+        <div><span style="font-size:${fz(11)};color:#748176;margin-right:12px">현장 책임자</span><span style="font-size:${fz(15)};font-weight:600">${esc(d.manager||co.ceo||'')}</span></div>
+        <span style="font-size:${fz(19)};font-weight:600;letter-spacing:.015em;font-variant-numeric:tabular-nums">${esc(d.contact)}</span>
       </div>
-      <div style="margin-top:${fz(11)};font-size:${fz(9.5)};color:#5A554A">
-        <span style="font-weight:800;letter-spacing:.3em;margin-right:18px">${esc((co.name||'').split('(')[0].trim())}</span>
-        ${crow('MAIL',esc(co.email||''))}${crow('ADDR.',esc(co.addr||''))}
+      <div style="margin-top:${fz(12)};font-size:${fz(10)};line-height:1.8;color:#7B837C;display:flex;gap:4px 16px;flex-wrap:wrap">
+        ${co.email?`<span>${esc(co.email)}</span>`:''}${co.addr?`<span>${esc(co.addr)}</span>`:''}
       </div>
     </div>
   </div>`;
 }
 /* ── 안내문 한 장 맞춤 — 인쇄와 같은 폭(186mm)으로 실제로 그려 높이를 재고, 내용 272mm(A4 297 − 위아래 12mm) 안에 들어가는
-   가장 큰 글씨 배율(%)을 이분 탐색으로 찾는다. 자동(fontAuto)이면 꽉 차게 키우고, 직접 정한 값이면 넘칠 때만 줄인다.
+   가장 큰 글씨 배율(%)을 이분 탐색으로 찾는다. 자동(fontAuto)이면 기본 크기 이내에서 여백을 유지하고, 넘칠 때만 줄인다.
    2026-09-09: 사장님이 이미지로 뽑으니 위아래가 비어 글씨가 작고, 글씨를 키워 PDF로 뽑으니 2장이 됐다 — 그래서 만들었다.
    ⚠️ 로고 <img>는 디코딩이 끝나기 전엔 높이 0으로 재어진다(실측으로 확인) — 그래서 그릴 때마다 decode()를 기다린다. */
 async function noticeFit(d){
@@ -2769,7 +2771,7 @@ async function noticeFit(d){
   const search=async(lo,hi)=>{while(hi-lo>1){const mid=Math.floor((lo+hi)/2);if(await fits(mid))lo=mid;else hi=mid;}return lo;}; /* lo는 들어간다고 가정 */
   let k;
   try{
-    if(d.fontAuto!==false)k=(await fits(200))?200:await search(50,200);
+    if(d.fontAuto!==false)k=(await fits(100))?100:await search(50,100);
     else{k=Math.max(50,Math.min(200,Math.round(+d.fontScale||100)));if(!(await fits(k)))k=await search(50,k);}
   } finally { stage.remove(); }
   return k;
@@ -2778,7 +2780,7 @@ async function noticeFit(d){
 async function noticeFitSheet(d){
   const k=await noticeFit(d);
   const want=Math.round(+d.fontScale||100);
-  if(d.fontAuto!==false)toast(`글씨 크기 ${k}% — A4 한 장에 꽉 차게 맞췄습니다`,3500);
+  if(d.fontAuto!==false)toast(`글씨 크기 ${k}% — 균형 있는 여백으로 A4 한 장에 맞췄습니다`,3500);
   else if(k<want)toast(`글씨 ${want}%로는 한 장을 넘쳐 ${k}%로 줄였습니다`,3500);
   return noticeSheet(Object.assign({},d,{fontScale:k}));
 }
@@ -2798,7 +2800,7 @@ function openNotice(){
       <div class="field"><label>로고 크기 (가로 px)</label><input type="number" id="ntLogoW" value="${+d.logoW||140}" min="24" max="600" step="10"></div>
       <div class="field"><label>글씨 크기</label>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;font-size:13px;font-weight:500;color:var(--ink)"><input type="checkbox" id="ntAuto" style="width:16px;height:16px;padding:0;margin:0" ${d.fontAuto!==false?'checked':''}>한 장에 꽉 차게 자동</label>
+          <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;font-size:13px;font-weight:500;color:var(--ink)"><input type="checkbox" id="ntAuto" style="width:16px;height:16px;padding:0;margin:0" ${d.fontAuto!==false?'checked':''}>균형 있는 크기로 한 장 맞춤</label>
           <input type="number" id="ntFont" value="${+d.fontScale||100}" min="50" max="200" step="5" style="width:84px" ${d.fontAuto!==false?'disabled':''}><span class="hint">%</span>
         </div>
         <span class="hint">자동: A4 한 장에 들어가는 가장 큰 글씨로 맞춥니다. 직접 정하면 그 크기로 하되, 넘치면 한 장에 맞게 줄입니다</span></div>
