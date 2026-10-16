@@ -332,7 +332,6 @@
     .row-actions{opacity:.85;}
     .photo .del{opacity:1;}
   }
-  /* 휴대폰 화면 */
   /* ── 현장실측 (현장관리 › 현장실측) — 실측판은 화면 전체, 아이패드 가로면 왼쪽 그림·오른쪽 숫자판 ── */
   .ms-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
   .ms-draft{background:var(--warn-soft);border:1px solid var(--warn);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:12px;font-size:13px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
@@ -398,6 +397,7 @@
   body.print-doc #printRoot .ed.edg.ems{padding:12mm;min-height:296mm;}
   .psheet .ems .ems-fig.sm svg{height:140mm;}
   @media (max-width:600px){ .subtabs{overflow-x:auto;flex-wrap:nowrap;} .subtabs button{flex:none;} }
+  /* 휴대폰 화면 */
   @media (max-width:600px){
     body{overflow-x:clip;}
     .appbar{padding:9px 10px;gap:7px;}
@@ -1152,7 +1152,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.15.0';
+const APP_VERSION='9.15.1';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -2218,8 +2218,6 @@ function printOrder(po){
   showPreview('발주서',html);
 }
 
-/* ===== 현장 (일지 + 첨부 사진) ===== */
-/* 현장일지 피드 — 일지를 쓰면서 사진을 함께 첨부, 날짜별로 정리 */
 /* ── 현장실측: 계산 — 원값(벽 길이·모서리)만 저장하고 꼭짓점·면적·오차는 볼 때마다 여기서 만든다 ── */
 const MEAS_OK=10, MEAS_BAD=30;   /* 맞은편 벽 차이(mm): 10까지 괜찮음, 30부터 다시 재기 — 사장님 기준이 정해지면 숫자만 바꾼다 */
 const MEAS_SHAPES={rect:['R','R','R','R'], L:['R','R','L','R','R','R']};
@@ -2380,7 +2378,7 @@ function measDrafts(pid){ const out=[]; try{ for(let i=0;i<localStorage.length;i
 function vMeasure(body,p){
   const all=p.measures||[], rooms=all.filter(r=>!r.del), gone=all.filter(r=>r.del), geos=rooms.map(r=>[r,measureGeom(r)]);
   const tot=geos.reduce((s,[,g])=>s+(g.area||0),0), drafts=measDrafts(p.id), hasDraft=id=>drafts.some(d=>d.room.id===id);
-  const loose=drafts.filter(d=>!rooms.some(r=>r.id===d.room.id));   /* 한 번도 저장 안 된 새 방의 초안 */
+  const loose=drafts.filter(d=>!all.some(r=>r.id===d.room.id));   /* 한 번도 저장 안 된 새 방의 초안 (지운 방의 초안은 되살리면 다시 보인다) */
   body.innerHTML=`<div class="ms-head"><div><b style="font-size:15px">현장실측</b> <span style="color:var(--muted);font-size:13px">방 ${rooms.length}개 · 바닥 합계 ${tot?measM2(tot):'—'}</span></div><div style="flex:1"></div>
     <button class="btn" id="msPrint" ${rooms.length?'':'disabled'}>실측도 보기</button><button class="btn accent" id="msAdd">+ 방 추가</button></div>
     ${loose.length?`<div class="ms-draft">저장하지 않은 새 방 실측이 이 기기에 있습니다: ${loose.map(d=>`<button class="btn sm" data-draft="${esc(d.room.id)}">${esc(d.room.name)} 이어서 하기</button>`).join(' ')}</div>`:''}
@@ -2395,12 +2393,11 @@ function vMeasure(body,p){
   body.querySelectorAll('.ms-card').forEach(el=>el.onclick=e=>{
     if(e.target.closest('[data-del]'))return; const r=all.find(x=>x.id===el.dataset.room); if(!r)return;
     const d=drafts.find(x=>x.room.id===r.id);
-    if(d){ if(confirm(`저장하지 않은 '${r.name}' 실측이 이 기기에 있습니다. 이어서 할까요?\n[취소]를 누르면 저장된 내용으로 열고, 저장하지 않은 실측은 지웁니다.`)) return openMeasureEditor(p.id,d.room,d.baseUpd||null,true);
-      try{localStorage.removeItem(measKey(p.id,r.id));}catch(err){} }
+    if(d){ if(confirm(`저장하지 않은 '${r.name}' 실측이 이 기기에 있습니다. 이어서 할까요?\n[취소]를 누르면 저장된 내용으로 엽니다.`)) return openMeasureEditor(p.id,d.room,d.baseUpd||null,true); }   /* 취소해도 초안은 안 지운다 — 창을 막는 브라우저에선 confirm이 바로 false */
     openMeasureEditor(p.id,JSON.parse(JSON.stringify(r)),r.upd||null,false);
   });
   const setDel=(id,v,purge)=>{ const p2=DB.projects.find(x=>x.id===p.id); if(!p2||!p2.measures)return; const i=p2.measures.findIndex(x=>x.id===id); if(i<0)return;
-    if(purge) p2.measures.splice(i,1); else { p2.measures[i].del=v; p2.measures[i].upd=new Date().toISOString(); } save(); render(); };
+    if(purge){ p2.measures.splice(i,1); try{localStorage.removeItem(measKey(p.id,id));}catch(e){} } else { p2.measures[i].del=v; p2.measures[i].upd=new Date().toISOString(); } save(); render(); };
   body.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ const r=all.find(x=>x.id===b.dataset.del); if(r&&confirm(`'${r.name}' 실측을 지울까요? (아래 '지운 방'에서 되살릴 수 있습니다)`)) setDel(r.id,new Date().toISOString()); });
   body.querySelectorAll('[data-undel]').forEach(b=>b.onclick=()=>setDel(b.dataset.undel,null));
   body.querySelectorAll('[data-purge]').forEach(b=>b.onclick=()=>{ if(confirm('영구 삭제하면 되살릴 수 없습니다. 지울까요?')) setDel(b.dataset.purge,null,true); });
@@ -2457,9 +2454,11 @@ function openMeasureEditor(pid,room,baseUpd,dirty){
   const flush=()=>{
     const ce=ov.querySelector('#msCeil'), v=ce?toInt(ce.value):null; if(v>0){ change(()=>{ r.ceil.push(v); }); toast(`적어 둔 천장고 ${v.toLocaleString()} 넣음`); }
     const a=toInt(op.a), b=toInt(op.b); if(tab==='ops'&&a!=null&&b!=null&&b>a){ change(addOp); toast('적어 둔 문·창을 넣었습니다'); } };
-  const close=()=>{ if(dirty||buf){ if(!confirm('저장하지 않고 닫을까요?\n지금까지 넣은 숫자는 이 기기에서 지워집니다.')) return; try{localStorage.removeItem(key);}catch(e){} }
+  let saving=false;
+  const close=()=>{ if(saving) return; if(dirty||buf){ if(!confirm('저장하지 않고 닫을까요?\n지금까지 넣은 숫자는 이 기기에서 지워집니다.')) return; try{localStorage.removeItem(key);}catch(e){} }
     document.removeEventListener('keydown',onKey); ov.remove(); render(); };
-  const doSave=()=>{
+  const doSave=async()=>{
+    if(saving) return;
     commit(); flush(); tailFix();
     const p2=DB.projects.find(x=>x.id===pid); if(!p2){ alert('이 현장을 찾을 수 없습니다. 숫자는 이 기기에 보관해 둡니다.'); return; }
     const arr=p2.measures||[], i=arr.findIndex(x=>x.id===r.id);
@@ -2467,7 +2466,10 @@ function openMeasureEditor(pid,room,baseUpd,dirty){
     if(i>=0&&(arr[i].upd||null)!==(baseUpd||null)&&!confirm('다른 기기에서 이 방 실측이 바뀌었습니다.\n지금 화면의 내용으로 바꿀까요?')) return;
     if(dirty) r.date=todayStr();
     r.upd=new Date().toISOString(); if(!p2.measures) p2.measures=arr; if(i>=0) arr[i]=r; else arr.push(r);
-    save(); try{localStorage.removeItem(key);}catch(e){} document.removeEventListener('keydown',onKey); ov.remove(); render(); toast(`'${r.name}' 실측 저장`);
+    saving=true; const ok=await save(); saving=false;
+    /* 기기 저장이 확인될 때만 초안을 지운다. 실패하면 초안을 지금 내용으로 남겨 다시 저장할 수 있게 */
+    if(ok){ try{localStorage.removeItem(key);}catch(e){} } else { baseUpd=r.upd; draft(); }
+    document.removeEventListener('keydown',onKey); ov.remove(); render(); toast(ok?`'${r.name}' 실측 저장`:'저장을 확인하지 못했습니다 — 이 실측은 이 기기에 남겨 두었습니다');
   };
   function onKey(e){
     if(!document.body.contains(ov)) return document.removeEventListener('keydown',onKey);
@@ -2575,6 +2577,8 @@ function printMeasure(p){
   showPreview('간략 실측도',[summary,...pages],false);
 }
 
+/* ===== 현장 (일지 + 첨부 사진) ===== */
+/* 현장일지 피드 — 일지를 쓰면서 사진을 함께 첨부, 날짜별로 정리 */
 function renderSiteSub(body,p){
   const logs=(p.logs||[]),legacy=(p.photos||[]); /* legacy = 예전 단독 업로드 사진 (계속 표시) */
   const exps=(p.expenses||[]),wks=(p.workers||[]);
