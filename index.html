@@ -1152,7 +1152,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.17.0';
+const APP_VERSION='9.17.1';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -2371,13 +2371,13 @@ const measBox=g=>{ const xs=g.pts.map(p=>p[0]), ys=g.pts.map(p=>p[1]), x0=Math.m
   return {x0,x1,y0,y1,span:Math.max(x1-x0,y1-y0,1500)}; };
 const MEAS_T=150;   /* 벽 두께 기본(mm) — 벽마다 바꿀 수 있다(w.t) */
 const measT=w=>w&&+w.t>0?Math.min(+w.t,1000):MEAS_T;
-const measTW=(g,room)=>g.closed&&g.pts.length>3?Math.max(...((room&&room.walls)||[{}]).map(measT)):0;   /* 가장 두꺼운 벽 — 그림 여백용 */
+const measTW=(g,room)=>g.pts.length>1?Math.max(...((room&&room.walls&&room.walls.length?room.walls:[{}])).map(measT)):0;   /* 가장 두꺼운 벽 — 그림 여백용 */
 const measOpLabel=o=>`${o.kind==='open'?'뚫림':measKind(o.kind)} ${measFmt(o.b-o.a)}${o.h?'×'+measFmt(o.h):''}${o.d?'×'+measFmt(o.d):''}${o.kind==='win'&&o.sill!=null?` · 바닥 ${measFmt(o.sill)}`:''}`;   /* W×H×D */
 function measScale(g,figW,figH,room){ const b=measBox(g), tw=measTW(g,room);
   return MEAS_SCALES.find(sc=>{ const fs=sc*2.5, pad=tw+fs*5.2; return (b.x1-b.x0+pad*2)/sc<=figW&&(b.y1-b.y0+pad*2+fs*3)/sc<=figH; })||null; }   /* null = 축척대로는 안 들어감(숫자 오타 등) */
 function measureSvg(room,g,opt){
   opt=opt||{}; const mode=opt.mode||'screen', thumb=mode==='thumb', print=mode==='print', screen=mode==='screen';
-  const P=g.pts, n=(room.walls||[]).length, b=measBox(g), TW=measTW(g,room), closed=TW>0, tw=i=>closed?measT(room.walls[i]):0;
+  const P=g.pts, n=(room.walls||[]).length, b=measBox(g), TW=measTW(g,room), closed=g.closed&&n>=3, tw=i=>measT(room.walls[i]);
   const sc=print?('sc' in opt?opt.sc:measScale(g,186,170,room)):0;
   const fs=print&&sc?sc*2.5:(opt.fs||(thumb?b.span/30:b.span/45)), sw=thumb?b.span/80:fs/12;
   const pad=thumb?TW+b.span*.06:TW+fs*5.2, foot=print?fs*3:0;
@@ -2394,19 +2394,26 @@ function measureSvg(room,g,opt){
   const ops=g.ops.filter(o=>!o.bad&&o.s!=null&&o.wall<n).map(o=>{ const k=nrm(o.wall), f=k.L/(g.res[o.wall]||k.L); return {...o,k,s1:o.s*f,e1:o.e*f}; });
   /* 1) 벽 두께 띠: 바깥선 = 벽마다 바깥으로 TW 띄운 선끼리 만나는 점(뾰족한 모서리는 4TW에서 자름).
      방 안으로 튀어나온 기둥(모서리가 바깥-안-안-바깥, 폭 1.5m·깊이 1m 이하)은 바깥선이 곧게 지나가 회색으로 꽉 차게. 문·창 자리는 가림판으로 띠를 지운다 */
+  /* 두 벽이 만나는 곳의 바깥 점: 바깥으로 두께만큼 띄운 두 선이 만나는 점(한 줄에서 두께가 바뀌면 턱, 뾰족하면 4배에서 자름) */
+  const joint=(p,A,B,Q)=>{ const cr=A.u[0]*B.u[1]-A.u[1]*B.u[0];
+    if(Math.abs(cr)<1e-6){ if(Math.abs(A.t-B.t)>1) Q.push([p[0]+A.out[0]*A.t,p[1]+A.out[1]*A.t]); Q.push([p[0]+B.out[0]*B.t,p[1]+B.out[1]*B.t]); return; }
+    const d=[B.out[0]*B.t-A.out[0]*A.t,B.out[1]*B.t-A.out[1]*A.t], t=(d[0]*B.u[1]-d[1]*B.u[0])/cr, lim=Math.max(A.t,B.t)*4;
+    let q=[p[0]+A.out[0]*A.t+A.u[0]*t,p[1]+A.out[1]*A.t+A.u[1]*t]; const mm=Math.hypot(q[0]-p[0],q[1]-p[1]); if(mm>lim) q=[p[0]+(q[0]-p[0])*lim/mm,p[1]+(q[1]-p[1])*lim/mm]; Q.push(q); };
+  if(TW&&n){ const Q=[]; let path;
   if(closed){
     const skip=new Set();
     for(let k=0;k<n&&n>=6;k++){ const k1=(k+1)%n, k2=(k+2)%n, k3=(k+3)%n, A=nrm((k-1+n)%n), Z=nrm(k3);
       if(turn(k)===1&&turn(k1)===-1&&turn(k2)===-1&&turn(k3)===1&&nrm(k).L<=1000&&nrm(k2).L<=1000&&nrm(k1).L<=1500&&Math.abs(A.u[0]*Z.u[1]-A.u[1]*Z.u[0])<1e-6&&A.u[0]*Z.u[0]+A.u[1]*Z.u[1]>0){ skip.add(k1); skip.add(k2); } }
     const idx=[...Array(n).keys()].filter(j=>!skip.has(j)), S=idx.map(j=>P[j]), m=S.length;
     const E=S.map((p,j)=>{ const q=S[(j+1)%m], L=Math.hypot(q[0]-p[0],q[1]-p[1])||1, u=[(q[0]-p[0])/L,(q[1]-p[1])/L]; return {u,out:g.cw?[u[1],-u[0]]:[-u[1],u[0]],t:tw(idx[j])}; });
-    const Q=[]; S.forEach((p,k)=>{ const A=E[(k-1+m)%m], B=E[k], cr=A.u[0]*B.u[1]-A.u[1]*B.u[0];
-      if(Math.abs(cr)<1e-6){ if(Math.abs(A.t-B.t)>1) Q.push([p[0]+A.out[0]*A.t,p[1]+A.out[1]*A.t]); Q.push([p[0]+B.out[0]*B.t,p[1]+B.out[1]*B.t]); return; }   /* 한 줄에서 두께가 바뀌면 턱 */
-      const d=[B.out[0]*B.t-A.out[0]*A.t,B.out[1]*B.t-A.out[1]*A.t], t=(d[0]*B.u[1]-d[1]*B.u[0])/cr, lim=Math.max(A.t,B.t)*4;
-      let q=[p[0]+A.out[0]*A.t+A.u[0]*t,p[1]+A.out[1]*A.t+A.u[1]*t]; const mm=Math.hypot(q[0]-p[0],q[1]-p[1]); if(mm>lim) q=[p[0]+(q[0]-p[0])*lim/mm,p[1]+(q[1]-p[1])*lim/mm]; Q.push(q); });
+    S.forEach((p,k)=>joint(p,E[(k-1+m)%m],E[k],Q)); path=`M${Q.map(pt).join('L')}Z M${P.slice(0,n).map(pt).join('L')}Z`;
+  } else {   /* 그리는 중·안 닫힌 방도 벽마다 두께 띠 — 두께가 그리는 동안에도 보이게 */
+    const E=[...Array(n).keys()].map(i=>{ const k=nrm(i); return {u:k.u,out:k.out,t:tw(i)}; });
+    Q.push([P[0][0]+E[0].out[0]*E[0].t,P[0][1]+E[0].out[1]*E[0].t]); for(let k=1;k<n;k++) joint(P[k],E[k-1],E[k],Q); Q.push([P[n][0]+E[n-1].out[0]*E[n-1].t,P[n][1]+E[n-1].out[1]*E[n-1].t]);
+    path=`M${P.slice(0,n+1).map(pt).join('L')}L${Q.reverse().map(pt).join('L')}Z`; }
     const mid=`msk${++measSvgSeq}`, holes=ops.map(o=>`<polygon points="${[at(o.wall,o.s1,-sw),at(o.wall,o.e1,-sw),at(o.wall,o.e1,tw(o.wall)+sw),at(o.wall,o.s1,tw(o.wall)+sw)].map(pt).join(' ')}" fill="#000"/>`).join('');
     out.push(`<defs><mask id="${mid}" maskUnits="userSpaceOnUse" x="${f0(vx)}" y="${f0(vy)}" width="${f0(vw)}" height="${f0(vh)}"><rect x="${f0(vx)}" y="${f0(vy)}" width="${f0(vw)}" height="${f0(vh)}" fill="#fff"/>${holes}</mask></defs>`,
-      `<path d="M${Q.map(pt).join('L')}Z M${P.slice(0,n).map(pt).join('L')}Z" mask="url(#${mid})" style="fill:${C.band};fill-rule:evenodd;stroke:${C.ink};stroke-width:${(sw*.8).toFixed(1)}"/>`); }
+      `<path d="${path}" mask="url(#${mid})" style="fill:${C.band};fill-rule:evenodd;stroke:${C.ink};stroke-width:${(sw*.8).toFixed(1)}"/>`); }
   /* 2) 안쪽 벽선(잰 면) — 문·창 자리는 끊는다 */
   for(let i=0;i<n;i++){
     const k=nrm(i), m=g.res[i]===null||g.est[i], cur=opt.cur===i&&screen;
@@ -2417,6 +2424,7 @@ function measureSvg(room,g,opt){
     parts.forEach(([s,e])=>out.push(seg(at(i,s),at(i,e),st)));
   }
   const thin=`stroke:${C.ink};stroke-width:${(sw*.7).toFixed(1)}`;
+  const placed=[];   /* 문·창 글씨 자리(벽, 바깥/안, 벽 방향 구간) */
   ops.forEach(o=>{ const i=o.wall, w=o.e1-o.s1, ps=at(i,o.s1), pe=at(i,o.e1), inn=[-o.k.out[0],-o.k.out[1]];
     if(TW) out.push(seg(at(i,o.s1),at(i,o.s1,tw(i)),thin), seg(at(i,o.e1),at(i,o.e1,tw(i)),thin));
     if(o.kind==='door'){
@@ -2427,9 +2435,11 @@ function measureSvg(room,g,opt){
       out.push(`<polyline points="${arc.join(' ')}" style="fill:none;stroke:${C.mute};stroke-width:${(sw*.6).toFixed(1)}"/>`);
     } else if(o.kind==='win'){ (TW?[0,tw(i)/2,tw(i)]:[-sw*2,sw*2]).forEach(d=>out.push(seg(at(i,o.s1,d),at(i,o.e1,d),thin))); }
     else out.push(seg(ps,pe,`${thin};stroke-dasharray:${f0(sw*4)} ${f0(sw*3)}`));
-    if(!thumb){ const memo=String(o.memo||'').trim(), lp=at(i,(o.s1+o.e1)/2,tw(i)+fs*(memo?1:1.5));   /* 문·창 글씨는 벽 바깥(띠와 치수선 사이) — 방 이름·문 열림선과 안 겹치게 */
-      out.push(T(lp[0],lp[1],measOpLabel(o),{fs:fs*.8,c:C.mute,rot:o.k.rot}));
-      if(memo){ const mp=at(i,(o.s1+o.e1)/2,tw(i)+fs*1.95); out.push(T(mp[0],mp[1],`※︎ ${memo.length>24?memo.slice(0,23)+'…':memo}`,{fs:fs*.72,c:C.mute,rot:o.k.rot})); } }   /* 메모 = 주석 */
+    if(!thumb){ const memo=String(o.memo||'').trim(), lab=measOpLabel(o), c=(o.s1+o.e1)/2, hw=Math.max(lab.length,memo.length*.9)*fs*.24+fs*.3;
+      const hit=sd=>placed.some(q=>q.i===i&&q.sd===sd&&q.lo<c+hw&&c-hw<q.hi), sd=hit(1)?-1:1; placed.push({i,sd,lo:c-hw,hi:c+hw});   /* 같은 벽 글씨가 겹치면 방 안쪽으로 */
+      const lp=at(i,c,sd>0?tw(i)+fs*(memo?1:1.5):-fs*1.3);   /* 문·창 글씨는 벽 바깥(띠와 치수선 사이) — 방 이름·문 열림선과 안 겹치게 */
+      out.push(T(lp[0],lp[1],lab,{fs:fs*.8,c:C.mute,rot:o.k.rot}));
+      if(memo){ const mp=at(i,c,sd>0?tw(i)+fs*1.95:-fs*2.25); out.push(T(mp[0],mp[1],`※︎ ${memo.length>24?memo.slice(0,23)+'…':memo}`,{fs:fs*.72,c:C.mute,rot:o.k.rot})); } }   /* 메모 = 주석 */
   });
   if(!thumb){
     /* 3) 치수선: 벽마다 바깥으로 (두께+3글자) 띄워 점 끝 치수선, 그 바깥에 '① 4,200'.
@@ -2530,7 +2540,10 @@ function openMeasureEditor(pid,room,baseUpd,dirty){
   /* 문·창: 지금 벽 가운데에 바로 놓고, 눌러서 양쪽 간격·크기를 고친다. 저장은 'L'(방 안에서 본 왼쪽 구석) 기준 a=왼쪽 간격, b=a+폭 */
   const OP_DEF={door:[900,2100,null],win:[1200,1200,900],open:[900,2100,null]};
   const addOpAt=kind=>{ const L=measureGeom(r).res[cur]; if(!(L>0)){ toast('이 벽 길이를 먼저 넣어 주세요'); return; }
-    const [W0,h,sill]=OP_DEF[kind], W=Math.min(W0,L), a=Math.round((L-W)/2), id=uid();
+    const used=r.ops.filter(o=>o.wall===cur).map(o=>{ const [lg,W]=opGaps(o); return [lg,lg+W]; }).filter(([x])=>x!=null).sort((x,y)=>x[0]-y[0]);
+    let best=[0,0], t=0; [...used,[L,L]].forEach(([x,y])=>{ if(x-t>best[1]-best[0]) best=[t,x]; t=Math.max(t,y); });   /* 이미 있는 문·창을 피해 가장 넓은 빈자리 */
+    const room=best[1]-best[0]; if(room<300){ toast('이 벽에 빈자리가 없습니다 — 다른 문·창 간격을 먼저 줄이세요'); return; }
+    const [W0,h,sill]=OP_DEF[kind], W=Math.min(W0,room), a=Math.round(best[0]+(room-W)/2), id=uid();
     change(()=>{ r.ops.push({id,wall:cur,kind,from:'L',a,b:a+W,h,d:null,sill,memo:'',swing:0}); sel=id; }); };
   const opGaps=o=>{ const L=measureGeom(r).res[o.wall], W=o.b-o.a; return o.from==='R'?[L==null?null:L-o.b,W,o.a]:[o.a,W,L==null?null:L-o.b]; };   /* [왼쪽, 폭, 오른쪽] */
   const editOp=(f,v)=>{ const o=r.ops.find(x=>x.id===sel); if(!o) return false; const L=measureGeom(r).res[o.wall], x=toInt(v), no=m=>{ toast(m); return false; };
