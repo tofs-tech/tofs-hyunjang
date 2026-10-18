@@ -1159,7 +1159,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.19.0';
+const APP_VERSION='9.19.1';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -2669,7 +2669,7 @@ function openMeasureEditor(pid,room,baseUpd,dirty){
     if(fix>=0){ r.items.forEach(o=>{ if(o.wall===fix) o.wall=-1; else if(o.wall>fix) o.wall--; if(o.w2===fix) delete o.w2; else if(o.w2>fix) o.w2--; }); itNote=`다른 기기(옛 판)에서 지운 벽 ${measNo(fix)} 때문에 설비·가구 벽 번호를 맞췄습니다 — 위치를 확인하세요`; }
     else itNote='다른 기기(옛 판)에서 벽이 바뀌었습니다 — 설비·가구 위치를 확인하세요'; }
   const lw=measWalls(r); r.walls=lw.walls.map((w,i)=>Object.assign({len:w.len,ang:measAng(w.ang)},r.walls[i]&&+r.walls[i].t>0?{t:r.walls[i].t}:r.wt&&+r.wt[i]>0?{t:r.wt[i]}:{},r.walls[i]&&r.walls[i].ap?{ap:1}:{},r.walls[i]&&r.walls[i].fresh?{fresh:true}:{})); if(lw.open) r.open=true; else delete r.open;   /* 예전 모서리 형식은 이 사본에서만 각도로 — 저장할 때 새 형식 */
-  let cur=Math.max(0,r.walls.findIndex(w=>w.len==null)), buf='', tab='walls', undo=[], draftOk=true, drawFs=null, sel=null, curPart=-1, pick=false, arm=null, lastPl={t:0,x:0,y:0};   /* arm = 설비·가구 놓는 중인 종류. sel = 고른 문·창 id, curPart = 고치는 벽체(-1이면 방 둘레), pick = 새 벽체 시작점 고르는 중 */
+  let cur=Math.max(0,r.walls.findIndex(w=>w.len==null)), buf='', tab='walls', undo=[], draftOk=true, drawFs=null, sel=null, curPart=-1, pick=false, arm=null, lastPl={t:0,x:0,y:0}, dragging=false;   /* arm = 설비·가구 놓는 중인 종류. sel = 고른 문·창 id, curPart = 고치는 벽체(-1이면 방 둘레), pick = 새 벽체 시작점 고르는 중 */
   const key=measKey(pid,r.id);
   const draft=()=>{ try{ const T=measSaveTurns(r); localStorage.setItem(key,JSON.stringify({room:{...r,itw:r.items.length?r.walls.map(w=>Math.round(+w.len||0)):undefined,walls:r.walls.map((w,i)=>({...w,turn:T[i]}))},baseUpd,at:new Date().toISOString()})); draftOk=true; }catch(e){ draftOk=false; } };   /* 임시저장도 모서리를 같이 — 옛 판 탭이 이어 그려도 벽이 지워지지 않게 */
   const snap=()=>JSON.stringify({walls:r.walls,ops:r.ops,parts:r.parts,items:r.items,curPart,ceil:r.ceil,checks:r.checks,name:r.name,cur,open:!!r.open});
@@ -2771,7 +2771,7 @@ function openMeasureEditor(pid,room,baseUpd,dirty){
   /* 기준 벽: 누른 점에서 수직으로 내린 발이 벽 안에 떨어지는 벽 중 가장 가까운 것(모서리 너머 벽을 고르지 않게) */
   const wallFoot=(g,q)=>{ let best=null; const n=g.pts.length-1; for(let i=0;i<n;i++){ const A=g.pts[i], B=g.pts[i+1], dx=B[0]-A[0], dy=B[1]-A[1], L2=dx*dx+dy*dy; if(!L2||!(g.res[i]>0)) continue;
       const t=((q[0]-A[0])*dx+(q[1]-A[1])*dy)/L2; if(t<0||t>1) continue; const d=Math.abs((q[0]-A[0])*dy-(q[1]-A[1])*dx)/Math.sqrt(L2); if(!best||d<best.d) best={i,d}; }
-    return nearWall(g,q,Infinity,best?best.i:null); };
+    const hb=nearWall(g,q,Infinity,best?best.i:null), hv=nearWall(g,q,Infinity); return hv&&hb&&hv.d<hb.d-1?hv:hb; };   /* ㄱ자 안쪽 모서리 쐐기(어느 벽에도 수직 발이 안 떨어지는 곳)는 가장 가까운 벽 끝으로 */
   const placeIt=(kind,q,k)=>{ const g=measureGeom(r); if(!g.closed){ toast('방을 먼저 닫은 뒤 놓아 주세요'); return; }
     const fu=kind==='furn', el=measElec(kind); let h=wallFoot(g,q); if(!h) return; const inw=i=>{ const v=g.vec[i], L=Math.hypot(v[0],v[1])||1, u=[v[0]/L,v[1]/L]; return g.cw?[-u[1],u[0]]:[u[1],-u[0]]; };
     let inn=inw(h.i), dd=(q[0]-h.pt[0])*inn[0]+(q[1]-h.pt[1])*inn[1], onPart=false;
@@ -2820,13 +2820,13 @@ function openMeasureEditor(pid,room,baseUpd,dirty){
   /* 숫자 칸 공통: 바꾸면 기록하고, 칸을 벗어나며 누른 버튼·그림 터치가 끝난 뒤 다시 그린다(누르는 중에 화면을 새로 만들면 그 터치가 씹힌다). Enter면 바로.
      apply가 false면 거부 — 칸을 원래 값으로 */
   /* 칸을 벗어나며 누른 버튼·그림 터치가 끝난 뒤에 fn(누르는 중에 화면을 새로 만들면 그 터치가 씹힌다) */
-  const later=fn=>{ let done=false; const go=()=>{ if(done) return; done=true; document.removeEventListener('click',go,true); setTimeout(()=>{ if(document.body.contains(ov)) fn(); },0); }; document.addEventListener('click',go,true); setTimeout(go,700); };
+  const later=fn=>{ let done=false; const run=()=>{ if(!document.body.contains(ov)) return; if(dragging){ setTimeout(run,200); return; } fn(); }, go=()=>{ if(done) return; done=true; document.removeEventListener('click',go,true); setTimeout(run,0); }; document.addEventListener('click',go,true); setTimeout(go,700); };   /* 끄는 중이면 끝난 뒤에 */
   const fieldEdit=(el,apply)=>{ let viaEnter=false;
     el.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); viaEnter=true; el.blur(); } }; el.onblur=()=>{ viaEnter=false; };
     el.onchange=()=>{ const before=snap(); if(apply(el.value.trim())===false){ el.value=el.defaultValue; return; }
       undo.push(before); if(undo.length>40) undo.shift(); dirty=true; draft(); if(viaEnter) return draw();
-      let done=false; const go=()=>{ if(done) return; done=true; document.removeEventListener('click',go,true); setTimeout(()=>{ if(!document.body.contains(ov)) return; const ae=document.activeElement;
-        if(ae&&ae!==el&&ov.contains(ae)&&/^(INPUT|TEXTAREA)$/.test(ae.tagName)) paintLite(); else draw(); },0); };   /* 다른 칸으로 옮겨 갔으면 판은 그대로 */
+      let done=false; const go=()=>{ if(done) return; done=true; document.removeEventListener('click',go,true); const run=()=>{ if(!document.body.contains(ov)) return; if(dragging){ setTimeout(run,200); return; } const ae=document.activeElement;
+        if(ae&&ae!==el&&ov.contains(ae)&&/^(INPUT|TEXTAREA)$/.test(ae.tagName)) paintLite(); else draw(); }; setTimeout(run,0); };   /* 다른 칸으로 옮겨 갔으면 판은 그대로, 끄는 중이면 끝난 뒤에 */
       document.addEventListener('click',go,true); setTimeout(go,700); }; };
   const opRow=(o,g)=>{ const go=g.ops[r.ops.indexOf(o)]||{}, [lg,,rg]=opGaps(o);
     return `<b>${esc(measOpLabel(o))}</b> <span>왼쪽 ${measFmt(lg)} · 오른쪽 ${measFmt(rg)}</span>${o.memo?` <span>※︎ ${esc(o.memo)}</span>`:''}${go.bad?` <span class="ms-st bad">${esc(go.bad)}</span>`:''}`; };
@@ -2892,19 +2892,69 @@ function openMeasureEditor(pid,room,baseUpd,dirty){
         if(!arm){ if(sel){ sel=null; draw(); } return; }
         const now=Date.now(); if(now-lastPl.t<400&&Math.hypot(e.clientX-lastPl.x,e.clientY-lastPl.y)<10) return; lastPl={t:now,x:e.clientX,y:e.clientY};   /* 두 번 눌림 막기 */
         const m=isv.getScreenCTM(); if(!m||!m.a) return; const q=new DOMPoint(e.clientX,e.clientY).matrixTransform(m.inverse()); placeIt(arm,[q.x,q.y],1/m.a); }); }
-    bindDrag(); }
+    bindDrag(); bindItemDrag(); }
+  /* 설비·가구 끌어 옮기기(설비·가구 탭, 놓기 버튼을 안 고른 때): 기호·상자를 누른 채 끌면 따라오고 놓으면 그 자리로(되돌리기 됨).
+     벽 끝(모서리)·벽체 면·다른 가구 옆면에 붙고(초록), 아니면 10mm 단위. 이미 적어 둔 '벽에서' 거리는 손가락이 벽 쪽으로 분명히 움직일 때만 바뀐다 */
+  const itMove=(g,o,q,k,gr)=>{ const fu=o.kind==='furn', el=measElec(o.kind), tol=k*(fu?20:10); let snapped=false;   /* 기호는 스냅을 좁게 — 모서리 100~150mm 자리도 놓을 수 있게 */
+    const uv=i=>{ const v=g.vec[i], L=Math.hypot(v[0],v[1])||1; return [v[0]/L,v[1]/L]; }, inw=i=>{ const u=uv(i); return g.cw?[-u[1],u[0]]:[u[1],-u[0]]; };
+    const along=(i,P)=>{ const A=g.pts[i], B=g.pts[i+1], dx=B[0]-A[0], dy=B[1]-A[1], L2=dx*dx+dy*dy||1, res=g.res[i]||Math.sqrt(L2), mm=((P[0]-A[0])*dx+(P[1]-A[1])*dy)/L2*res; return g.cw?mm:res-mm; };
+    const depth=(i,P)=>{ const n=inw(i), A=g.pts[i]; return (P[0]-A[0])*n[0]+(P[1]-A[1])*n[1]; };
+    const refOf=i=>{ const u=uv(i), n=inw(i), s=g.cw?1:-1; return [q[0]-u[0]*gr[0]*s-n[0]*gr[1],q[1]-u[1]*gr[0]*s-n[1]*gr[1]]; };   /* 잡은 자리(상자 안 위치)가 손가락 밑에 그대로 — 벽이 바뀌어도 */
+    const pick=P=>{ const h=wallFoot(g,P); if(!h) return null; if(h.i===o.wall) return h.i; const cur=nearWall(g,P,Infinity,o.wall); return cur&&cur.d<=h.d+k*30?o.wall:h.i; };   /* 지금 벽에서 30px 넘게 더 가까운 벽이 있어야 옮긴다(모서리에서 튀지 않게) */
+    let i=pick(refOf(o.wall)); if(i==null) return null; let R=refOf(i); if(fu){ const j=pick(R); if(j!=null&&j!==i){ i=j; R=refOf(i); } }
+    let dd=depth(i,R), keep=i===o.wall&&Math.abs(dd-(+o.off||0))<=k*30;   /* 벽 쪽으로 분명히 안 움직였으면 적어 둔 거리 그대로 */
+    if(!fu&&o.kind!=='fd'&&!keep){ const hp=nearPart(g,R,k*30); if(hp&&hp.d<Math.max(dd,0)){ const d=measDirVec(hp.on.ang), F=[hp.pt[0]+d[0]*hp.hb,hp.pt[1]+d[1]*hp.hb]; const j=pick(F); if(j!=null){ i=j; R=F; dd=depth(i,R); snapped=true; } } }   /* 벽체 면에 붙기 */
+    const res=g.res[i]; if(!(res>0)) return null; const W=fu?Math.max(0,+o.b-+o.a):0, D=fu?(+o.d>0?+o.d:600):0;
+    if(fu&&W>res+MEAS_BAD) return null;   /* 벽보다 긴 가구는 그 벽에 못 놓는다(숫자 칸과 같은 규칙) */
+    const r10=v=>Math.max(0,Math.round(v/10)*10);
+    const off=keep?Math.max(+o.off||0,0):snapped?r10(dd):el?0:o.kind==='fd'?r10(dd):dd<=k*30?0:r10(dd);
+    /* 붙을 자리(벽 따라 mm). e: 'L' = 왼쪽 면만, 'R' = 오른쪽 면만, 'B' = 둘 다. 벽 끝, 이 줄(벽에서 off~off+D)을 지나는 벽체 면, 다른 가구 모서리 */
+    const C=[{v:0,e:'L'},{v:res,e:'R'}], d0=off, d1=off+Math.max(D,1);
+    (r.parts||[]).forEach(p=>{ const pp=measPartPts(r,g,p); if(pp) (p.walls||[]).forEach((w,k2)=>{ const A=pp.pts[k2], B=pp.pts[k2+1], L=Math.hypot(B[0]-A[0],B[1]-A[1])||1, u=[(B[0]-A[0])/L,(B[1]-A[1])/L], n=inw(i), c=Math.abs(u[0]*n[0]+u[1]*n[1]); if(c<.3) return;
+      const sA=depth(i,A), sB=depth(i,B), lo=Math.max(Math.min(sA,sB),d0), hi=Math.min(Math.max(sA,sB),d1); if(lo>hi+1) return;
+      const at=z=>along(i,[A[0]+(B[0]-A[0])*(z-sA)/((sB-sA)||1e-9),A[1]+(B[1]-A[1])*(z-sA)/((sB-sA)||1e-9)]), xs=[at(lo),at(hi)], hb=measT(w)/2/c;
+      C.push({v:Math.min(...xs)-hb,e:'R'},{v:Math.max(...xs)+hb,e:'L'}); }); });   /* 비스듬한 벽체도 겹치는 쪽 끝으로 */
+    if(fu) r.items.forEach(f=>{ if(f===o||f.kind!=='furn') return; const G=measItemGeo(g,f); if(!G) return; const fo=Math.max(+f.off||0,0), fd=+f.d>0?+f.d:600;
+      [[G.s,fo],[G.e,fo],[G.e,fo+fd],[G.s,fo+fd]].map(([t,dp])=>measItPt(G,t,dp)).forEach(P=>{ const z=depth(i,P); if(z>d0-60&&z<d1+60) C.push({v:along(i,P),e:'B'}); }); });
+    let a=along(i,R)-W/2, best=null;
+    [[0,'L'],[W,'R']].slice(0,fu?2:1).forEach(([e,side])=>C.forEach(c=>{ if(fu&&c.e!=='B'&&c.e!==side) return; const dz=Math.abs(a+e-c.v); if(dz<=tol&&(!best||dz<best.dz)) best={dz,a:c.v-e}; }));
+    if(best){ a=best.a; snapped=true; } else a=Math.round(a/10)*10;
+    a=Math.round(fu?Math.max(0,Math.min(res-W,a)):Math.max(0,Math.min(res,a)));
+    const set=fu?{wall:i,a,b:a+W,off}:{wall:i,a,off};
+    return {set,snapped,label:`벽 ${measNo(i)} 왼쪽 ${measFmt(a)}${fu?` · 오른쪽 ${measFmt(res-a-W)}`:''}${off>0||+o.off>0?` · 벽에서 ${measFmt(off)}`:''}`}; };
+  const itGhost=(g,o,mv,k)=>{ const t={...o,...mv.set}, G=measItemGeo(g,t); if(!G) return ''; const col=mv.snapped?'var(--good)':'var(--accent)', f=k*13, off=Math.max(+t.off||0,0), n=v=>v.toFixed(1);
+    let s='', P;
+    if(t.kind==='furn'){ const D=+t.d>0?+t.d:600, Q=[measItPt(G,G.s,off),measItPt(G,G.e,off),measItPt(G,G.e,off+D),measItPt(G,G.s,off+D)]; P=measItPt(G,(G.s+G.e)/2,off+D/2);
+      s=`<polygon points="${Q.map(p=>n(p[0])+','+n(p[1])).join(' ')}" style="fill:none;stroke:${col};stroke-width:3px;vector-effect:non-scaling-stroke;stroke-dasharray:8 5"/>`; }
+    else { P=measItPt(G,G.s,measElec(t.kind)&&!(off>0)?k*9:off); s=measItSym(t,P[0],P[1],k*9)+`<circle cx="${n(P[0])}" cy="${n(P[1])}" r="${n(k*14)}" style="fill:none;stroke:${col};stroke-width:3px;vector-effect:non-scaling-stroke"/>`; }
+    return s+`<text x="${n(P[0]+f)}" y="${n(P[1]-f*1.6)}" stroke="var(--bg)" stroke-width="${n(f*.3)}" paint-order="stroke" style="font:700 ${n(f*1.1)}px ${MEAS_FONT};fill:${col};pointer-events:none">${esc(mv.label)}</text>`; };
+  function bindItemDrag(){ const sv=ov.querySelector('.ms-draw svg'); if(!sv||tab!=='items'||arm) return; let st=null;
+    const toM=(x,y)=>{ const m=sv.getScreenCTM(); if(!m) return null; const p=new DOMPoint(x,y).matrixTransform(m.inverse()); return [p.x,p.y]; };
+    sv.addEventListener('pointerdown',e=>{ if(!e.isPrimary||(st&&st.id!==e.pointerId)){ if(st&&st.el) st.el.remove(); st=null; dragging=false; return; }   /* 두 번째 손가락(오므리기·밀기)이면 취소 */
+      const t=e.target&&e.target.closest&&e.target.closest('[data-it]'), o=t&&r.items.find(x=>x.id===t.dataset.it); if(e.button>0||!o) return; st={x:e.clientX,y:e.clientY,id:e.pointerId,o,drag:false}; });
+    sv.addEventListener('pointermove',e=>{ if(!st||e.pointerId!==st.id) return;
+      if(!st.drag){ if(Math.hypot(e.clientX-st.x,e.clientY-st.y)<14) return; const m=sv.getScreenCTM(), g=measureGeom(r), G=measItemGeo(g,st.o), p0=toM(st.x,st.y); if(!m||!m.a||!G||!p0){ st=null; return; }
+        const off=Math.max(+st.o.off||0,0), ref=st.o.kind==='furn'?measItPt(G,(G.s+G.e)/2,off):measItPt(G,G.s,off), dv=[p0[0]-ref[0],p0[1]-ref[1]];   /* 잡은 자리 = 기준점(가구는 벽 쪽 가운데)에서 벽 방향·안쪽으로 얼마 */
+        st.gr=[(dv[0]*G.u[0]+dv[1]*G.u[1])*(g.cw?1:-1),dv[0]*G.inn[0]+dv[1]*G.inn[1]];
+        st.drag=true; dragging=true; st.k=1/m.a; st.g=g; try{ sv.setPointerCapture(e.pointerId); }catch(x){} st.el=document.createElementNS('http://www.w3.org/2000/svg','g'); sv.appendChild(st.el); }
+      const q=toM(e.clientX,e.clientY); if(!q) return; const mv=itMove(st.g,st.o,q,st.k,st.gr); st.mv=mv; st.el.innerHTML=mv?itGhost(st.g,st.o,mv,st.k):''; e.preventDefault(); });
+    const end=e=>{ if(!st||e.pointerId!==st.id) return; const s=st; st=null; if(!s.drag) return; dragging=false; if(s.el) s.el.remove(); if(e.pointerType==='mouse') swallowClick();
+      if(e.type!=='pointerup'||!s.mv||Math.hypot(e.clientX-s.x,e.clientY-s.y)<14) return;   /* 흔들렸다 제자리면 옮기지 않음 */
+      const ae=document.activeElement; if(ae&&ov.contains(ae)&&/^(INPUT|TEXTAREA)$/.test(ae.tagName)) ae.blur();   /* 칸에 적어 둔 숫자를 먼저 넣고 */
+      const o=s.o, mv=s.mv; change(()=>{ const was=o.wall; Object.assign(o,mv.set); if(o.wall!==was){ delete o.w2; if(o.ref===2){ const A=measAdj(measureGeom(r),o); if(A) o.w2=A.j; else o.ref=1; } } sel=o.id; }); };   /* 벽이 바뀌면 두 벽 기준의 옆 벽도 다시 */
+    sv.addEventListener('pointerup',end); sv.addEventListener('pointercancel',end); }
   function bindDrag(){ const sv=ov.querySelector('.ms-draw svg'); if(!sv) return; let st=null;
     const toM=(x,y)=>{ const m=sv.getScreenCTM(); if(!m) return null; const p=new DOMPoint(x,y).matrixTransform(m.inverse()); return [p.x,p.y]; };
-    sv.addEventListener('pointerdown',e=>{ if(st&&st.id!==e.pointerId){ if(st.el) st.el.remove(); st=null; return; }   /* 두 손가락(오므리기·밀기)은 그리기 아님 */
+    sv.addEventListener('pointerdown',e=>{ if(st&&st.id!==e.pointerId){ if(st.el) st.el.remove(); st=null; dragging=false; return; }   /* 두 손가락(오므리기·밀기)은 그리기 아님 */
       if(e.button>0||tab!=='walls') return; st={x:e.clientX,y:e.clientY,id:e.pointerId,drag:false}; });
     sv.addEventListener('pointermove',e=>{ if(!st||e.pointerId!==st.id) return;
       if(!st.drag){ if(Math.hypot(e.clientX-st.x,e.clientY-st.y)<14) return; const m=sv.getScreenCTM(); if(!m||!m.a){ st=null; return; } const k=1/m.a, a=dragAnchor(toM(st.x,st.y),k); if(!a){ st=null; return; }
-        st.drag=true; st.a=a; st.k=k; try{ sv.setPointerCapture(e.pointerId); }catch(x){} st.el=document.createElementNS('http://www.w3.org/2000/svg','g'); sv.appendChild(st.el); }
+        st.drag=true; dragging=true; st.a=a; st.k=k; try{ sv.setPointerCapture(e.pointerId); }catch(x){} st.el=document.createElementNS('http://www.w3.org/2000/svg','g'); sv.appendChild(st.el); }
       const q=toM(e.clientX,e.clientY); if(!q) return; const res=dragResult(st.a,q,st.k); st.res=res;
       const A=res.from||st.a.pt, dv=measDirVec(res.ang), L=Math.max(res.len,0), B=[A[0]+dv[0]*L,A[1]+dv[1]*L], f=st.k*13;
       st.el.innerHTML=`<line x1="${A[0]}" y1="${A[1]}" x2="${B[0]}" y2="${B[1]}" style="stroke:var(--accent);stroke-width:3px;vector-effect:non-scaling-stroke;stroke-dasharray:8 6"/><circle cx="${B[0]}" cy="${B[1]}" r="${f*.5}" style="fill:${res.snapped?'var(--good)':'var(--accent)'}"/><text x="${B[0]+f}" y="${B[1]-f}" style="font:700 ${f*1.2}px ${MEAS_FONT};fill:var(--accent);pointer-events:none">${res.len>0?'≈'+res.len.toLocaleString():''} · ${res.ang}°</text>`;
       e.preventDefault(); });
-    const end=e=>{ if(!st) return; const s=st; st=null; if(!s.drag) return; if(s.el) s.el.remove(); if(e.pointerType==='mouse') swallowClick();   /* 마우스로 끈 뒤 나오는 클릭이 벽 고르기로 새지 않게 */
+    const end=e=>{ if(!st) return; const s=st; st=null; if(!s.drag) return; dragging=false; if(s.el) s.el.remove(); if(e.pointerType==='mouse') swallowClick();   /* 마우스로 끈 뒤 나오는 클릭이 벽 고르기로 새지 않게 */
       if(e.type!=='pointerup'||!s.res) return;
       if(buf){ commit(); toast('숫자판에 적은 값을 먼저 넣었습니다 — 다시 그어 주세요'); return; }
       if(s.res.len>=(s.a.kind==='new'?s.k*40:50)) applyDrag(s.a,s.res); };
@@ -2921,7 +2971,7 @@ function openMeasureEditor(pid,room,baseUpd,dirty){
     if(!draftOk) parts.push(`<span class="ms-st bad">이 기기 임시 보관 안 됨 — 자주 저장하세요</span>`);
     return parts.join('');
   }
-  function draw(){
+  function draw(){ dragging=false;   /* 그림을 새로 만들면 끌던 것은 끝 */
     if(curPart>=r.parts.length) curPart=-1; if(cur>=chainW().length) cur=Math.max(0,chainW().length-1);
     const g=measureGeom(r), isPart=curPart>=0, P0=isPart?r.parts[curPart]:null, w=tgt(), myHint=!isPart&&g.hint.find(h=>h.startsWith(`벽 ${cur+1}:`)), autoUsed=r.walls.some((x,i)=>(isPart||i!==cur)&&x.ang==null);
     const v=g.vec[cur]||[1,0], calcAng=!isPart&&w.ang==null&&g.res[cur]!=null?measAng(Math.atan2(-v[1],v[0])*180/Math.PI):null;   /* 자동 벽이 계산된 방향 */
@@ -2956,7 +3006,7 @@ function openMeasureEditor(pid,room,baseUpd,dirty){
         <label class="ms-opmemo">메모 (그림에 주석으로 보임)<input data-of="memo" maxlength="60" autocomplete="off" value="${esc(so.memo||'')}"></label>
         <div class="ms-acts">${so.kind==='door'?`<button class="btn sm" data-swing="${esc(so.id)}">경첩 좌·우 바꾸기</button>`:''}<button class="btn sm ghost" data-opdel="${esc(so.id)}">지우기</button><button class="btn sm" id="msOpDone">완료</button></div></div>`; })()}`
     : tab==='items'?(()=>{ const so=selIt(), cnt=measLegend(r.items).map(x=>`${MEAS_IT[x.o.kind][0]}${x.o.desc?' '+x.o.desc:''} ${x.n}`), nf=r.items.filter(o=>o.kind==='furn').length;
-      return `<div class="ms-cur">설비·가구 <span>버튼을 고르고 그림에서 놓을 자리를 누르세요 · 콘센트·스위치·인터넷은 가까운 벽에 붙습니다</span></div>
+      return `<div class="ms-cur">설비·가구 <span>버튼을 고르고 그림에서 놓을 자리를 누르세요 · 놓은 것은 손가락으로 끌어 옮기면 벽 끝·벽체·가구 옆에 딱 붙습니다</span></div>
       <div class="ms-itadd">${Object.keys(MEAS_IT).map(k=>`<button class="btn ${arm===k?'dark':''}" data-itarm="${k}" ${g.closed?'':'disabled'}>${measItIcon({kind:k})}<span>${MEAS_IT[k][0]}</span></button>`).join('')}</div>
       ${arm?`<div class="ms-pick">그림에서 <b>${MEAS_IT[arm][0]}</b> 자리를 누르세요. 누를 때마다 하나씩 놓입니다. <button class="btn sm" id="msArmX">그만 놓기</button></div>`:g.closed?'':`<div class="ms-hint">방을 닫은 뒤 놓을 수 있습니다.</div>`}
       ${so?itEdit(so,g):''}
