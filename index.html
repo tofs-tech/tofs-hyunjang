@@ -1160,7 +1160,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.19.3';
+const APP_VERSION='9.19.4';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -4239,7 +4239,7 @@ function newEstimate(type){
 function copyEstimateToProject(sourceId,estId,targetId){
   const source=DB.projects.find(p=>p.id===sourceId),target=DB.projects.find(p=>p.id===targetId);
   const original=source?.estimates?.find(e=>e.id===estId);
-  if(!original||!target||source===target)throw new Error('원본 견적서와 다른 대상 프로젝트를 선택해 주세요.');
+  if(!original||!target)throw new Error('원본 견적서와 대상 프로젝트를 선택해 주세요.');   // 같은 현장에도 복사 가능(사장님 10-24)
   const copy=JSON.parse(JSON.stringify(original)),info=target.info||{};
   copy.id=crypto.randomUUID();copy.no=nextEstNo(target);copy.date=todayStr();
   copy.client=info.client||'';copy.clientAddr=info.address||'';
@@ -4249,12 +4249,11 @@ function copyEstimateToProject(sourceId,estId,targetId){
   return copy;
 }
 function openEstCopy(sourceId,estId){
-  const targets=DB.projects.filter(p=>p.id!==sourceId);
-  if(!targets.length){toast('복사할 다른 프로젝트를 먼저 만들어 주세요.',3000);return;}
+  const targets=[...DB.projects.filter(p=>p.id===sourceId),...DB.projects.filter(p=>p.id!==sourceId)];   // 지금 현장이 맨 위
   const ov=document.createElement('div');ov.className='overlay';
-  ov.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-labelledby="estCopyTitle" style="width:min(480px,100%)"><h2 id="estCopyTitle">다른 프로젝트로 복사</h2>
+  ov.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-labelledby="estCopyTitle" style="width:min(480px,100%)"><h2 id="estCopyTitle">견적서 복사</h2>
     <div class="msub">품목·수량·단가·요율·비고를 복사합니다. 고객명·주소·면적은 대상 현장 정보로, 날짜는 오늘로 바뀝니다. 기존 견적서는 유지됩니다.</div>
-    <div class="pad field"><label for="estCopyTarget">대상 프로젝트</label><select id="estCopyTarget">${targets.map(p=>`<option value="${esc(p.id)}">${esc(p.info?.name||'이름 없는 프로젝트')}</option>`).join('')}</select></div>
+    <div class="pad field"><label for="estCopyTarget">대상 프로젝트</label><select id="estCopyTarget">${targets.map(p=>`<option value="${esc(p.id)}">${esc(p.info?.name||'이름 없는 프로젝트')}${p.id===sourceId?' (지금 현장)':''}</option>`).join('')}</select></div>
     <div class="modal-foot"><span></span><div class="right"><button class="btn" id="estCopyCancel">취소</button><button class="btn green" id="estCopyConfirm">복사하고 열기</button></div></div></div>`;
   document.body.appendChild(ov);
   const close=()=>ov.remove();ov.querySelector('#estCopyCancel').onclick=close;
@@ -4307,7 +4306,7 @@ function vEstimates(c){
       return`<tr style="cursor:pointer" data-open-est="${e.id}"><td class="strong num">${esc(e.no)}</td>
       <td><span class="pill ${e.type==='construction'?'accent':'neutral'}">${EST_TYPE[e.type]||e.type}</span></td>
       <td class="num">${fdateF(e.date)}</td><td>${esc(e.client||'—')}</td><td class="r num strong">${won(cal.grand)}</td>
-      <td><div class="row-actions no-print"><button class="btn sm" data-copy-est="${e.id}">다른 프로젝트로 복사</button><button class="icon-btn" data-del-est="${e.id}" title="삭제">${svg(IC.trash)}</button></div></td></tr>`;}).join('')}</tbody></table></div></div>`
+      <td><div class="row-actions no-print"><button class="btn sm" data-copy-est="${e.id}">견적서 복사</button><button class="icon-btn" data-del-est="${e.id}" title="삭제">${svg(IC.trash)}</button></div></td></tr>`;}).join('')}</tbody></table></div></div>`
    :`<div class="card">${emptyB('아직 만든 견적서가 없습니다. 위에서 종류를 골라 시작하세요.','')}</div>`}`;
   c.querySelectorAll('[data-newest]').forEach(b=>b.onclick=()=>newEstimate(b.dataset.newest));
   c.querySelector('[data-company]').onclick=()=>openForm('company',DB.company);
@@ -4382,7 +4381,7 @@ function estEditor(c,p,est){
     <div><div class="t">${EST_TYPE[est.type]} <span class="sub num">${esc(est.no)}</span></div></div>
     <div class="spacer"></div>
     <button class="btn sm" data-company>회사 정보</button>
-    <button class="btn" id="estCopy">다른 프로젝트로 복사</button>
+    <button class="btn" id="estCopy">견적서 복사</button>
     <button class="btn" id="estXls">엑셀</button>
     <button class="btn" id="estSpec">스펙북</button>
     <button class="btn accent" id="estPreview">${svg(IC.print)}미리보기 · 보내기</button>
