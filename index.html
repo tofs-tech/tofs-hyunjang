@@ -1160,7 +1160,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.19.4';
+const APP_VERSION='9.19.5';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1414,9 +1414,9 @@ async function sheetToBlob(html,land){
   } finally { host.remove(); }
 }
 /* 준비된 이미지들을 페이지별 파일로 즉시 공유 — 실패 시 자동으로 저장으로 전환 */
-async function shareBlobFiles(blobs,title){
+async function shareBlobFiles(blobs,title,name){
   blobs=blobs.filter(Boolean); if(!blobs.length)return;
-  const base=`${(proj().info.name||'현장')} ${title}`;
+  const base=`${(name||proj().info.name||'현장')} ${title}`;
   const files=blobs.map((b,i)=>new File([b],base+(blobs.length>1?'-'+(i+1):'')+'.png',{type:'image/png'}));
   if(canShare()&&navigator.canShare&&navigator.canShare({files})){
     try{ await navigator.share({files,text:base}); return; }
@@ -1472,7 +1472,7 @@ function openPrint(html,land){
   window.addEventListener('afterprint',done);
   setTimeout(()=>{ try{window.print();}catch(e){toast('브라우저 인쇄가 제한되어 있습니다. Ctrl+P를 눌러보세요.');done();} },80);
 }
-function showPreview(title,html,land){
+function showPreview(title,html,land,name){
   const pages=Array.isArray(html)?html:[html];
   /* 페이지 구분은 break-before — break-after 방식은 앞 페이지가 꽉 찼을 때
      구분용 빈 요소가 다음 장으로 밀리며 공페이지를 만든다 */
@@ -1504,13 +1504,13 @@ function showPreview(title,html,land){
   const shBtn=ov.querySelector('#pvShare');
   const shOrig=shBtn.innerHTML;
   shBtn.onclick=async()=>{
-    if(sheetBlobs){ shareBlobFiles(sheetBlobs,title); return; }
+    if(sheetBlobs){ shareBlobFiles(sheetBlobs,title,name); return; }
     shBtn.disabled=true; shBtn.textContent='이미지 준비 중…';
     const bs=await blobP;
     shBtn.disabled=false;
     if(!bs){ shBtn.innerHTML=shOrig; toast('이미지 생성 실패 — 인터넷 연결을 확인해 주세요'); return; }
     if(canShare()){ shBtn.textContent='✅ 준비 완료 — 눌러서 보내기'; }
-    else { shBtn.innerHTML=shOrig; shareBlobFiles(bs,title); }
+    else { shBtn.innerHTML=shOrig; shareBlobFiles(bs,title,name); }
   };
   document.addEventListener('keydown',function k(e){if(e.key==='Escape'){close();document.removeEventListener('keydown',k);}});
 }
@@ -3628,7 +3628,7 @@ function exportEstXlsx(est){
   const srow=(label,amt,bold,green)=>`<tr><td colspan="${W-2}" style="${XB}padding:4px 9px;${bold?'font-weight:bold;':''}${green?'background:#EFF3EE;':''}">${label}</td><td style="${XB}text-align:center;${green?'background:#EFF3EE;':''}">₩</td><td style="${XB}padding:4px 7px;${XNUM}${bold?'font-weight:bold;':''}${green?'background:#EFF3EE;':''}">${amt}</td></tr>`;
   /* 상단 정보 — 앱과 같은 좌(Client) / 우(Supplier) 구성 */
   const py=+String(est.sizePy||'').replace(/[^0-9.]/g,'')||0;
-  const L=[['Client',esc(est.client||p.info.client||'')],['Project Name',esc(p.info.name||'')],['Size',py?py+'PY / '+Math.round(py*3.3058)+'㎡':''],['Quotion date',ymdKor(est.date)]];
+  const L=[['Client',esc(est.client||p.info.client||'')],['Project Name',esc(estName(est,p))],['Size',py?py+'PY / '+Math.round(py*3.3058)+'㎡':''],['Quotion date',ymdKor(est.date)]];
   const R=[['Supplier',esc(co.name||'')],['Office',esc(co.addr||'')],['Quotion Writer',esc(co.ceo||'')+' 대표'],['TEL',esc(co.tel||'')],['E-mail',esc(co.email||'')],['Business',esc(co.biz||'')+' · '+esc(co.bizType||'')]];
   const lw=Math.ceil((W-2)/2),rw=W-2-lw;
   let info='';
@@ -3677,7 +3677,7 @@ function exportEstXlsx(est){
     h+=`<tr><td colspan="7" style="${XB}font-weight:bold;padding:4px 8px;text-align:right">합계${cal.discount?' (할인 −₩'+numf(cal.discount)+' 반영)':''}</td><td style="${XB}font-weight:bold;${XNUM}">${cal.grand}</td></tr>`;
   }
   h+=`</table>`;
-  downloadExcelHtml(`견적서_${safeName(p.info.name||est.client||'현장')}_${est.date||todayStr()}.xls`,h);
+  downloadExcelHtml(`견적서_${safeName(estName(est,p)||est.client||'현장')}_${est.date||todayStr()}.xls`,h);
 }
 
 /* ── 발주서 엑셀 — 앱 발주서와 동일한 레이아웃 ── */
@@ -4216,6 +4216,8 @@ function vSettle(c){
 
 /* ===== 견적 (estimates) ===== */
 const EST_TYPE={item:'아이템 견적서',construction:'시공 견적서'};
+/* 견적서 이름 — 비워 두면 프로젝트 이름 (한 현장에 견적서 여러 개, 사장님 11-01) */
+const estName=(est,p)=>(est.name||'').trim()||((p||proj()).info.name||'');
 function nextEstNo(p){
   const yr=todayStr().slice(0,4);
   const nums=(p.estimates||[]).map(e=>{const m=/EST-\d+-(\d+)/.exec(e.no||'');return m?+m[1]:0;});
@@ -4244,6 +4246,7 @@ function copyEstimateToProject(sourceId,estId,targetId){
   copy.id=crypto.randomUUID();copy.no=nextEstNo(target);copy.date=todayStr();
   copy.client=info.client||'';copy.clientAddr=info.address||'';
   copy.sizePy=String(info.area||'').replace(/[^0-9.]/g,'');
+  if(target!==source)delete copy.name;   // 다른 현장은 그 현장 이름을 따라감
   (copy.sections||[]).forEach(s=>{s.id=crypto.randomUUID();(s.items||[]).forEach(it=>{it.id=crypto.randomUUID();});});
   target.estimates=target.estimates||[];target.estimates.push(copy);
   return copy;
@@ -4301,9 +4304,10 @@ function vEstimates(c){
     <button class="btn sm" data-company>회사 정보</button>
     <button class="btn green" data-newest="item">${svg(IC.plus)}아이템 견적서</button>
     <button class="btn green" data-newest="construction">${svg(IC.plus)}시공 견적서</button></div>
-  ${p.estimates.length?`<div class="card"><div class="tbl-wrap"><table><thead><tr><th>견적번호</th><th>종류</th><th>날짜</th><th>고객</th><th class="r">견적금액</th><th></th></tr></thead>
+  ${p.estimates.length?`<div class="card"><div class="tbl-wrap"><table><thead><tr><th>견적번호</th><th>이름</th><th>종류</th><th>날짜</th><th>고객</th><th class="r">견적금액</th><th></th></tr></thead>
     <tbody>${p.estimates.map(e=>{const cal=estCalc(e);
       return`<tr style="cursor:pointer" data-open-est="${e.id}"><td class="strong num">${esc(e.no)}</td>
+      <td>${esc(estName(e,p)||'—')}</td>
       <td><span class="pill ${e.type==='construction'?'accent':'neutral'}">${EST_TYPE[e.type]||e.type}</span></td>
       <td class="num">${fdateF(e.date)}</td><td>${esc(e.client||'—')}</td><td class="r num strong">${won(cal.grand)}</td>
       <td><div class="row-actions no-print"><button class="btn sm" data-copy-est="${e.id}">견적서 복사</button><button class="icon-btn" data-del-est="${e.id}" title="삭제">${svg(IC.trash)}</button></div></td></tr>`;}).join('')}</tbody></table></div></div>`
@@ -4387,6 +4391,7 @@ function estEditor(c,p,est){
     <button class="btn accent" id="estPreview">${svg(IC.print)}미리보기 · 보내기</button>
   </div>
   <div class="card"><div class="pad" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+    <div class="field"><label>견적서 이름</label><input data-estf="name" type="text" value="${esc(est.name||'')}" placeholder="${esc(p.info.name||'')}" title="비워 두면 프로젝트 이름이 들어갑니다"></div>
     ${estField('date','견적일','date',est.date)}
     ${estField('client','고객명','text',est.client)}
     ${estField('clientAddr','현장 주소','text',est.clientAddr)}
@@ -4396,7 +4401,7 @@ function estEditor(c,p,est){
     <div class="field"><label>만원 단위 단수정리</label>
       <label style="display:flex;align-items:center;gap:8px;height:34px;cursor:pointer;font-size:13px"><input type="checkbox" id="estRound10k" ${est.round10k?'checked':''}> 만원 미만 절사</label></div>
   </div></div>
-  <div class="card" style="margin-top:14px"><div class="card-h"><span class="ct">표지</span><span class="cs">견적서 맨 앞에 프로젝트명·날짜·로고가 들어간 표지를 붙입니다</span></div>
+  <div class="card" style="margin-top:14px"><div class="card-h"><span class="ct">표지</span><span class="cs">견적서 맨 앞에 견적서 이름(비우면 프로젝트명)·날짜·로고가 들어간 표지를 붙입니다</span></div>
     <div class="pad" style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;height:34px"><input type="checkbox" id="estCoverOn" ${est.coverOn?'checked':''}> 표지 사용</label>
       <div class="field" style="margin:0;min-width:130px"><label>로고 위치</label>
@@ -4526,7 +4531,7 @@ const edEstSecs=(est,cal)=>{
 };
 /* 전면 표지 — 프로젝트명·날짜·회사 로고. 로고 위치(9분할)와 폭(mm)은 견적서 편집에서 지정.
    견적서·스펙북이 같은 표지를 쓴다(o = {date, logoPos, logoW, lab}) */
-function edEstFrontCover(est){return edFrontCover({date:est.date,logoPos:est.logoPos,logoW:est.logoW,lab:'PROJECT'});}
+function edEstFrontCover(est){return edFrontCover({date:est.date,logoPos:est.logoPos,logoW:est.logoW,lab:'PROJECT',name:estName(est)});}
 /* 스펙북 표지 — 로고 위치·폭은 이 현장의 최근 견적서 설정을 따른다 (2026-09-07 사장님 요청) */
 function edSpecFrontCover(p,d){
   const est=(p.estimates||[]).slice().reverse().find(e=>e.logoPos||e.logoW)||{};
@@ -4550,7 +4555,7 @@ function edFrontCover(o){
     <div class="edcover-mid">
       ${midLogo}
       <div class="ed-lab">${esc(est.lab||'PROJECT')}</div>
-      <div class="edcover-name">${esc(i.name||'')}</div>
+      <div class="edcover-name">${esc(est.name||i.name||'')}</div>
       <div class="edcover-date">${esc(edDot(est.date))}</div>
     </div>
     ${grid}
@@ -4597,7 +4602,7 @@ function edEstCover(est,cal,hasDetail,fit){
     <div class="ed-band">
       <div><div class="ed-lab">CLIENT</div><div class="ed-val">${esc(est.client||i.client||'—')} <small>귀하</small></div></div>
       <div><div class="ed-lab">DATE</div><div class="ed-val">${esc(edDot(est.date))}</div></div>
-      <div><div class="ed-lab">PROJECT</div><div class="ed-val">${esc(i.name||'')}</div></div>
+      <div><div class="ed-lab">PROJECT</div><div class="ed-val">${esc(estName(est))}</div></div>
       <div><div class="ed-lab">ADDRESS</div><div class="ed-val">${esc((est.clientAddr||i.address||'').trim()||'—')}</div></div>
     </div>
     <div class="ed-amtrow">
@@ -4629,7 +4634,7 @@ function edEstDetailPages(est,cal){
   if(!secs.length)return[];
   const pageHead=`${edTop(edDateNo(est.date))}
     <div class="ed-hrow"><div>${edTitle('Detail.','상 세 내 역')}</div>
-      <div class="ed-hmeta">${esc(i.name||'')}<br>${esc(edDot(est.date))}</div></div>`;
+      <div class="ed-hmeta">${esc(estName(est))}<br>${esc(edDot(est.date))}</div></div>`;
   /* 시공 견적서는 화면과 같이 자재/노무 단가를 나눠 보여준다. 아이템 견적서는 단가 하나 */
   const isCon=est.type==='construction';
   const thRow=isCon
@@ -4731,7 +4736,7 @@ function openEstPreview(est){
   let cover=edEstCover(est,cal,detail.length,0),lv=0;
   while(lv<3&&edMeasureMm(cover)>273){lv++;cover=edEstCover(est,cal,detail.length,lv);}
   const pages=[...(est.coverOn?[edEstFrontCover(est)]:[]),cover,...detail];
-  showPreview('견적서',pages,false);
+  showPreview('견적서',pages,false,estName(est));
 }
 
 /* ===== 홈 대시보드 — 진행 중인 현장 전체 일정 ===== */
@@ -5399,7 +5404,7 @@ function ctrSyncAmount(p,ctr){
   if((+ctr.amount||0)===g)return false;
   ctr.amount=g; return true;                    /* 바뀌었을 때만 true */
 }
-const ctrEstLabel=est=>`${EST_TYPE[est.type]||'견적서'} · ${est.date||'날짜 없음'} · ${won(estCalc(est).grand)}`;
+const ctrEstLabel=est=>`${(est.name||'').trim()?est.name.trim()+' · ':''}${EST_TYPE[est.type]||'견적서'} · ${est.date||'날짜 없음'} · ${won(estCalc(est).grand)}`;
 /* 대금 지급 금액 — 각 행을 반올림하면 합이 계약총금액과 몇 원 어긋날 수 있다.
    계약서에서 '계약금+중도금+잔금 ≠ 총액'은 그대로 사고이므로, 비율 합이 정확히
    100%일 때만 끝수를 마지막 행이 흡수한다. 100%가 아니면 일부러 그렇게 둔 것으로 보고 둔다. */
