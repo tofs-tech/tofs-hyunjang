@@ -1160,7 +1160,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.19.5';
+const APP_VERSION='9.20.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -3622,6 +3622,9 @@ const xtn=`style="${XB}padding:4px 7px;${XNUM}"`;
 
 /* ── 견적서 엑셀 — 앱 견적서(갑지+내역서)와 동일한 레이아웃 ── */
 function exportEstXlsx(est){
+  downloadExcelHtml(`견적서_${safeName(estName(est)||est.client||'현장')}_${est.date||todayStr()}.xls`,estXlsxHtml(est));
+}
+function estXlsxHtml(est){
   const p=proj(),cal=estCalc(est),co=CO(),isCon=est.type==='construction';
   const W=isCon?11:8;
   const band=t=>`<tr><td colspan="${W}" style="background:#3E5A43;color:#ffffff;font-weight:bold;letter-spacing:6px;padding:5px 9px">${t}</td></tr>`;
@@ -3677,7 +3680,7 @@ function exportEstXlsx(est){
     h+=`<tr><td colspan="7" style="${XB}font-weight:bold;padding:4px 8px;text-align:right">합계${cal.discount?' (할인 −₩'+numf(cal.discount)+' 반영)':''}</td><td style="${XB}font-weight:bold;${XNUM}">${cal.grand}</td></tr>`;
   }
   h+=`</table>`;
-  downloadExcelHtml(`견적서_${safeName(estName(est,p)||est.client||'현장')}_${est.date||todayStr()}.xls`,h);
+  return h;
 }
 
 /* ── 발주서 엑셀 — 앱 발주서와 동일한 레이아웃 ── */
@@ -4302,8 +4305,15 @@ function vEstimates(c){
   c.innerHTML=`
   <div class="vhead"><div><div class="t">견적서</div><div class="d">아이템(간단 작업) / 시공(본격 인테리어) 두 종류를 만들 수 있습니다.</div></div><div class="spacer"></div>
     <button class="btn sm" data-company>회사 정보</button>
+    ${p.estimates.length>=2?`<button class="btn" data-bundle-new>견적서 합치기</button>`:''}
     <button class="btn green" data-newest="item">${svg(IC.plus)}아이템 견적서</button>
     <button class="btn green" data-newest="construction">${svg(IC.plus)}시공 견적서</button></div>
+  ${(p.estBundles||[]).length?`<div class="card" style="margin-bottom:14px">${p.estBundles.map((b,bi)=>{const ms=estBundleMembers(p,b);
+    return`<div class="pad" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap${bi?';border-top:1px solid var(--line)':''}"><span class="pill accent">합본</span>
+      <b style="flex:1;min-width:160px">${esc(p.info.name||'')} <span class="sub">· 견적서 ${ms.length}건</span></b>
+      ${ms.length?`<b class="num">${won(ms.reduce((s,e)=>s+estCalc(e).grand,0))}</b><span class="sub">(부가세 ${ms.every(e=>e.vat==='포함')?'포함':'별도'})</span>
+      <button class="btn sm accent" data-bundle-pv data-bi="${bi}">${svg(IC.print)}미리보기 · 보내기</button><button class="btn sm" data-bundle-xls data-bi="${bi}">엑셀</button>`:`<span class="sub">든 견적서가 모두 지워졌습니다</span>`}
+      <button class="btn sm" data-bundle-edit data-bi="${bi}">고치기</button></div>`;}).join('')}</div>`:''}
   ${p.estimates.length?`<div class="card"><div class="tbl-wrap"><table><thead><tr><th>견적번호</th><th>이름</th><th>종류</th><th>날짜</th><th>고객</th><th class="r">견적금액</th><th></th></tr></thead>
     <tbody>${p.estimates.map(e=>{const cal=estCalc(e);
       return`<tr style="cursor:pointer" data-open-est="${e.id}"><td class="strong num">${esc(e.no)}</td>
@@ -4316,7 +4326,17 @@ function vEstimates(c){
   c.querySelector('[data-company]').onclick=()=>openForm('company',DB.company);
   c.querySelectorAll('[data-copy-est]').forEach(b=>b.onclick=()=>openEstCopy(p.id,b.dataset.copyEst));
   c.querySelectorAll('[data-open-est]').forEach(r=>r.onclick=e=>{if(e.target.closest('[data-del-est],[data-copy-est]'))return;state.estOpen=r.dataset.openEst;render();});
-  c.querySelectorAll('[data-del-est]').forEach(b=>b.onclick=()=>{if(!confirm('이 견적서를 삭제할까요?'))return;p.estimates=p.estimates.filter(x=>x.id!==b.dataset.delEst);save();render();});
+  c.querySelectorAll('[data-del-est]').forEach(b=>b.onclick=()=>{
+    const inB=(p.estBundles||[]).some(x=>(x.ids||[]).includes(b.dataset.delEst));
+    if(!confirm('이 견적서를 삭제할까요?'+(inB?'\n\n합본에 들어 있는 견적서입니다. 합본에서도 빠지고, 합본에 연동된 계약서 금액도 줄어듭니다.':'')))return;
+    /* 연동된 계약 금액을 지우기 전·후로 맞춘다 — 견적서가 다 빠진 합본·지운 견적서에 걸린 계약은 지우기 직전 총액에 머문다 */
+    const syncCtrs=()=>(p.contracts||[]).forEach(c=>ctrSyncAmount(p,c));
+    syncCtrs();p.estimates=p.estimates.filter(x=>x.id!==b.dataset.delEst);syncCtrs();save();render();});
+  const nb=c.querySelector('[data-bundle-new]');if(nb)nb.onclick=()=>openEstBundle(p);
+  const bAt=el=>p.estBundles[+el.dataset.bi];
+  c.querySelectorAll('[data-bundle-pv]').forEach(x=>x.onclick=()=>openBundlePreview(p,bAt(x)));
+  c.querySelectorAll('[data-bundle-xls]').forEach(x=>x.onclick=()=>exportBundleXlsx(p,bAt(x)));
+  c.querySelectorAll('[data-bundle-edit]').forEach(x=>x.onclick=()=>openEstBundle(p,bAt(x)));
 }
 function estField(k,label,type,val){return`<div class="field"><label>${label}</label><input data-estf="${k}" type="${type}" value="${esc(val==null?'':val)}" ${type==='number'?'step="any"':''}></div>`;}
 function estRate(k,label,val){return`<div class="field"><label>${label} %</label><input data-rate="${k}" type="number" step="any" value="${esc(val)}"></div>`;}
@@ -4729,14 +4749,86 @@ function edMeasureMm(html){
   stage.remove();
   return mm;
 }
+/* 갑지는 어떤 경우에도 한 장 — 넘치면 압축 → 고압축 → 간접공사 접기 순으로 실측하며 올린다 */
+function estCoverFit(est,cal,n){
+  let cover=edEstCover(est,cal,n,0),lv=0;
+  while(lv<3&&edMeasureMm(cover)>273){lv++;cover=edEstCover(est,cal,n,lv);}
+  return cover;
+}
+/* 견적서 한 건의 갑지 + 상세내역 (표지 제외) — 단독 인쇄와 합본이 같이 쓴다 */
+function estPages(est){
+  const cal=estCalc(est),detail=edEstDetailPages(est,cal);
+  return[estCoverFit(est,cal,detail.length),...detail];
+}
 function openEstPreview(est){
-  const cal=estCalc(est);
-  const detail=edEstDetailPages(est,cal);
-  /* 갑지는 어떤 경우에도 한 장 — 넘치면 압축 → 고압축 → 간접공사 접기 순으로 실측하며 올린다 */
-  let cover=edEstCover(est,cal,detail.length,0),lv=0;
-  while(lv<3&&edMeasureMm(cover)>273){lv++;cover=edEstCover(est,cal,detail.length,lv);}
-  const pages=[...(est.coverOn?[edEstFrontCover(est)]:[]),cover,...detail];
-  showPreview('견적서',pages,false,estName(est));
+  showPreview('견적서',[...(est.coverOn?[edEstFrontCover(est)]:[]),...estPages(est)],false,estName(est));
+}
+
+/* ── 견적서 합본 — 한 현장의 견적서 여러 개를 총괄표 + 견적서별 갑지·내역으로 한 문서에 (사장님 11-01, 푸드장 필지별 7건) ──
+   저장하는 것은 p.estBundles=[{id, ids:[견적서 id…]}] 뿐. 합계·날짜·고객은 열 때마다 견적서에서 계산한다.
+   계약서는 ctr.estId 에 합본 id 를 넣어 연동한다(옛 판은 못 찾으니 '직접 입력'으로 보고 금액을 그대로 둔다). */
+const estBundleMembers=(p,b)=>(p.estimates||[]).filter(e=>(b.ids||[]).includes(e.id));   // 목록 순서, 지운 견적서는 저절로 빠짐
+/* 총괄표 = 저장하지 않는 아이템 견적서 — 견적서마다 한 줄(금액 = 그 견적서 총액). 기존 갑지 함수가 그대로 그린다 */
+function estBundleSummary(p,b){
+  const ms=estBundleMembers(p,b);if(!ms.length)return null;
+  const f=ms[0];
+  return{id:b.id,no:'합본',type:'item',date:ms.map(e=>e.date||'').sort().pop()||todayStr(),
+    client:f.client,clientAddr:f.clientAddr,coverOn:f.coverOn,logoPos:f.logoPos,logoW:f.logoW,validDays:f.validDays,
+    vat:ms.every(e=>e.vat==='포함')?'포함':'별도',
+    remarks:[...new Set(ms.flatMap(e=>String(e.remarks||'').split('\n').map(s=>s.trim()).filter(Boolean)))].join('\n'),
+    sections:ms.map(e=>({id:e.id,name:estName(e,p),items:[{id:e.id,name:estName(e,p),qty:1,mp:estCalc(e).grand,lp:''}]}))};
+}
+function openBundlePreview(p,b){
+  const sum=estBundleSummary(p,b);if(!sum)return;
+  const pages=[...(sum.coverOn?[edEstFrontCover(sum)]:[]),estCoverFit(sum,estCalc(sum),0),...estBundleMembers(p,b).flatMap(estPages)];
+  showPreview('견적서',pages,false,estName(sum,p));
+}
+function exportBundleXlsx(p,b){
+  const ms=estBundleMembers(p,b);if(!ms.length)return;
+  // shortcut: 시트 하나에 총괄표 + 견적서 표를 이어 붙임, 필지별 시트가 필요해지면 SheetJS 로 옮길 것
+  const cs=ms.map(estCalc),adj=cs.some(c=>c.discount||c.cut),W=adj?6:5;   // 할인·절사가 있으면 칸을 보여야 직접+간접−할인=금액 이 맞는다
+  let h=`<table style="border-collapse:collapse;font-family:'Malgun Gothic';font-size:10pt">
+    <tr><td colspan="${W}" style="font-size:19pt;font-weight:bold;letter-spacing:9px;padding:6px 0;color:#171C26">총 괄 표 <span style="font-size:9pt;color:#4A7C50;letter-spacing:2px">SUMMARY</span></td></tr>
+    <tr><td ${xlb}>Project Name</td><td ${xtd} colspan="${W-1}">${esc(p.info.name||'')}</td></tr>`;
+  h+=`<tr><td ${xth}>No</td><td ${xth}>견적서</td><td ${xth}>직접공사비</td><td ${xth}>간접공사비</td>${adj?`<td ${xth}>할인·절사</td>`:''}<td ${xth}>금액</td></tr>`;
+  let tot=0;
+  ms.forEach((e,i)=>{const c=cs[i];tot+=c.grand;
+    h+=`<tr><td ${xtc}>${i+1}</td><td ${xtd}>${esc(estName(e,p))}</td><td ${xtn}>${c.direct}</td><td ${xtn}>${c.indirect||''}</td>${adj?`<td ${xtn}>${(c.discount||c.cut)?-(c.discount+c.cut):''}</td>`:''}<td ${xtn}>${c.grand}</td></tr>`;});
+  h+=`<tr><td colspan="${W-1}" style="background:#4A7C50;color:#ffffff;font-weight:bold;letter-spacing:3px;padding:6px 9px">합 계 (부가세 ${ms.every(e=>e.vat==='포함')?'포함':'별도'})</td><td style="background:#4A7C50;color:#ffffff;font-weight:bold;padding:6px 7px;${XNUM}">${tot}</td></tr></table>`;
+  h+=ms.map(e=>'<br><br>'+estXlsxHtml(e)).join('');
+  downloadExcelHtml(`견적서합본_${safeName(p.info.name||'현장')}_${todayStr()}.xls`,h);
+}
+/* 합치기 창 — 새 합본(b 없음)과 고치기(b)를 같이 쓴다. openEstCopy 와 같은 창 모양·저장 상태 확인 */
+function openEstBundle(p,b){
+  const ests=p.estimates||[],chosen=new Set(b?b.ids:ests.map(e=>e.id));
+  const ov=document.createElement('div');ov.className='overlay';
+  ov.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-labelledby="estBundleTitle" style="width:min(520px,100%)"><h2 id="estBundleTitle">${b?'합본 고치기':'견적서 합치기'}</h2>
+    <div class="msub">고른 견적서를 총괄표 한 장 + 견적서별 갑지·내역으로 한 문서로 묶습니다. 견적서는 그대로 남고, 금액은 견적서를 고치면 따라갑니다.</div>
+    <div class="pad" style="display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto">${ests.map(e=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" data-bid="${esc(e.id)}"${chosen.has(e.id)?' checked':''}><span class="num sub">${esc(e.no)}</span><span style="flex:1">${esc(estName(e,p))}</span><span class="num">${won(estCalc(e).grand)}</span></label>`).join('')}</div>
+    <div class="pad" style="border-top:1px solid var(--line);display:flex;justify-content:space-between"><span class="sub">합계 (부가세 별도)</span><b class="num" id="estBundleSum"></b></div>
+    <div class="modal-foot">${b?`<button class="btn ghost" id="estBundleDel" style="color:var(--bad)">합본 지우기</button>`:'<span></span>'}<div class="right"><button class="btn" id="estBundleCancel">취소</button><button class="btn green" id="estBundleSave">저장</button></div></div></div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();ov.querySelector('#estBundleCancel').onclick=close;
+  ov.onkeydown=e=>{if(e.key==='Escape')close();};
+  (ov.querySelector('[data-bid]')||ov.querySelector('#estBundleCancel')).focus();   // 열린 버튼에 포커스가 남으면 Enter 로 창이 하나 더 뜬다
+  const ids=()=>ests.filter(e=>ov.querySelector(`[data-bid="${CSS.escape(e.id)}"]`).checked).map(e=>e.id);
+  const paint=()=>{const sel=ids();ov.querySelector('#estBundleSum').textContent=won(ests.filter(e=>sel.includes(e.id)).reduce((s,e)=>s+estCalc(e).grand,0));ov.querySelector('#estBundleSave').disabled=sel.length<2;};
+  ov.querySelectorAll('[data-bid]').forEach(x=>x.onchange=paint);paint();
+  /* 창이 열린 동안 서버 최신본으로 DB 가 바뀌었으면 옛 객체를 고치지 않는다 */
+  const fresh=()=>{
+    if(!syncReady||syncBlocked){toast('저장 상태를 먼저 확인해 주세요. 바꾸지 않았습니다.',3500);return null;}
+    const P=DB.projects.find(x=>x.id===p.id),B=b&&(P&&P.estBundles||[]).find(x=>x.id===b.id);
+    if(!P||(b&&!B)){toast('자료가 새로 불러와졌습니다. 창을 다시 열어 주세요.',3500);close();return null;}
+    return{P,B};};
+  ov.querySelector('#estBundleSave').onclick=()=>{const sel=ids(),f=sel.length<2?null:fresh();if(!f)return;
+    if(f.B){if(!estBundleMembers(f.P,f.B).length)f.B.id=crypto.randomUUID();   // 다 지워진 합본을 다시 쓰면 예전 계약서가 몰래 다시 이어지지 않게 새 번호
+      f.B.ids=sel;}
+    else(f.P.estBundles=f.P.estBundles||[]).push({id:crypto.randomUUID(),ids:sel});
+    close();save();render();toast(b?'합본을 고쳤습니다':'합본을 만들었습니다 — 목록 맨 위에 있습니다');};
+  const del=ov.querySelector('#estBundleDel');
+  if(del)del.onclick=()=>{const f=fresh();if(!f||!confirm('합본을 지울까요? 견적서는 그대로 남습니다.\n이 합본에 연동된 계약서는 지금 합본 총액으로 맞춘 뒤 연동을 풉니다.'))return;
+    (f.P.contracts||[]).forEach(c=>{if(c.estId===f.B.id){ctrSyncAmount(f.P,c);c.estId='';}});
+    f.P.estBundles=f.P.estBundles.filter(x=>x!==f.B);close();save();render();toast('합본을 지웠습니다');};
 }
 
 /* ===== 홈 대시보드 — 진행 중인 현장 전체 일정 ===== */
@@ -5397,7 +5489,12 @@ function ctrMoneyField(k,label,val,badge){
    대금 지급 조건의 비율(%)은 이 금액으로 계산되므로, 견적을 고치면
    계약금·중도금·잔금까지 알아서 다시 계산된다.
    금액을 손으로 고치면 연동은 자동으로 풀린다 — 그래야 덮어써지지 않는다. */
-const ctrEst=(p,ctr)=>(ctr&&ctr.estId)?(p.estimates||[]).find(e=>e.id===ctr.estId):null;
+/* estId 가 합본이면 총괄표(저장 안 하는 견적서)를 돌려준다 — 총액 = 견적서별 총액의 합. 견적서가 다 지워진 합본은 연동 없음 */
+const ctrEst=(p,ctr)=>{
+  if(!ctr||!ctr.estId)return null;
+  const b=(p.estBundles||[]).find(x=>x.id===ctr.estId);
+  return b?estBundleSummary(p,b):((p.estimates||[]).find(e=>e.id===ctr.estId)||null);
+};
 function ctrSyncAmount(p,ctr){
   const est=ctrEst(p,ctr); if(!est)return false;
   const g=estCalc(est).grand;
@@ -5424,7 +5521,8 @@ function ctrEditor(c,p,ctr){
   const estPick=`<div class="field full"><label>견적서 연동 ${linked?'<span class="tag" style="font-size:9px;vertical-align:2px">연동 중</span>':''}</label>
     <select data-ctrest style="width:100%">
       <option value="">연동 안 함 — 금액을 직접 입력</option>
-      ${ests.map(e=>`<option value="${e.id}"${ctr.estId===e.id?' selected':''}>${esc(ctrEstLabel(e))}</option>`).join('')}
+      ${(p.estBundles||[]).map(b=>{const n=estBundleMembers(p,b).length;return n?`<option value="${b.id}"${ctr.estId===b.id?' selected':''}>${esc(`합본 · 견적서 ${n}건 · ${won(estCalc(estBundleSummary(p,b)).grand)}`)}</option>`:'';}).join('')}
+      ${ests.map(e=>`<option value="${e.id}"${ctr.estId===e.id?' selected':''}>${esc(ctrEstLabel(e))}${(p.estBundles||[]).some(b=>(b.ids||[]).includes(e.id))?' (합본 포함)':''}</option>`).join('')}
     </select>
     <div class="sub" style="font-size:11px;margin-top:5px">${
       linked ? `견적서 총액이 <b>계약총금액</b>으로 들어오고, 아래 비율(%)이 그 금액으로 계산됩니다. 견적서를 고치면 계약서도 따라갑니다. 금액을 직접 고치면 연동이 풀립니다.`
