@@ -1160,7 +1160,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.20.0';
+const APP_VERSION='9.20.1';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -4356,7 +4356,7 @@ function estRow(it,idx,isCon){
 function estSectionCard(s,si,isCon){
   return`<div class="card est-sec" data-sec="${s.id}" style="margin-top:14px">
     <div class="card-h" style="gap:8px">
-      ${isCon?`<span class="tag num">Section ${String(si+1).padStart(2,'0')}</span><input class="oh" data-secname placeholder="공종명 (예: 목공사)" value="${esc(s.name)}" style="width:170px" list="dl-trades">`:`<span class="ct">품목 입력</span>`}
+      ${isCon?`<span class="tag num">Section <input data-secno inputmode="numeric" value="${String(si+1).padStart(2,'0')}" title="번호를 적으면 그 순서로 옮깁니다" aria-label="공종 순서 번호" style="width:2.3em;border:0;border-bottom:1px dashed currentColor;background:transparent;font:inherit;color:inherit;padding:0;text-align:center"></span><input class="oh" data-secname placeholder="공종명 (예: 목공사)" value="${esc(s.name)}" style="width:170px" list="dl-trades">`:`<span class="ct">품목 입력</span>`}
       <div class="spacer" style="flex:1"></div>
       <span class="sub">소계 <b class="num sec-total"></b></span>
       ${isCon?`<button class="icon-btn no-print" data-del-sec title="공종 삭제">${svg(IC.trash)}</button>`:''}
@@ -4469,6 +4469,13 @@ function estEditor(c,p,est){
     const sec=est.sections.find(s=>s.id===card.dataset.sec);if(!sec)return;
     const nm=card.querySelector('[data-secname]');
     if(nm)nm.onchange=()=>{sec.name=nm.value;addTrade(nm.value);save();};
+    /* 공종 순서 지정 — 번호를 적으면 그 자리로 옮기고 나머지는 밀린다. 번호는 저장하지 않고 늘 순서대로 (사장님 11-02) */
+    const sn=card.querySelector('[data-secno]');
+    if(sn)sn.onchange=()=>{
+      const from=est.sections.indexOf(sec),to=parseInt(sn.value,10)-1;
+      if(!(to>=0&&to<est.sections.length)||to===from){sn.value=String(from+1).padStart(2,'0');return;}
+      est.sections.splice(to,0,est.sections.splice(from,1)[0]);save();render();
+      toast(`「${sec.name||'공종'}」을 ${to+1}번으로 옮겼습니다`);};
     const ds=card.querySelector('[data-del-sec]');
     if(ds)ds.onclick=()=>{if(est.sections.length<=1){alert('마지막 공종은 삭제할 수 없습니다.');return;}
       if(!confirm('이 공종과 품목을 모두 삭제할까요?'))return;
