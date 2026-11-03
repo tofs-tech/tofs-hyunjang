@@ -672,6 +672,10 @@
   .psheet .ed.cmp2 .edt thead th{padding:6px 8px;}
   .psheet .ed.cmp2 .edt .ed-sec td{padding:5px 8px;font-size:10.5px;}
   .psheet .ed.cmp2 .edt .ed-sumr td{padding:3px 8px;font-size:10px;}
+  /* 아이템 견적서 한 장 양식(.edi) — 넘치면 품목 줄부터 좁힌다 */
+  .psheet .ed.cmp .edt.edi td{padding:6px 8px;}
+  .psheet .ed.cmp2 .edt.edi td{padding:3px 8px;line-height:1.35;}
+  .psheet .ed.cmp2 .edt.edi .ed-det{margin-top:1px;}
   .psheet .ed.cmp2 .ed-tots{margin-top:10px;}
   .psheet .ed.cmp2 .ed-tots .tr{padding:5px 2px;}
   .psheet .ed.cmp2 .ed-note{margin-top:10px;line-height:1.55;font-size:9px;}
@@ -1160,7 +1164,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.22.0';
+const APP_VERSION='9.23.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -4620,7 +4624,8 @@ function edFrontCover(o){
 }
 /* fit 단계: 0=기본 → 1=압축(cmp) → 2=고압축(cmp2) → 3=간접공사 하위 항목 접기
    openEstPreview가 실측하며 한 단계씩 올린다 — 갑지는 어떤 경우에도 한 장 */
-function edEstCover(est,cal,hasDetail,fit){
+/* items 를 주면 아이템 견적서 한 장 양식 — SUMMARY 표 대신 품목표를 넣는다 (사장님 11-03) */
+function edEstCover(est,cal,hasDetail,fit,items){
   const i=proj().info;
   const dash='<span class="dash">—</span>';
   const secs=edEstSecs(est,cal);
@@ -4648,7 +4653,7 @@ function edEstCover(est,cal,hasDetail,fit){
     secs.forEach(s=>head(s.num,s.name,s.m,s.l,s.total));
   }
   const rowN=secs.length+(hasInd?2+cal.ind.length:0);
-  const cmp=fit>=1||rowN>=12, cmp2=fit>=2;
+  const cmp=fit>=1||(!items&&rowN>=12), cmp2=fit>=2;
   const vatIn=est.vat==='포함',vat=estVat(est,cal),total=cal.grand+vat;
   /* 갑지 비고는 사용자가 쓴 것만 — 유효기간·상세내역 안내 문구는 뺐다 */
   const noteLines=est.remarks?String(est.remarks).split('\n').filter(x=>x.trim()):[];
@@ -4664,11 +4669,11 @@ function edEstCover(est,cal,hasDetail,fit){
     <div class="ed-amtrow">
       <div><div class="ed-lab">TOTAL AMOUNT</div><div class="ed-amt">₩ <b>${numf(total)}</b><span class="u">원</span></div></div>
     </div>
-    <div class="ed-lab" style="margin:16px 0 2px">SUMMARY</div>
-    <table class="edt"><thead>${isCon
+    <div class="ed-lab" style="margin:16px 0 2px">${items?'DETAIL':'SUMMARY'}</div>
+    ${items?`<table class="edt edi"><thead>${edItemTh(false)}</thead><tbody>${items.map(it=>edItemRow(it,false)).join('')}</tbody></table>`:`<table class="edt"><thead>${isCon
       ?`<tr><th>구분</th><th style="width:16%">자재비</th><th style="width:16%">노무비</th><th style="width:17%">금액</th></tr>`
       :`<tr><th>구분</th><th style="width:20%">금액</th><th style="width:26%">비고</th></tr>`}</thead>
-    <tbody>${body}</tbody></table>
+    <tbody>${body}</tbody></table>`}
     <div class="ed-tots">
       ${hasInd?`<div class="tr"><span>직접공사</span><b>${numf(cal.direct)}<i>원</i></b></div>
       <div class="tr"><span>간접공사</span><b>${numf(cal.indirect)}<i>원</i></b></div>`
@@ -4682,28 +4687,30 @@ function edEstCover(est,cal,hasDetail,fit){
   </div>`;
 }
 /* 상세내역 — 스펙북과 같은 실측 분할. 한 공종이 페이지에 걸치면 통째로 다음 장으로 민다. */
-function edEstDetailPages(est,cal){
-  const i=proj().info;
-  const dash='<span class="dash">—</span>';
-  const cell=(v,cls)=>`<td class="${cls||''}">${(v==null||v==='')?dash:v}</td>`;
-  const secs=edEstSecs(est,cal).filter(s=>s.items.length);
-  if(!secs.length)return[];
-  const pageHead=`${edTop(edDateNo(est.date))}
-    <div class="ed-hrow"><div>${edTitle('Detail.','상 세 내 역')}</div>
-      <div class="ed-hmeta">${esc(estName(est))}<br>${esc(edDot(est.date))}</div></div>`;
-  /* 시공 견적서는 화면과 같이 자재/노무 단가를 나눠 보여준다. 아이템 견적서는 단가 하나 */
-  const isCon=est.type==='construction';
-  const thRow=isCon
+/* 품목표 머리·한 줄 — 상세내역과 아이템 견적서 한 장 양식이 같이 쓴다.
+   시공 견적서는 화면과 같이 자재/노무 단가를 나눠 보여준다. 아이템 견적서는 단가 하나 */
+const edItemTh=isCon=>isCon
     ?`<tr><th>품명</th><th style="width:12%">규격</th><th style="width:6%">수량</th><th style="width:6%">단위</th><th style="width:10%">자재비</th><th style="width:10%">노무비</th><th style="width:12%">금액</th><th style="width:12%">비고</th></tr>`
     :`<tr><th>품명</th><th style="width:14%">규격</th><th style="width:7%">수량</th><th style="width:7%">단위</th><th style="width:11%">단가</th><th style="width:13%">금액</th><th style="width:14%">비고</th></tr>`;
-  const rowHtml=it=>{
+function edItemRow(it,isCon){
+    const cell=(v,cls)=>`<td class="${cls||''}">${(v==null||v==='')?'<span class="dash">—</span>':v}</td>`;
     const q=+it.qty||0,mp=+it.mp||0,lp=+it.lp||0,u=mp+lp;
     /* 세부내역(detail)은 품명 아래 회색 줄, 규격(spec)은 전용 칸으로 */
     const sub=(it.detail||'').trim();
     const price=isCon
       ?`${cell(mp?numf(mp):'','n')}${cell(lp?numf(lp):'','n')}`
       :cell(u?numf(u):'','n');
-    return`<tr>${cell(`${esc(it.name)}${sub?`<div class="ed-det">${esc(sub)}</div>`:''}`)}${cell(esc(it.spec||''),'etc')}${cell(q?numf(q):'','c')}${cell(esc(it.unit||''),'c')}${price}${cell(u*q?numf(u*q):'','n')}${cell(esc(it.note||''),'etc')}</tr>`;};
+    return`<tr>${cell(`${esc(it.name)}${sub?`<div class="ed-det">${esc(sub)}</div>`:''}`)}${cell(esc(it.spec||''),'etc')}${cell(q?numf(q):'','c')}${cell(esc(it.unit||''),'c')}${price}${cell(u*q?numf(u*q):'','n')}${cell(esc(it.note||''),'etc')}</tr>`;}
+function edEstDetailPages(est,cal){
+  const i=proj().info;
+  const secs=edEstSecs(est,cal).filter(s=>s.items.length);
+  if(!secs.length)return[];
+  const pageHead=`${edTop(edDateNo(est.date))}
+    <div class="ed-hrow"><div>${edTitle('Detail.','상 세 내 역')}</div>
+      <div class="ed-hmeta">${esc(estName(est))}<br>${esc(edDot(est.date))}</div></div>`;
+  const isCon=est.type==='construction';
+  const thRow=edItemTh(isCon);
+  const rowHtml=it=>edItemRow(it,isCon);
   const secHead=(s,cont)=>`<div class="ed-sech"><span class="sn">${String(s.num).padStart(2,'0')}</span>${esc(s.name)}</div>`;
   /* 공종 합계는 내역 맨 아래 검정 줄로 — 헤더 회색 글씨는 눈에 안 띄어서 옮겼다 */
   const secTotalRow=s=>isCon
@@ -4793,7 +4800,13 @@ function estCoverFit(est,cal,n){
 }
 /* 견적서 한 건의 갑지 + 상세내역 (표지 제외) — 단독 인쇄와 합본이 같이 쓴다 */
 function estPages(est){
-  const cal=estCalc(est),detail=edEstDetailPages(est,cal);
+  const cal=estCalc(est);
+  /* 아이템 견적서는 품목표까지 한 장 — 압축해도 넘치면 지금처럼 갑지 + 상세내역 (사장님 11-03 "가") */
+  if(est.type==='item'){
+    const items=edEstSecs(est,cal).flatMap(s=>s.items);
+    for(let lv=0;lv<3;lv++){const pg=edEstCover(est,cal,0,lv,items);if(edMeasureMm(pg)<=273)return[pg];}
+  }
+  const detail=edEstDetailPages(est,cal);
   return[estCoverFit(est,cal,detail.length),...detail];
 }
 function openEstPreview(est){
