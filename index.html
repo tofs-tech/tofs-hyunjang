@@ -1160,7 +1160,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.21.0';
+const APP_VERSION='9.22.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -3653,6 +3653,7 @@ function estXlsxHtml(est){
   }
   h+=srow('Sub TOTAL',cal.sub,1);
   h+=srow('Discount',cal.discount?-cal.discount:'',!!cal.discount);
+  if(cal.adj)h+=srow(esc(estAdjLabel(est,cal)),cal.adj,1);
   if(cal.cut)h+=srow('단수정리',-cal.cut,1);
   h+=srow('Tax: VAT 10%',estVat(est,cal)||'');
   h+=`<tr><td colspan="${W-2}" style="background:#4A7C50;color:#ffffff;font-weight:bold;letter-spacing:3px;padding:6px 9px">GRAND TOTAL</td><td style="background:#4A7C50;color:#ffffff;text-align:center">₩</td><td style="background:#4A7C50;color:#ffffff;font-weight:bold;padding:6px 7px;${XNUM}">${estTotal(est,cal)}</td></tr>`;
@@ -4295,11 +4296,15 @@ function estCalc(est){
   const sub=direct+indirect;
   const target=+est.target||0;
   const discount=(target&&target<sub)?sub-target:0;
+  /* 감·증 — 사장님이 갑지에서 정한 금액을 빼거나 더한다(est.adj, 감은 음수). 절사·부가세보다 먼저 (11-03) */
+  const adj=Math.round(+est.adj||0);
   /* 만원 단위 단수정리 — 켜져 있으면 최종 금액에서 만원 미만을 절사 */
-  let grand=sub-discount,cut=0;
-  if(est.round10k){cut=grand%10000;grand-=cut;}
-  return{secs,direct,ind,indirect,sub,discount,cut,grand};
+  let grand=sub-discount+adj,cut=0;
+  if(est.round10k&&grand>0){cut=grand%10000;grand-=cut;}
+  return{secs,direct,ind,indirect,sub,discount,adj,cut,grand};
 }
+const estAdjLabel=(est,cal)=>(cal.adj<0?'감':'증')+((est.adjNote||'').trim()?' · '+est.adjNote.trim():'');
+const estAdjAmt=cal=>(cal.adj<0?'−':'+')+numf(Math.abs(cal.adj));
 function vEstimates(c){
   const p=proj();p.estimates=p.estimates||[];
   const open=p.estimates.find(e=>e.id===state.estOpen);
@@ -4382,7 +4387,7 @@ function estSummaryHtml(cal,isCon,est){
   return`<div style="display:flex;flex-direction:column;gap:6px;font-size:13.5px">
     ${isCon?row('직접공사비',won(cal.direct),1)+cal.ind.map(x=>row(x[0]+'',won(x[1]))).join('')+
       `<div style="border-top:1px solid var(--line);padding-top:6px">${row('Sub Total',won(cal.sub),1)}</div>`:''}
-    ${cal.discount?row('Discount','−'+won(cal.discount)):''}
+    ${cal.discount?row('Discount','−'+won(cal.discount)):''}${cal.adj?row(esc(estAdjLabel(est,cal)),estAdjAmt(cal)+'원'):''}
     ${cal.cut?row('단수정리 (만원 미만 절사)','−'+won(cal.cut)):''}
     <div style="display:flex;justify-content:space-between;align-items:center;border-top:2px solid var(--line-strong);padding-top:8px">
       <b>견적 금액 <span class="sub">(VAT 별도)</span></b><b class="num" style="font-size:${vat?'15':'20'}px;color:var(--accent-ink)">${won(cal.grand)}</b></div>
@@ -4424,6 +4429,10 @@ function estEditor(c,p,est){
     ${estField('sizePy','면적(평)','text',est.sizePy)}
     ${isCon?estField('progress','공정율 % (집계표용)','number',est.progress):''}
     ${estField('target','최종 금액 (절사·할인, 선택)','number',est.target)}
+    <div class="field"><label>감·증 금액 (선택)</label><div style="display:flex;gap:6px">
+      <select id="estAdjSign" style="width:auto"><option value="-">감 (빼기)</option><option value="+"${(+est.adj||0)>0?' selected':''}>증 (더하기)</option></select>
+      <input id="estAdjAmt" type="text" inputmode="numeric" value="${est.adj?numf(Math.abs(+est.adj)):''}" placeholder="예: 500,000 또는 50만" style="flex:1;min-width:0"></div></div>
+    <div class="field"><label>감·증 이유 (선택)</label><input id="estAdjNote" type="text" value="${esc(est.adjNote||'')}" placeholder="예: 현장 협의분"></div>
     <div class="field"><label>만원 단위 단수정리</label>
       <label style="display:flex;align-items:center;gap:8px;height:34px;cursor:pointer;font-size:13px"><input type="checkbox" id="estRound10k" ${est.round10k?'checked':''}> 만원 미만 절사</label></div>
     <div class="field"><label>부가세</label>
@@ -4462,6 +4471,12 @@ function estEditor(c,p,est){
   c.querySelectorAll('[data-rate]').forEach(inp=>inp.onchange=()=>{est.rates[inp.dataset.rate]=inp.value;save();refreshEst(c,est);});
   const rm=document.getElementById('estRemarks');rm.onchange=()=>{est.remarks=rm.value;save();};
   const r10=document.getElementById('estRound10k');if(r10)r10.onchange=()=>{est.round10k=r10.checked;save();refreshEst(c,est);};
+  /* 감·증 — 금액은 양수로 받고 부호는 감/증 선택으로. 0 이면 항목 자체를 지운다 */
+  const aSign=document.getElementById('estAdjSign'),aAmt=document.getElementById('estAdjAmt'),aNote=document.getElementById('estAdjNote');
+  const adjSet=()=>{const n=moneyNum(aAmt.value);if(n)est.adj=(aSign.value==='+'?1:-1)*n;else delete est.adj;
+    aAmt.value=n?numf(n):'';save();refreshEst(c,est);};
+  if(aSign)aSign.onchange=adjSet;if(aAmt)aAmt.onchange=adjSet;
+  if(aNote)aNote.onchange=()=>{est.adjNote=aNote.value;save();refreshEst(c,est);};
   /* 부가세 켜고 끄기 — 비고의 「부가세 별도/포함」 줄만 같이 바꾼다 (사장님 결정 가) */
   const vOn=document.getElementById('estVatOn');if(vOn)vOn.onchange=()=>{
     const [from,to]=vOn.checked?['부가세 별도','부가세 포함']:['부가세 포함','부가세 별도'];
@@ -4658,7 +4673,7 @@ function edEstCover(est,cal,hasDetail,fit){
       ${hasInd?`<div class="tr"><span>직접공사</span><b>${numf(cal.direct)}<i>원</i></b></div>
       <div class="tr"><span>간접공사</span><b>${numf(cal.indirect)}<i>원</i></b></div>`
       :`<div class="tr"><span>합계</span><b>${numf(cal.sub)}<i>원</i></b></div>`}
-      ${cal.discount?`<div class="tr"><span>할인</span><b>−${numf(cal.discount)}<i>원</i></b></div>`:''}
+      ${cal.discount?`<div class="tr"><span>할인</span><b>−${numf(cal.discount)}<i>원</i></b></div>`:''}${cal.adj?`<div class="tr"><span>${esc(estAdjLabel(est,cal))}</span><b>${estAdjAmt(cal)}<i>원</i></b></div>`:''}
       ${cal.cut?`<div class="tr"><span>단수정리</span><b>−${numf(cal.cut)}<i>원</i></b></div>`:''}
       <div class="tr"><span>부가세 (${vatIn?esc(est.vatNote||'10%'):'0%'})</span><b>${vatIn?numf(vat)+'<i>원</i>':'별도'}</b></div>
       <div class="tr grand"><span>총 금 액</span><b>${numf(total)}<i>원</i></b></div>
@@ -4809,14 +4824,14 @@ function openBundlePreview(p,b){
 function exportBundleXlsx(p,b){
   const ms=estBundleMembers(p,b);if(!ms.length)return;
   // shortcut: 시트 하나에 총괄표 + 견적서 표를 이어 붙임, 필지별 시트가 필요해지면 SheetJS 로 옮길 것
-  const cs=ms.map(estCalc),adj=cs.some(c=>c.discount||c.cut),vs=ms.map((e,i)=>estVat(e,cs[i])),anyV=vs.some(Boolean),W=5+(adj?1:0)+(anyV?1:0);   // 할인·절사가 있으면 칸을 보여야 직접+간접−할인=금액 이 맞는다
+  const cs=ms.map(estCalc),adj=cs.some(c=>c.grand!==c.sub),vs=ms.map((e,i)=>estVat(e,cs[i])),anyV=vs.some(Boolean),W=5+(adj?1:0)+(anyV?1:0);   // 할인·감증·절사가 있으면 칸을 보여야 직접+간접+조정=금액 이 맞는다
   let h=`<table style="border-collapse:collapse;font-family:'Malgun Gothic';font-size:10pt">
     <tr><td colspan="${W}" style="font-size:19pt;font-weight:bold;letter-spacing:9px;padding:6px 0;color:#171C26">총 괄 표 <span style="font-size:9pt;color:#4A7C50;letter-spacing:2px">SUMMARY</span></td></tr>
     <tr><td ${xlb}>Project Name</td><td ${xtd} colspan="${W-1}">${esc(p.info.name||'')}</td></tr>`;
-  h+=`<tr><td ${xth}>No</td><td ${xth}>견적서</td><td ${xth}>직접공사비</td><td ${xth}>간접공사비</td>${adj?`<td ${xth}>할인·절사</td>`:''}<td ${xth}>금액</td>${anyV?`<td ${xth}>부가세</td>`:''}</tr>`;
+  h+=`<tr><td ${xth}>No</td><td ${xth}>견적서</td><td ${xth}>직접공사비</td><td ${xth}>간접공사비</td>${adj?`<td ${xth}>할인·감증·절사</td>`:''}<td ${xth}>금액</td>${anyV?`<td ${xth}>부가세</td>`:''}</tr>`;
   let tot=0;
   ms.forEach((e,i)=>{const c=cs[i];tot+=c.grand+vs[i];
-    h+=`<tr><td ${xtc}>${i+1}</td><td ${xtd}>${esc(estName(e,p))}</td><td ${xtn}>${c.direct}</td><td ${xtn}>${c.indirect||''}</td>${adj?`<td ${xtn}>${(c.discount||c.cut)?-(c.discount+c.cut):''}</td>`:''}<td ${xtn}>${c.grand}</td>${anyV?`<td ${xtn}>${vs[i]||''}</td>`:''}</tr>`;});
+    h+=`<tr><td ${xtc}>${i+1}</td><td ${xtd}>${esc(estName(e,p))}</td><td ${xtn}>${c.direct}</td><td ${xtn}>${c.indirect||''}</td>${adj?`<td ${xtn}>${(c.grand-c.sub)||''}</td>`:''}<td ${xtn}>${c.grand}</td>${anyV?`<td ${xtn}>${vs[i]||''}</td>`:''}</tr>`;});
   h+=`<tr><td colspan="${W-1}" style="background:#4A7C50;color:#ffffff;font-weight:bold;letter-spacing:3px;padding:6px 9px">합 계 (${estBundleVatLabel(ms)})</td><td style="background:#4A7C50;color:#ffffff;font-weight:bold;padding:6px 7px;${XNUM}">${tot}</td></tr></table>`;
   h+=ms.map(e=>'<br><br>'+estXlsxHtml(e)).join('');
   downloadExcelHtml(`견적서합본_${safeName(p.info.name||'현장')}_${todayStr()}.xls`,h);
