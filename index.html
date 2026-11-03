@@ -1164,7 +1164,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.23.0';
+const APP_VERSION='9.24.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -4323,7 +4323,7 @@ function vEstimates(c){
   ${(p.estBundles||[]).length?`<div class="card" style="margin-bottom:14px">${p.estBundles.map((b,bi)=>{const ms=estBundleMembers(p,b);
     return`<div class="pad" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap${bi?';border-top:1px solid var(--line)':''}"><span class="pill accent">합본</span>
       <b style="flex:1;min-width:160px">${esc(p.info.name||'')} <span class="sub">· 견적서 ${ms.length}건</span></b>
-      ${ms.length?`<b class="num">${won(ms.reduce((s,e)=>s+estTotal(e),0))}</b><span class="sub">(${estBundleVatLabel(ms)})</span>
+      ${ms.length?`<b class="num">${won(estTotal(estBundleSummary(p,b)))}</b><span class="sub">(${estBundleVatLabel(ms)})</span>
       <button class="btn sm accent" data-bundle-pv data-bi="${bi}">${svg(IC.print)}미리보기 · 보내기</button><button class="btn sm" data-bundle-xls data-bi="${bi}">엑셀</button>`:`<span class="sub">든 견적서가 모두 지워졌습니다</span>`}
       <button class="btn sm" data-bundle-edit data-bi="${bi}">고치기</button></div>`;}).join('')}</div>`:''}
   ${p.estimates.length?`<div class="card"><div class="tbl-wrap"><table><thead><tr><th>견적번호</th><th>이름</th><th>종류</th><th>날짜</th><th>고객</th><th class="r">견적금액</th><th></th></tr></thead>
@@ -4821,11 +4821,13 @@ const estBundleVatLabel=ms=>{const n=ms.filter(e=>e.vat==='포함').length;retur
 /* 총괄표 = 저장하지 않는 아이템 견적서 — 견적서마다 한 줄(금액 = 그 견적서 총액). 기존 갑지 함수가 그대로 그린다 */
 function estBundleSummary(p,b){
   const ms=estBundleMembers(p,b);if(!ms.length)return null;
-  const f=ms[0],nv=ms.filter(e=>e.vat==='포함').length;
+  const f=ms[0],nv=ms.filter(e=>e.vat==='포함').length,adj=Math.round(+b.adj||0);
   return{id:b.id,no:'합본',type:'item',date:ms.map(e=>e.date||'').sort().pop()||todayStr(),
     client:f.client,clientAddr:f.clientAddr,coverOn:f.coverOn,logoPos:f.logoPos,logoW:f.logoW,validDays:f.validDays,
-    /* 부가세 = 견적서별 부가세의 합 — 뒤에 붙는 견적서 장들과 원 단위까지 맞게 */
-    vat:nv?'포함':'별도',vatAmt:ms.reduce((s,e)=>s+estVat(e),0),vatNote:nv&&nv<ms.length?'일부 견적서':'',
+    /* 부가세 = 견적서별 부가세의 합 — 뒤에 붙는 견적서 장들과 원 단위까지 맞게.
+       합본 감·증(b.adj, 사장님 11-03)은 총괄표에만 — 전부 부가세 켠 합본이면 감·증에도 10% */
+    adj,adjNote:b.adjNote||'',
+    vat:nv?'포함':'별도',vatAmt:ms.reduce((s,e)=>s+estVat(e),0)+(nv===ms.length?Math.round(adj*0.1):0),vatNote:nv&&nv<ms.length?'일부 견적서':'',
     remarks:[...new Set(ms.flatMap(e=>String(e.remarks||'').split('\n').map(s=>s.trim()).filter(Boolean)))].join('\n'),
     sections:ms.map(e=>({id:e.id,name:estName(e,p),items:[{id:e.id,name:estName(e,p),qty:1,mp:estCalc(e).grand,lp:''}]}))};
 }
@@ -4842,9 +4844,11 @@ function exportBundleXlsx(p,b){
     <tr><td colspan="${W}" style="font-size:19pt;font-weight:bold;letter-spacing:9px;padding:6px 0;color:#171C26">총 괄 표 <span style="font-size:9pt;color:#4A7C50;letter-spacing:2px">SUMMARY</span></td></tr>
     <tr><td ${xlb}>Project Name</td><td ${xtd} colspan="${W-1}">${esc(p.info.name||'')}</td></tr>`;
   h+=`<tr><td ${xth}>No</td><td ${xth}>견적서</td><td ${xth}>직접공사비</td><td ${xth}>간접공사비</td>${adj?`<td ${xth}>할인·감증·절사</td>`:''}<td ${xth}>금액</td>${anyV?`<td ${xth}>부가세</td>`:''}</tr>`;
-  let tot=0;
-  ms.forEach((e,i)=>{const c=cs[i];tot+=c.grand+vs[i];
+  ms.forEach((e,i)=>{const c=cs[i];
     h+=`<tr><td ${xtc}>${i+1}</td><td ${xtd}>${esc(estName(e,p))}</td><td ${xtn}>${c.direct}</td><td ${xtn}>${c.indirect||''}</td>${adj?`<td ${xtn}>${(c.grand-c.sub)||''}</td>`:''}<td ${xtn}>${c.grand}</td>${anyV?`<td ${xtn}>${vs[i]||''}</td>`:''}</tr>`;});
+  /* 합본 감·증 — 총괄표에만 한 줄, 합계는 총괄표 총 금액과 같은 값 */
+  const sum=estBundleSummary(p,b),sc=estCalc(sum),tot=estTotal(sum,sc);
+  if(sc.adj)h+=`<tr><td ${xtc}></td><td ${xtd}>${esc(estAdjLabel(sum,sc))}</td><td ${xtd}></td><td ${xtd}></td>${adj?`<td ${xtd}></td>`:''}<td ${xtn}>${sc.adj}</td>${anyV?`<td ${xtn}>${(estVat(sum,sc)-vs.reduce((a,v)=>a+v,0))||''}</td>`:''}</tr>`;
   h+=`<tr><td colspan="${W-1}" style="background:#4A7C50;color:#ffffff;font-weight:bold;letter-spacing:3px;padding:6px 9px">합 계 (${estBundleVatLabel(ms)})</td><td style="background:#4A7C50;color:#ffffff;font-weight:bold;padding:6px 7px;${XNUM}">${tot}</td></tr></table>`;
   h+=ms.map(e=>'<br><br>'+estXlsxHtml(e)).join('');
   downloadExcelHtml(`견적서합본_${safeName(p.info.name||'현장')}_${todayStr()}.xls`,h);
@@ -4856,7 +4860,12 @@ function openEstBundle(p,b){
   ov.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-labelledby="estBundleTitle" style="width:min(520px,100%)"><h2 id="estBundleTitle">${b?'합본 고치기':'견적서 합치기'}</h2>
     <div class="msub">고른 견적서를 총괄표 한 장 + 견적서별 갑지·내역으로 한 문서로 묶습니다. 견적서는 그대로 남고, 금액은 견적서를 고치면 따라갑니다.</div>
     <div class="pad" style="display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto">${ests.map(e=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" data-bid="${esc(e.id)}"${chosen.has(e.id)?' checked':''}><span class="num sub">${esc(e.no)}</span><span style="flex:1">${esc(estName(e,p))}</span><span class="num">${won(estCalc(e).grand)}</span></label>`).join('')}</div>
-    <div class="pad" style="border-top:1px solid var(--line);display:flex;justify-content:space-between"><span class="sub">합계 (부가세 별도)</span><b class="num" id="estBundleSum"></b></div>
+    <div class="pad" style="border-top:1px solid var(--line);display:flex;justify-content:space-between"><span class="sub">견적서 합계 (부가세 별도)</span><b class="num" id="estBundleSum"></b></div>
+    <div class="pad" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:0">
+      <div class="field" style="margin:0"><label>총괄표 감·증 (선택)</label><div style="display:flex;gap:6px">
+        <select id="estBundleAdjSign" style="width:auto"><option value="-">감</option><option value="+"${b&&(+b.adj||0)>0?' selected':''}>증</option></select>
+        <input id="estBundleAdjAmt" type="text" inputmode="numeric" value="${b&&b.adj?numf(Math.abs(+b.adj)):''}" placeholder="예: 300만" style="flex:1;min-width:0"></div></div>
+      <div class="field" style="margin:0"><label>감·증 이유 (선택)</label><input id="estBundleAdjNote" type="text" value="${esc(b&&b.adjNote||'')}" placeholder="예: 현장 협의분"></div></div>
     <div class="modal-foot">${b?`<button class="btn ghost" id="estBundleDel" style="color:var(--bad)">합본 지우기</button>`:'<span></span>'}<div class="right"><button class="btn" id="estBundleCancel">취소</button><button class="btn green" id="estBundleSave">저장</button></div></div></div>`;
   document.body.appendChild(ov);
   const close=()=>ov.remove();ov.querySelector('#estBundleCancel').onclick=close;
@@ -4872,9 +4881,13 @@ function openEstBundle(p,b){
     if(!P||(b&&!B)){toast('자료가 새로 불러와졌습니다. 창을 다시 열어 주세요.',3500);close();return null;}
     return{P,B};};
   ov.querySelector('#estBundleSave').onclick=()=>{const sel=ids(),f=sel.length<2?null:fresh();if(!f)return;
-    if(f.B){if(!estBundleMembers(f.P,f.B).length)f.B.id=crypto.randomUUID();   // 다 지워진 합본을 다시 쓰면 예전 계약서가 몰래 다시 이어지지 않게 새 번호
-      f.B.ids=sel;}
-    else(f.P.estBundles=f.P.estBundles||[]).push({id:crypto.randomUUID(),ids:sel});
+    const B=f.B||{id:crypto.randomUUID()};
+    if(f.B){if(!estBundleMembers(f.P,f.B).length)f.B.id=crypto.randomUUID();}   // 다 지워진 합본을 다시 쓰면 예전 계약서가 몰래 다시 이어지지 않게 새 번호
+    else(f.P.estBundles=f.P.estBundles||[]).push(B);
+    B.ids=sel;
+    const n=moneyNum(ov.querySelector('#estBundleAdjAmt').value),note=ov.querySelector('#estBundleAdjNote').value.trim();
+    if(n)B.adj=(ov.querySelector('#estBundleAdjSign').value==='+'?1:-1)*n;else delete B.adj;
+    if(note)B.adjNote=note;else delete B.adjNote;
     close();save();render();toast(b?'합본을 고쳤습니다':'합본을 만들었습니다 — 목록 맨 위에 있습니다');};
   const del=ov.querySelector('#estBundleDel');
   if(del)del.onclick=()=>{const f=fresh();if(!f||!confirm('합본을 지울까요? 견적서는 그대로 남습니다.\n이 합본에 연동된 계약서는 지금 합본 총액으로 맞춘 뒤 연동을 풉니다.'))return;
