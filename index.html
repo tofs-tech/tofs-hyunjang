@@ -1160,7 +1160,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.20.1';
+const APP_VERSION='9.21.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -3654,8 +3654,8 @@ function estXlsxHtml(est){
   h+=srow('Sub TOTAL',cal.sub,1);
   h+=srow('Discount',cal.discount?-cal.discount:'',!!cal.discount);
   if(cal.cut)h+=srow('단수정리',-cal.cut,1);
-  h+=srow('Tax: VAT 10%',est.vat==='포함'?Math.round(cal.grand*0.1):'');
-  h+=`<tr><td colspan="${W-2}" style="background:#4A7C50;color:#ffffff;font-weight:bold;letter-spacing:3px;padding:6px 9px">GRAND TOTAL</td><td style="background:#4A7C50;color:#ffffff;text-align:center">₩</td><td style="background:#4A7C50;color:#ffffff;font-weight:bold;padding:6px 7px;${XNUM}">${cal.grand}</td></tr>`;
+  h+=srow('Tax: VAT 10%',estVat(est,cal)||'');
+  h+=`<tr><td colspan="${W-2}" style="background:#4A7C50;color:#ffffff;font-weight:bold;letter-spacing:3px;padding:6px 9px">GRAND TOTAL</td><td style="background:#4A7C50;color:#ffffff;text-align:center">₩</td><td style="background:#4A7C50;color:#ffffff;font-weight:bold;padding:6px 7px;${XNUM}">${estTotal(est,cal)}</td></tr>`;
   h+=`<tr><td colspan="${W}" style="padding:3px 0;color:#555;font-size:9pt">비고/REMARK &nbsp; ${esc(est.remarks||'').replace(/\n/g,'<br>')}</td></tr>`;
   h+=`<tr><td colspan="${W}" style="color:#555;font-size:9pt">성명: ${esc(co.ceo||'')} (인) &nbsp;·&nbsp; ※ 본 견적서는 발행일로 ${est.validDays||30}일 유효합니다. &nbsp;·&nbsp; Company Registration No. ${esc(co.reg||'')}</td></tr>`;
   /* 내역서 — 앱 상세표와 같은 2줄 헤더 */
@@ -4221,6 +4221,9 @@ function vSettle(c){
 const EST_TYPE={item:'아이템 견적서',construction:'시공 견적서'};
 /* 견적서 이름 — 비워 두면 프로젝트 이름 (한 현장에 견적서 여러 개, 사장님 11-01) */
 const estName=(est,p)=>(est.name||'').trim()||((p||proj()).info.name||'');
+/* 부가세 10% 더하기(est.vat==='포함') — 견적 금액(절사 뒤) × 10%. 합본 총괄표는 견적서별 부가세의 합(vatAmt)을 들고 온다 (사장님 11-03) */
+const estVat=(est,cal)=>est.vat!=='포함'?0:(est.vatAmt!=null?est.vatAmt:Math.round((cal||estCalc(est)).grand*0.1));
+const estTotal=(est,cal)=>(cal||estCalc(est)).grand+estVat(est,cal);
 function nextEstNo(p){
   const yr=todayStr().slice(0,4);
   const nums=(p.estimates||[]).map(e=>{const m=/EST-\d+-(\d+)/.exec(e.no||'');return m?+m[1]:0;});
@@ -4311,7 +4314,7 @@ function vEstimates(c){
   ${(p.estBundles||[]).length?`<div class="card" style="margin-bottom:14px">${p.estBundles.map((b,bi)=>{const ms=estBundleMembers(p,b);
     return`<div class="pad" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap${bi?';border-top:1px solid var(--line)':''}"><span class="pill accent">합본</span>
       <b style="flex:1;min-width:160px">${esc(p.info.name||'')} <span class="sub">· 견적서 ${ms.length}건</span></b>
-      ${ms.length?`<b class="num">${won(ms.reduce((s,e)=>s+estCalc(e).grand,0))}</b><span class="sub">(부가세 ${ms.every(e=>e.vat==='포함')?'포함':'별도'})</span>
+      ${ms.length?`<b class="num">${won(ms.reduce((s,e)=>s+estTotal(e),0))}</b><span class="sub">(${estBundleVatLabel(ms)})</span>
       <button class="btn sm accent" data-bundle-pv data-bi="${bi}">${svg(IC.print)}미리보기 · 보내기</button><button class="btn sm" data-bundle-xls data-bi="${bi}">엑셀</button>`:`<span class="sub">든 견적서가 모두 지워졌습니다</span>`}
       <button class="btn sm" data-bundle-edit data-bi="${bi}">고치기</button></div>`;}).join('')}</div>`:''}
   ${p.estimates.length?`<div class="card"><div class="tbl-wrap"><table><thead><tr><th>견적번호</th><th>이름</th><th>종류</th><th>날짜</th><th>고객</th><th class="r">견적금액</th><th></th></tr></thead>
@@ -4319,7 +4322,7 @@ function vEstimates(c){
       return`<tr style="cursor:pointer" data-open-est="${e.id}"><td class="strong num">${esc(e.no)}</td>
       <td>${esc(estName(e,p)||'—')}</td>
       <td><span class="pill ${e.type==='construction'?'accent':'neutral'}">${EST_TYPE[e.type]||e.type}</span></td>
-      <td class="num">${fdateF(e.date)}</td><td>${esc(e.client||'—')}</td><td class="r num strong">${won(cal.grand)}</td>
+      <td class="num">${fdateF(e.date)}</td><td>${esc(e.client||'—')}</td><td class="r num strong">${won(estTotal(e,cal))}${e.vat==='포함'?'<div class="sub" style="font-size:10px;font-weight:400">VAT 포함</div>':''}</td>
       <td><div class="row-actions no-print"><button class="btn sm" data-copy-est="${e.id}">견적서 복사</button><button class="icon-btn" data-del-est="${e.id}" title="삭제">${svg(IC.trash)}</button></div></td></tr>`;}).join('')}</tbody></table></div></div>`
    :`<div class="card">${emptyB('아직 만든 견적서가 없습니다. 위에서 종류를 골라 시작하세요.','')}</div>`}`;
   c.querySelectorAll('[data-newest]').forEach(b=>b.onclick=()=>newEstimate(b.dataset.newest));
@@ -4373,7 +4376,8 @@ function estSectionCard(s,si,isCon){
     </div>
   </div>`;
 }
-function estSummaryHtml(cal,isCon){
+function estSummaryHtml(cal,isCon,est){
+  const vat=estVat(est,cal);
   const row=(l,v,b)=>`<div style="display:flex;justify-content:space-between"><span class="sub">${l}</span><span class="num" style="${b?'font-weight:700':''}">${v}</span></div>`;
   return`<div style="display:flex;flex-direction:column;gap:6px;font-size:13.5px">
     ${isCon?row('직접공사비',won(cal.direct),1)+cal.ind.map(x=>row(x[0]+'',won(x[1]))).join('')+
@@ -4381,7 +4385,9 @@ function estSummaryHtml(cal,isCon){
     ${cal.discount?row('Discount','−'+won(cal.discount)):''}
     ${cal.cut?row('단수정리 (만원 미만 절사)','−'+won(cal.cut)):''}
     <div style="display:flex;justify-content:space-between;align-items:center;border-top:2px solid var(--line-strong);padding-top:8px">
-      <b>견적 금액 <span class="sub">(VAT 별도)</span></b><b class="num" style="font-size:20px;color:var(--accent-ink)">${won(cal.grand)}</b></div>
+      <b>견적 금액 <span class="sub">(VAT 별도)</span></b><b class="num" style="font-size:${vat?'15':'20'}px;color:var(--accent-ink)">${won(cal.grand)}</b></div>
+    ${vat?row('부가세 10%',won(vat))+`<div style="display:flex;justify-content:space-between;align-items:center;border-top:2px solid var(--line-strong);padding-top:8px">
+      <b>총 금액 <span class="sub">(VAT 포함)</span></b><b class="num" style="font-size:20px;color:var(--accent-ink)">${won(cal.grand+vat)}</b></div>`:''}
   </div>`;
 }
 function refreshEst(c,est){
@@ -4395,7 +4401,7 @@ function refreshEst(c,est){
     });
     const st=card.querySelector('.sec-total');if(st)st.textContent=won(cal.secs[si]?cal.secs[si].total:0);
   });
-  const sm=document.getElementById('estSummary');if(sm)sm.innerHTML=estSummaryHtml(cal,est.type==='construction');
+  const sm=document.getElementById('estSummary');if(sm)sm.innerHTML=estSummaryHtml(cal,est.type==='construction',est);
 }
 function estEditor(c,p,est){
   const isCon=est.type==='construction';
@@ -4420,6 +4426,8 @@ function estEditor(c,p,est){
     ${estField('target','최종 금액 (절사·할인, 선택)','number',est.target)}
     <div class="field"><label>만원 단위 단수정리</label>
       <label style="display:flex;align-items:center;gap:8px;height:34px;cursor:pointer;font-size:13px"><input type="checkbox" id="estRound10k" ${est.round10k?'checked':''}> 만원 미만 절사</label></div>
+    <div class="field"><label>부가세</label>
+      <label style="display:flex;align-items:center;gap:8px;height:34px;cursor:pointer;font-size:13px"><input type="checkbox" id="estVatOn" ${est.vat==='포함'?'checked':''}> 부가세 10% 더하기</label></div>
   </div></div>
   <div class="card" style="margin-top:14px"><div class="card-h"><span class="ct">표지</span><span class="cs">견적서 맨 앞에 견적서 이름(비우면 프로젝트명)·날짜·로고가 들어간 표지를 붙입니다</span></div>
     <div class="pad" style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end">
@@ -4454,6 +4462,12 @@ function estEditor(c,p,est){
   c.querySelectorAll('[data-rate]').forEach(inp=>inp.onchange=()=>{est.rates[inp.dataset.rate]=inp.value;save();refreshEst(c,est);});
   const rm=document.getElementById('estRemarks');rm.onchange=()=>{est.remarks=rm.value;save();};
   const r10=document.getElementById('estRound10k');if(r10)r10.onchange=()=>{est.round10k=r10.checked;save();refreshEst(c,est);};
+  /* 부가세 켜고 끄기 — 비고의 「부가세 별도/포함」 줄만 같이 바꾼다 (사장님 결정 가) */
+  const vOn=document.getElementById('estVatOn');if(vOn)vOn.onchange=()=>{
+    const [from,to]=vOn.checked?['부가세 별도','부가세 포함']:['부가세 포함','부가세 별도'];
+    est.vat=vOn.checked?'포함':'별도';
+    est.remarks=String(est.remarks||'').split('\n').map(l=>l.trim()===from?to:l).join('\n');
+    save();render();};
   /* 표지 설정 — 로고 파일은 회사 정보(DB.company.logo)에 저장(추가 필드), 위치·크기는 견적서별 */
   const cvOn=document.getElementById('estCoverOn');if(cvOn)cvOn.onchange=()=>{est.coverOn=cvOn.checked;save();};
   const lpS=document.getElementById('estLogoPos');if(lpS)lpS.onchange=()=>{est.logoPos=lpS.value;save();};
@@ -4620,7 +4634,7 @@ function edEstCover(est,cal,hasDetail,fit){
   }
   const rowN=secs.length+(hasInd?2+cal.ind.length:0);
   const cmp=fit>=1||rowN>=12, cmp2=fit>=2;
-  const vatIn=est.vat==='포함';
+  const vatIn=est.vat==='포함',vat=estVat(est,cal),total=cal.grand+vat;
   /* 갑지 비고는 사용자가 쓴 것만 — 유효기간·상세내역 안내 문구는 뺐다 */
   const noteLines=est.remarks?String(est.remarks).split('\n').filter(x=>x.trim()):[];
   return`<div class="ed${cmp?' cmp':''}${cmp2?' cmp2':''}">
@@ -4633,7 +4647,7 @@ function edEstCover(est,cal,hasDetail,fit){
       <div><div class="ed-lab">ADDRESS</div><div class="ed-val">${esc((est.clientAddr||i.address||'').trim()||'—')}</div></div>
     </div>
     <div class="ed-amtrow">
-      <div><div class="ed-lab">TOTAL AMOUNT</div><div class="ed-amt">₩ <b>${numf(cal.grand)}</b><span class="u">원</span></div></div>
+      <div><div class="ed-lab">TOTAL AMOUNT</div><div class="ed-amt">₩ <b>${numf(total)}</b><span class="u">원</span></div></div>
     </div>
     <div class="ed-lab" style="margin:16px 0 2px">SUMMARY</div>
     <table class="edt"><thead>${isCon
@@ -4646,8 +4660,8 @@ function edEstCover(est,cal,hasDetail,fit){
       :`<div class="tr"><span>합계</span><b>${numf(cal.sub)}<i>원</i></b></div>`}
       ${cal.discount?`<div class="tr"><span>할인</span><b>−${numf(cal.discount)}<i>원</i></b></div>`:''}
       ${cal.cut?`<div class="tr"><span>단수정리</span><b>−${numf(cal.cut)}<i>원</i></b></div>`:''}
-      <div class="tr"><span>부가세 (${vatIn?'10%':'0%'})</span><b>${vatIn?numf(Math.round(cal.grand*0.1))+'<i>원</i>':'별도'}</b></div>
-      <div class="tr grand"><span>총 금 액</span><b>${numf(cal.grand)}<i>원</i></b></div>
+      <div class="tr"><span>부가세 (${vatIn?esc(est.vatNote||'10%'):'0%'})</span><b>${vatIn?numf(vat)+'<i>원</i>':'별도'}</b></div>
+      <div class="tr grand"><span>총 금 액</span><b>${numf(total)}<i>원</i></b></div>
     </div>
     ${noteLines.length?`<div class="ed-note" style="margin-top:22px;border-top:1px solid #D9D2C2;border-bottom:1px solid #D9D2C2;padding:12px 2px"><span class="dash">—</span><div>${noteLines.map(esc).join('<br>')}</div></div>`:''}
   </div>`;
@@ -4775,13 +4789,15 @@ function openEstPreview(est){
    저장하는 것은 p.estBundles=[{id, ids:[견적서 id…]}] 뿐. 합계·날짜·고객은 열 때마다 견적서에서 계산한다.
    계약서는 ctr.estId 에 합본 id 를 넣어 연동한다(옛 판은 못 찾으니 '직접 입력'으로 보고 금액을 그대로 둔다). */
 const estBundleMembers=(p,b)=>(p.estimates||[]).filter(e=>(b.ids||[]).includes(e.id));   // 목록 순서, 지운 견적서는 저절로 빠짐
+const estBundleVatLabel=ms=>{const n=ms.filter(e=>e.vat==='포함').length;return n===0?'부가세 별도':n===ms.length?'부가세 포함':'부가세 일부 포함';};
 /* 총괄표 = 저장하지 않는 아이템 견적서 — 견적서마다 한 줄(금액 = 그 견적서 총액). 기존 갑지 함수가 그대로 그린다 */
 function estBundleSummary(p,b){
   const ms=estBundleMembers(p,b);if(!ms.length)return null;
-  const f=ms[0];
+  const f=ms[0],nv=ms.filter(e=>e.vat==='포함').length;
   return{id:b.id,no:'합본',type:'item',date:ms.map(e=>e.date||'').sort().pop()||todayStr(),
     client:f.client,clientAddr:f.clientAddr,coverOn:f.coverOn,logoPos:f.logoPos,logoW:f.logoW,validDays:f.validDays,
-    vat:ms.every(e=>e.vat==='포함')?'포함':'별도',
+    /* 부가세 = 견적서별 부가세의 합 — 뒤에 붙는 견적서 장들과 원 단위까지 맞게 */
+    vat:nv?'포함':'별도',vatAmt:ms.reduce((s,e)=>s+estVat(e),0),vatNote:nv&&nv<ms.length?'일부 견적서':'',
     remarks:[...new Set(ms.flatMap(e=>String(e.remarks||'').split('\n').map(s=>s.trim()).filter(Boolean)))].join('\n'),
     sections:ms.map(e=>({id:e.id,name:estName(e,p),items:[{id:e.id,name:estName(e,p),qty:1,mp:estCalc(e).grand,lp:''}]}))};
 }
@@ -4793,15 +4809,15 @@ function openBundlePreview(p,b){
 function exportBundleXlsx(p,b){
   const ms=estBundleMembers(p,b);if(!ms.length)return;
   // shortcut: 시트 하나에 총괄표 + 견적서 표를 이어 붙임, 필지별 시트가 필요해지면 SheetJS 로 옮길 것
-  const cs=ms.map(estCalc),adj=cs.some(c=>c.discount||c.cut),W=adj?6:5;   // 할인·절사가 있으면 칸을 보여야 직접+간접−할인=금액 이 맞는다
+  const cs=ms.map(estCalc),adj=cs.some(c=>c.discount||c.cut),vs=ms.map((e,i)=>estVat(e,cs[i])),anyV=vs.some(Boolean),W=5+(adj?1:0)+(anyV?1:0);   // 할인·절사가 있으면 칸을 보여야 직접+간접−할인=금액 이 맞는다
   let h=`<table style="border-collapse:collapse;font-family:'Malgun Gothic';font-size:10pt">
     <tr><td colspan="${W}" style="font-size:19pt;font-weight:bold;letter-spacing:9px;padding:6px 0;color:#171C26">총 괄 표 <span style="font-size:9pt;color:#4A7C50;letter-spacing:2px">SUMMARY</span></td></tr>
     <tr><td ${xlb}>Project Name</td><td ${xtd} colspan="${W-1}">${esc(p.info.name||'')}</td></tr>`;
-  h+=`<tr><td ${xth}>No</td><td ${xth}>견적서</td><td ${xth}>직접공사비</td><td ${xth}>간접공사비</td>${adj?`<td ${xth}>할인·절사</td>`:''}<td ${xth}>금액</td></tr>`;
+  h+=`<tr><td ${xth}>No</td><td ${xth}>견적서</td><td ${xth}>직접공사비</td><td ${xth}>간접공사비</td>${adj?`<td ${xth}>할인·절사</td>`:''}<td ${xth}>금액</td>${anyV?`<td ${xth}>부가세</td>`:''}</tr>`;
   let tot=0;
-  ms.forEach((e,i)=>{const c=cs[i];tot+=c.grand;
-    h+=`<tr><td ${xtc}>${i+1}</td><td ${xtd}>${esc(estName(e,p))}</td><td ${xtn}>${c.direct}</td><td ${xtn}>${c.indirect||''}</td>${adj?`<td ${xtn}>${(c.discount||c.cut)?-(c.discount+c.cut):''}</td>`:''}<td ${xtn}>${c.grand}</td></tr>`;});
-  h+=`<tr><td colspan="${W-1}" style="background:#4A7C50;color:#ffffff;font-weight:bold;letter-spacing:3px;padding:6px 9px">합 계 (부가세 ${ms.every(e=>e.vat==='포함')?'포함':'별도'})</td><td style="background:#4A7C50;color:#ffffff;font-weight:bold;padding:6px 7px;${XNUM}">${tot}</td></tr></table>`;
+  ms.forEach((e,i)=>{const c=cs[i];tot+=c.grand+vs[i];
+    h+=`<tr><td ${xtc}>${i+1}</td><td ${xtd}>${esc(estName(e,p))}</td><td ${xtn}>${c.direct}</td><td ${xtn}>${c.indirect||''}</td>${adj?`<td ${xtn}>${(c.discount||c.cut)?-(c.discount+c.cut):''}</td>`:''}<td ${xtn}>${c.grand}</td>${anyV?`<td ${xtn}>${vs[i]||''}</td>`:''}</tr>`;});
+  h+=`<tr><td colspan="${W-1}" style="background:#4A7C50;color:#ffffff;font-weight:bold;letter-spacing:3px;padding:6px 9px">합 계 (${estBundleVatLabel(ms)})</td><td style="background:#4A7C50;color:#ffffff;font-weight:bold;padding:6px 7px;${XNUM}">${tot}</td></tr></table>`;
   h+=ms.map(e=>'<br><br>'+estXlsxHtml(e)).join('');
   downloadExcelHtml(`견적서합본_${safeName(p.info.name||'현장')}_${todayStr()}.xls`,h);
 }
