@@ -1164,7 +1164,7 @@ async function enterApp(){
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.24.0';
+const APP_VERSION='9.25.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1924,6 +1924,7 @@ function vMaterials(c){
   <div class="vhead"><div><div class="t">스펙북</div><div class="d">이 현장의 마감재 사양을 공간·공정별 그룹으로 정리하고, 그대로 고객용 스펙북으로 내보냅니다. 견적서 품목과 연동됩니다.${hidN?` <b style="color:var(--sub)">· 숨김 ${hidN}개는 스펙북 PDF에서 빠집니다</b>`:''}</div></div><div class="spacer"></div>
     <label class="sub no-print" style="display:flex;align-items:center;gap:6px;margin-right:10px;cursor:pointer;white-space:nowrap"><input type="checkbox" id="sbPriceT" ${state.sbPrice?'checked':''}>스펙북에 단가 표시</label>
     <button class="btn sm no-print" id="matFromDB">단가·마감재 DB에서 담기</button>
+    <button class="btn sm no-print" id="sbCopyBtn">스펙북 복사</button>
     ${p.materials.length?`<button class="btn sm no-print" id="matToDB">전체 자재DB로</button>`:''}
     <button class="btn accent no-print" id="specbookBtn">${svg(IC.print)}스펙북 미리보기 · 보내기</button>${addBtn('materials','마감재 추가')}</div>
   <div class="tip">💡 <b>활용 팁</b> — 그룹은 <b>거실·주방</b>처럼 공간으로 나눠도 되고 <b>목공·도배</b>처럼 공정으로 나눠도 됩니다. 상태를 <b>확정</b>으로 바꾸면 발주 탭에서 발주로 연결하기 좋습니다.</div>
@@ -1950,6 +1951,7 @@ function vMaterials(c){
   });
   c.querySelector('#sbPriceT').onchange=e=>{state.sbPrice=e.target.checked;};
   c.querySelector('#matFromDB').onclick=importMaterialsFromDB;
+  c.querySelector('#sbCopyBtn').onclick=()=>openSpecCopy(p.id);
   const toDB=c.querySelector('#matToDB');
   if(toDB)toDB.onclick=()=>saveMaterialsToPriceDB(p.materials);
   c.querySelectorAll('[data-matdb]').forEach(b=>b.onclick=()=>
@@ -2055,6 +2057,103 @@ function openSpecbook(){
   if(!(p.materials||[]).length){toast('등록된 마감재가 없습니다');return;}
   if(!(p.materials||[]).some(m=>!sbHidden(p,m.id))){toast('마감재가 모두 숨김 처리되어 있습니다 — 숨김 체크를 하나 이상 해제해 주세요');return;}
   showPreview('스펙북',specbookPages(p,!!state.sbPrice),false);
+}
+/* ── 스펙북 복사 — 다른 현장으로 보내기 · 다른 현장에서 가져오기 (사장님 11-11) ──
+   받는 현장 스펙북 끝에 더하기만 한다(받는 쪽 기존 행은 안 고치고, 보내는 쪽은 그대로).
+   수량은 비우고(사장님 "가") 상태는 미정. 견적서(estId)·레빗(rvt) 연결은 원래 현장 것이라 떼고, 숨김 체크는 따라간다.
+   받는 쪽 같은 그룹에 품명·규격이 같은 품목이 있으면 건너뛴다(같은 타일을 거실·주방에 따로 쓰는 경우는 살린다). */
+function specSource(p){   /* 그 현장 스펙북 화면에 보일 모습(견적서 변경분 포함) — 원본은 안 건드리고 사본으로 */
+  const s=JSON.parse(JSON.stringify({id:p.id,info:p.info,estimates:p.estimates||[],materials:p.materials||[],sbHide:p.sbHide||[],matNoAuto:p.matNoAuto||[]}));
+  syncEstToMaterials(s);return s;
+}
+function copySpecbook(src,to,groups){
+  if(!src||!to||src.id===to.id)throw new Error('보내는 현장과 받는 현장을 다르게 골라 주세요.');
+  to.materials=to.materials||[];
+  /* 받는 현장 견적서 품목이 먼저 제 그룹에 제 행을 갖게 한다. 그 현장 스펙북을 열면 어차피 하는 일인데, 안 하면
+     견적서 품목이 복사된 행을 품명만 보고 입양해 엉뚱한 그룹·숨김 행으로 간다(점검 11-11) */
+  const old=new Set(to.materials.map(m=>m.id));syncEstToMaterials(to);
+  const key=m=>[m.group,m.name,m.spec].map(v=>String(v==null?'':v).trim()).join('\n');
+  const have=new Map();to.materials.forEach(m=>{const k=key(m);if(!have.has(k))have.set(k,m);});   /* 받는 쪽 행만 — 보내는 쪽에 같은 행이 둘이면 둘 다 간다 */
+  const used=new Set();let added=0,merged=0,skipped=0;
+  (src.materials||[]).forEach(m=>{
+    if(!groups.has(m.group))return;
+    const d=have.get(key(m));
+    if(d&&old.has(d.id)){skipped++;return;}         /* 받는 현장에 원래 있던 행 — 손대지 않는다 */
+    if(d&&!used.has(d.id)){                           /* 방금 그 현장 견적서에서 생긴 행 — 스펙북 몫 빈 칸(사진·브랜드·비고·공정)만 채운다(숨김은 그 현장 견적서 품목이라 안 옮김) */
+      used.add(d.id);['img','brand','note','phase'].forEach(f=>{if(!d[f]&&m[f])d[f]=m[f];});
+      merged++;return;
+    }
+    const c=JSON.parse(JSON.stringify(m));delete c.estId;delete c.rvt;
+    Object.assign(c,{id:uid(),qty:'',status:'미정'});
+    to.materials.push(c);
+    if(sbHidden(src,m.id))sbHideArr(to).push(c.id);
+    added++;
+  });
+  return{added,merged,skipped};
+}
+function openSpecCopy(hereId){
+  const cur=()=>DB.projects.find(p=>p.id===hereId)||null;   /* 창이 열린 사이 다른 기기 저장을 받아 DB가 통째로 바뀔 수 있다 — 늘 id로 다시 찾는다 */
+  const nm=p=>(p&&p.info&&p.info.name)||'이름 없는 프로젝트';
+  /* 품목 수 — 행이 아직 없는 현장은 견적서에서 생길 행까지 센다(사본이지만 사진이 없어 가볍다) */
+  const cnt=p=>{const n=((p&&p.materials)||[]).length;return n||(p?specSource(p).materials.length:0);};
+  if(!cur())return;
+  let mode=cnt(cur())?'send':'get',otherId='',groups=[],src=null;
+  const ov=document.createElement('div');ov.className='overlay';
+  ov.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-labelledby="sbcTitle" style="width:min(520px,100%)"><h2 id="sbcTitle">스펙북 복사</h2>
+    <div class="msub">품명·브랜드·규격·세부내역·단위·단가·사진·비고를 복사합니다. 수량은 비우고 상태는 '미정'으로 바꿉니다. 받는 현장의 같은 그룹에 품명·규격이 같은 품목이 있으면 건너뜁니다. 원래 있던 품목은 지우거나 고치지 않습니다.</div>
+    <div id="sbcModes" style="padding:10px 22px 0;display:flex;gap:6px;flex-wrap:wrap"></div>
+    <div id="sbcBody" style="overflow-y:auto"></div>
+    <div id="sbcInfo" class="sub" style="padding:0 22px 8px;font-size:12px"></div>
+    <div class="modal-foot"><span></span><div class="right"><button class="btn" id="sbcCancel">취소</button><button class="btn green" id="sbcGo"></button></div></div></div>`;
+  document.body.appendChild(ov);
+  const $=s=>ov.querySelector(s),close=()=>ov.remove();
+  const pair=()=>{const h=cur(),o=DB.projects.find(p=>p.id===otherId)||null;return mode==='send'?[h,o]:[o,h];};
+  const picked=()=>new Set(groups.filter((g,i)=>ov.querySelector(`[data-sbcg="${i}"]`)?.checked));
+  const upd=()=>{
+    const go=$('#sbcGo'),pk=picked();go.textContent=mode==='send'?'보내고 열기':'가져오기';
+    go.disabled=!otherId||!pk.size;
+    const imgs=src?src.materials.filter(m=>pk.has(m.group)&&m.img):[],mb=imgs.reduce((s,m)=>s+String(m.img).length,0)/1048576;
+    $('#sbcInfo').textContent=imgs.length?`사진 ${imgs.length}장(약 ${Math.max(mb,0.1).toFixed(1)}MB)도 함께 복사되어 저장 용량이 그만큼 늘어납니다.`:'';
+  };
+  const drawGroups=()=>{
+    const from=pair()[0];src=from?specSource(from):null;
+    groups=src?[...new Set(src.materials.map(m=>m.group))]:[];
+    const box=$('#sbcGroups');
+    if(box)box.innerHTML=src?groups.map((g,i)=>`<label style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer"><input type="checkbox" data-sbcg="${i}" checked>${esc(g||'미분류')}<span class="sub">· ${src.materials.filter(m=>m.group===g).length}개</span></label>`).join('')
+      :'<div class="sub">가져올 현장을 고르면 그룹이 나옵니다.</div>';
+    ov.querySelectorAll('[data-sbcg]').forEach(x=>x.onchange=upd);upd();
+  };
+  const draw=()=>{
+    const others=DB.projects.filter(p=>p.id!==hereId),list=mode==='send'?others:others.filter(p=>cnt(p));
+    if(!list.some(p=>p.id===otherId))otherId='';   /* 미리 골라 두지 않는다 — 맨 오래된 완료 현장 같은 엉뚱한 곳에 바로 들어가지 않게 */
+    $('#sbcModes').innerHTML=[['send','다른 현장으로 보내기'],['get','다른 현장에서 가져오기']].map(([k,l])=>`<button class="btn sm ${k===mode?'accent':''}" data-sbcmode="${k}" aria-pressed="${k===mode}">${l}</button>`).join('');
+    ov.querySelectorAll('[data-sbcmode]').forEach(b=>b.onclick=()=>{if(mode===b.dataset.sbcmode)return;mode=b.dataset.sbcmode;draw();$(`[data-sbcmode="${mode}"]`).focus();});
+    const none=mode==='send'&&!cnt(cur())?'이 현장 스펙북이 비어 있습니다. 「다른 현장에서 가져오기」를 눌러 보세요.'
+      :!list.length?(mode==='send'?'보낼 다른 현장이 없습니다.':'스펙북이 있는 다른 현장이 없습니다.'):'';
+    const opt=p=>`<option value="${esc(p.id)}" ${p.id===otherId?'selected':''}>${esc(nm(p))} · ${cnt(p)}개</option>`;
+    const act=list.filter(p=>!isArchived(p)),arch=list.filter(isArchived);
+    $('#sbcBody').innerHTML=none?`<div class="empty" style="padding:24px 22px">${none}</div>`:`
+      <div class="pad field"><label for="sbcOther">${mode==='send'?'받을 현장':'가져올 현장'}</label><select id="sbcOther"><option value="" disabled ${otherId?'':'selected'}>현장을 고르세요</option>${act.length?`<optgroup label="진행 중인 현장">${act.map(opt).join('')}</optgroup>`:''}${arch.length?`<optgroup label="완료 · 보관">${arch.map(opt).join('')}</optgroup>`:''}</select></div>
+      <div style="padding:0 22px 8px"><div class="sub" style="margin-bottom:4px">복사할 그룹</div><div id="sbcGroups"></div></div>`;
+    const sel=$('#sbcOther');if(sel)sel.onchange=()=>{otherId=sel.value;if(mode==='get')drawGroups();else upd();};   /* 보내기의 그룹은 이 현장 것 — 다시 그리지 않아 뺀 체크가 남는다 */
+    if(none){src=null;groups=[];upd();}else drawGroups();
+  };
+  $('#sbcCancel').onclick=close;ov.onkeydown=e=>{if(e.key==='Escape')close();};
+  $('#sbcGo').onclick=async e=>{
+    const b=e.currentTarget;if(b.disabled)return;
+    if(!syncReady||syncBlocked){toast('저장 상태를 먼저 확인해 주세요. 복사를 진행하지 않았습니다.',3500);return;}
+    const [from,to]=pair(),pk=picked();
+    if(!from||!to){toast('자료가 새로 불러와졌습니다. 창을 다시 열어 주세요.',3500);close();return;}
+    let res;try{res=copySpecbook(specSource(from),to,pk);}catch(err){toast(err.message,3500);return;}
+    b.disabled=true;close();
+    const n=res.added+res.merged;
+    if(!n){toast(res.skipped?`새로 더할 품목이 없습니다 — ${res.skipped}개 모두 「${nm(to)}」 스펙북에 이미 있습니다.`:'복사할 품목이 없습니다.',4500);return;}
+    if(mode==='send'){DB.active=to.id;state.calMonth=(to.info.start||'2026-07').slice(0,7);}
+    const saved=await save();render();
+    toast((mode==='send'?`「${nm(to)}」 스펙북에 ${n}개를 보냈습니다`:`「${nm(from)}」에서 ${n}개를 가져왔습니다`)
+      +(res.skipped?` · 이미 있는 ${res.skipped}개는 건너뜀`:'')+(saved?'':' · 저장 오류 — 저장을 다시 눌러 주세요'),4500);
+  };
+  draw();($('#sbcOther')||$('#sbcCancel')).focus();
 }
 
 /* ===== 발주 (inline-editable multi-row) ===== */
