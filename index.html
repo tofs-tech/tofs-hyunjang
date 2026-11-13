@@ -326,6 +326,10 @@
   .sync.ok{color:var(--good);} .sync.ok::before{background:var(--good);}
   .sync.busy{color:var(--accent-ink);} .sync.busy::before{background:var(--accent);animation:syncpulse 1s infinite;}
   .sync.bad{color:var(--warn);} .sync.bad::before{background:var(--warn);}
+  /* 저장 멈춤 — 빨간 칩으로 고정, 누르면 멈춤 창이 다시 열린다 */
+  .sync.stop{color:var(--bad);background:var(--bad-soft);border-color:var(--bad);cursor:pointer;} .sync.stop::before{background:var(--bad);}
+  /* 보기 전용 창 띠 — 앱바 바로 아래(내용을 가리지 않게 내용 위에 자리를 차지한다) */
+  .roband{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;padding:7px 12px;background:var(--warn);color:#fff;font-size:12.5px;font-weight:700;}
   @keyframes syncpulse{50%{opacity:.35;}}
   /* 터치 기기(폰·패드): hover가 없으므로 수정/삭제 버튼 항상 표시 */
   @media (hover:none){
@@ -412,6 +416,8 @@
     .logo{font-size:13px;gap:7px;} .logo .sub{display:none;} .logo .m{width:26px;height:26px;font-size:11px;flex:none;} .logo>div{display:none;}
     .psel select{max-width:132px;font-size:12px;padding:7px 26px 7px 10px;}
     .npx{display:none;} .sync .tx{display:none;} .sync{padding:5px 7px;} .verchip{padding:4px 6px;font-size:9.5px;}
+    /* 휴대폰은 칩 글씨를 숨기므로, 멈춤일 때만 앱바 아래 한 줄로 글씨까지 보인다 */
+    .sync.stop{position:absolute;left:0;right:0;top:100%;border-radius:0;justify-content:center;padding:7px 10px;} .sync.stop .tx{display:inline;}
     .icon-btn{width:31px;height:31px;}
     .wrap{padding:12px 10px 56px;}
     .phead{padding:15px 14px;} .phead h1{font-size:17px;}
@@ -446,7 +452,7 @@
     .pinfo{grid-template-columns:1fr;} .kpis{grid-template-columns:repeat(2,1fr)!important;} .todos{grid-template-columns:1fr;} .form{grid-template-columns:1fr;}
     .cell{min-height:80px;} .phead-actions{flex-wrap:wrap;}
   }
-  @media print{.appbar,.tabs,.row-actions,.no-print,.phead-actions{display:none!important;}body,.card{background:#fff;}.wrap{padding:0;max-width:none;}.card{box-shadow:none;break-inside:avoid;}}
+  @media print{.appbar,.tabs,.row-actions,.no-print,.phead-actions,.roband{display:none!important;}body,.card{background:#fff;}.wrap{padding:0;max-width:none;}.card{box-shadow:none;break-inside:avoid;}}
 
   /* print sheet (shared by on-screen preview + print) */
   #printRoot{display:none;}
@@ -772,7 +778,7 @@
     @page{size:A4 portrait;margin:12mm;}
     @page schedLand{size:A4 landscape;margin:9mm;}
     .psheet.land{page:schedLand;}
-    body.print-doc .appbar, body.print-doc .wrap, body.print-doc .pv-overlay{display:none!important;}
+    body.print-doc .appbar, body.print-doc .wrap, body.print-doc .pv-overlay, body.print-doc .roband{display:none!important;}
     body.print-doc #printRoot{display:block!important;}
     body.print-doc:has(#printRoot .ed){background:#F7F4EE!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
     body.print-doc.ed-white:has(#printRoot .ed){background:#fff!important;}
@@ -881,149 +887,264 @@ function tofsStore(){
   if(!tofsStorePromise)tofsStorePromise=new Promise((resolve,reject)=>{
     const r=indexedDB.open('tofs-durable-v1',1);
     r.onupgradeneeded=()=>r.result.createObjectStore('records');
-    r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);
-    r.onblocked=()=>reject(new Error('기기 저장소가 다른 창에서 사용 중입니다.'));
+    /* 연결이 끊기거나(휴대폰 앱 복귀 등) 다른 창이 판을 올리려 하면 저장해 둔 연결을 버린다 — 다음 저장 때 새로 연다 */
+    r.onsuccess=()=>{const db=r.result;db.onclose=()=>{tofsStorePromise=null;};db.onversionchange=()=>{db.close();tofsStorePromise=null;};resolve(db);};
+    r.onerror=()=>{tofsStorePromise=null;reject(r.error);};
+    r.onblocked=()=>{tofsStorePromise=null;reject(new Error('기기 저장소가 다른 창에서 사용 중입니다.'));};
   });
   return tofsStorePromise;
 }
-async function durableGet(key){const db=await tofsStore();return new Promise((resolve,reject)=>{
-  const tx=db.transaction('records','readonly'),r=tx.objectStore('records').get(key);
-  tx.oncomplete=()=>resolve(r.result||null);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
-});}
-async function durableWrite(key,value){const db=await tofsStore();return new Promise((resolve,reject)=>{
-  const tx=db.transaction('records','readwrite');tx.objectStore('records').put(value,key);
-  tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
-});}
-async function durablePending(key,expected,next){const db=await tofsStore();return new Promise((resolve,reject)=>{
-  const tx=db.transaction('records','readwrite'),s=tx.objectStore('records'),r=s.get(key);let conflict=false;
+/* 트랜잭션을 열고 그 자리에서 fn이 요청을 넣는다(fn이 돌려준 함수로 결과를 낸다). 끊긴 연결이라 열지 못하면 한 번 새로 열어 다시 한다 */
+async function idb(mode,fn){
+  for(let i=0;;i++){let tx;
+    try{tx=(await tofsStore()).transaction('records',mode);}catch(e){tofsStorePromise=null;if(i)throw e;continue;}
+    return new Promise((resolve,reject)=>{const get=fn(tx.objectStore('records'),tx);
+      tx.oncomplete=()=>resolve(get&&get());tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.why||tx.error);});
+  }
+}
+const durableGet=key=>idb('readonly',s=>{const r=s.get(key);return()=>r.result||null;});
+/* 여러 칸을 한 트랜잭션으로 쓴다(null이면 지움) — 캐시와 판 표시가 어긋나지 않게 */
+const durablePut=map=>idb('readwrite',s=>{for(const k in map)map[k]===null?s.delete(k):s.put(map[k],k);});
+const durableWrite=(key,value)=>durablePut({[key]:value});
+/* 보관함은 이 창이 마지막으로 쓴 id일 때만 바꾼다(아니면 다른 창 것 — 충돌). next가 함수면 지금 보관함을 받아 새 값을 만든다.
+   extra: 같은 트랜잭션에서 함께 쓸 칸(캐시·판 표시 등) */
+const durablePending=(key,expected,next,extra)=>idb('readwrite',(s,tx)=>{const r=s.get(key);
   r.onsuccess=()=>{const current=r.result?JSON.parse(r.result):null;
-    if((current?.id||null)!==expected){conflict=true;tx.abort();return;}
-    if(next===null)s.delete(key);else s.put(next,key);
-  };
-  tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
-  tx.onabort=()=>reject(conflict?{conflict:true}:tx.error);
-});}
-async function durableKeys(){const db=await tofsStore();return new Promise((resolve,reject)=>{
-  const tx=db.transaction('records','readonly'),r=tx.objectStore('records').getAllKeys();
-  tx.oncomplete=()=>resolve(r.result);tx.onerror=()=>reject(tx.error);
-});}
+    if((current?.id||null)!==expected){tx.why={conflict:true,tab:true};tx.abort();return;}
+    const v=typeof next==='function'?next(current):next;
+    if(v===null)s.delete(key);else s.put(v,key);
+    for(const k in extra||{})extra[k]===null?s.delete(k):s.put(extra[k],k);
+  };});
+const durableKeys=()=>idb('readonly',s=>{const r=s.getAllKeys();return()=>r.result;});
 
 /* TOFS safety release: embedded into the single-file app by build.cjs. */
 let session=null, lastSyncedAt=null, syncT=null, syncBusy=false, syncDirty=false, refT=null;
 let cloudState='unknown', syncForce=false, syncBlocked=false, syncReady=false, editGeneration=0;
 let pendingId=null, cacheFault=false, localWrites=Promise.resolve();
+/* 저장 멈춤(원인·시각) · 멈춘 동안 쓰는 사본 칸(한 벌) · 안 올라간 내용이 처음 생긴 시각 · 보기 전용 창 · 보기 전용 창에서 고친 게 있음 */
+let stopInfo=null, stopKey=null, pendingSince=null, readOnly=false, roEdit=false;
 const newSaveId=()=>crypto.randomUUID();
+/* 올릴 때 이번 저장 id를 자료에 붙인다(최근 200개) — 글자마다가 아니라 올릴 때마다 하나라, 다른 기기가 많이 고쳐도 응답을 잃은 내 저장을 알아본다. 옛 판 앱도 이 칸을 그대로 들고 다닌다 */
+const withId=p=>Object.assign({},p,{data:Object.assign({},p.data,{_saves:[...(Array.isArray(p.data._saves)?p.data._saves:[]).slice(-199),p.id]})});
 const pendingKey=()=>KEY+'-pending-'+session.uid;
+const cacheKey=()=>KEY+'-cache-'+session.uid, cacheVerKey=()=>KEY+'-cachever-'+session.uid, sentKey=()=>KEY+'-sent-'+session.uid;
 const snapshotKey=()=>KEY+'-conflict-'+Date.now()+'-'+newSaveId();
 const validData=d=>!!(d&&typeof d==='object'&&Array.isArray(d.projects));
 /* Existing rows are authoritative even when there are no named projects. */
 const hasReal=d=>validData(d);
 const isBlankProject=p=>!p||!p.info||!p.info.name||p.info.name==='새 프로젝트';
-function setSync(mode,txt){const el=document.getElementById('syncChip');if(!el)return;el.hidden=false;el.className='sync '+(mode||'');el.querySelector('.tx').textContent=txt;el.title=txt;}
-function localFailure(){cacheFault=true;setSync('bad','기기 저장 실패 · 창을 닫지 말고 백업 파일을 받으세요');}
+/* 서버(jsonb)는 객체 키 순서를 바꿔 돌려준다 — 내용 비교는 객체 키만 정렬해서(배열 순서·값은 그대로) */
+const canon=v=>JSON.stringify(v,(k,x)=>x&&typeof x==='object'&&!Array.isArray(x)?Object.keys(x).sort().reduce((o,k)=>(o[k]=x[k],o),{}):x);
+const sha=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+/* 캐시 + 판 표시(서버 판, 캐시 문자열 지문) — 늘 같은 트랜잭션으로 함께 쓴다 */
+const cachePair=async(raw,ver)=>({[cacheKey()]:raw,[cacheVerKey()]:JSON.stringify({v:ver,h:await sha(raw)})});
+/* save()와 같은 순서 줄에서 돌린다 — 보관함을 읽고 쓰는 사이에 다른 저장이 끼어들지 못하게(실패해도 줄은 이어진다) */
+function inChain(fn){const run=localWrites.then(fn);localWrites=run.then(()=>{},()=>{});return run;}
+function setSync(mode,txt,force){
+  if((syncBlocked||readOnly)&&!force)return;   /* 멈춤·보기 전용 표시는 다른 표시(저장 중 등)가 덮어쓰지 못한다 */
+  const el=document.getElementById('syncChip');if(!el)return;el.hidden=false;el.className='sync '+(mode||'');el.querySelector('.tx').textContent=txt;el.title=txt;
+  el.tabIndex=mode==='stop'?0:-1;}   /* 멈춤 칩만 눌러서(키보드로도) 창을 다시 연다 */
+function localFailure(){cacheFault=true;if(syncBlocked)stopChip();else setSync('bad','기기 저장 실패 · 창을 닫지 말고 백업 파일을 받으세요');}
 async function writeChecked(k,raw){await durableWrite(k,raw);if(await durableGet(k)!==raw)throw new Error('local verification failed');}
 async function readPending(){const raw=await durableGet(pendingKey());if(!raw)return null;const p=JSON.parse(raw);if(p.uid!==session.uid||!validData(p.data)||!p.id)throw new Error('invalid pending data');return p;}
-async function cachedData(){const raw=await durableGet(KEY+'-cache-'+session.uid);return raw?JSON.parse(raw):load();}
-async function cacheLocal(){try{await writeChecked(KEY+'-cache-'+session.uid,JSON.stringify(DB));return true;}catch(e){localFailure();return false;}}
-async function persistPending(data=DB){
-  try{const p={uid:session.uid,id:pendingId,base:lastSyncedAt,data};
-    await durablePending(pendingKey(),pendingId,JSON.stringify(p));cacheFault=false;return true;
-  }catch(e){if(e?.conflict){syncBlocked=true;await archiveData(data);conflictDialog();}else localFailure();return false;}
+async function cachedData(){const raw=await durableGet(cacheKey());return raw?JSON.parse(raw):load();}
+/* 캐시와 판 표시를 한 트랜잭션으로 함께 읽고, 지문이 맞을 때만 그 판(v)을 준다 — 옛 판 앱이 캐시만 바꿨거나 어긋났으면 v=null */
+async function readCache(){
+  const [raw,ver]=await idb('readonly',s=>{const a=s.get(cacheKey()),b=s.get(cacheVerKey());return()=>[a.result||null,b.result||null];});
+  let v=null;try{const m=JSON.parse(ver);if(raw&&m.v&&m.h===await sha(raw))v=m.v;}catch(e){}
+  return {raw,v};
 }
 async function archiveData(data){await writeChecked(snapshotKey(),JSON.stringify(data));}
-async function adoptCloud(row){
+/* 같은 멈춤 동안 사본은 한 벌 — 멈춘 뒤 더 고치면 그 칸을 새 내용으로 다시 쓴다(글자마다 2~3MB 사본이 쌓이지 않게) */
+async function archiveStop(data){if(!stopKey)stopKey=snapshotKey();await writeChecked(stopKey,JSON.stringify(data));}
+/* 창을 연 사이 다른 기기에서 지운 현장·항목에 넣으려던 입력 — 지금 자료에 섞지 않고, 입력을 넣은 옛 자료를 기기 사본으로 남긴다(복구 도구에서 보인다) */
+async function keepLostInput(old){
+  try{await archiveData(old);alert('다른 기기에서 이 현장(또는 항목)을 지웠습니다.\n방금 입력한 내용은 지우지 않고 이 기기에 따로 보관했습니다.\n(백업 → 이전 버전 · 복구 도구)');return true;}
+  catch(e){localFailure();alert('다른 기기에서 이 현장(또는 항목)을 지웠는데, 입력한 내용을 이 기기에 보관하지 못했습니다.\n창을 닫지 말고 입력한 내용을 따로 적어 두세요.');return false;}
+}
+async function adoptCloud(row,hold){
   if(!row||!validData(row.data)||!row.updated_at)throw new Error('invalid cloud data');
   const generation=editGeneration;
-  try{const old=await cachedData(),next=JSON.stringify(row.data);
-    if(old&&JSON.stringify(old)!==next&&validData(old))await archiveData(old);
-    await writeChecked(KEY+'-cache-'+session.uid,next);
+  if(!readOnly)try{const c=await readCache(),old=c.raw?JSON.parse(c.raw):load(),next=JSON.stringify(row.data);
+    /* 사본은 캐시가 서버 판 그대로(판 표시+지문)가 아닐 때, 키 순서를 무시하고 비교해 다를 때만 — 서버 판 그대로면 서버 이력·백업에 있다.
+       단 받는 자료의 현장 수가 줄거나 4KB 넘게 작아지면 서버 규칙처럼 한 벌 남긴다 */
+    if(old&&validData(old)&&(c.v?(row.data.projects.length<old.projects.length||c.raw.length-next.length>4096):canon(old)!==canon(row.data)))await archiveData(old);
+    await durablePut(await cachePair(next,row.updated_at));
   }catch(e){localFailure();throw e;}
-  if(editGeneration!==generation)throw new Error('편집 중이므로 서버 화면 전환을 중단했습니다.');
+  /* hold: 기기에 쓰는 사이 입력 창이 열렸으면 화면 복귀 받기도 멈춘다 — 그 창이 옛 자료에 저장하지 않게 */
+  if(editGeneration!==generation||(hold&&hold()))throw new Error('편집 중이므로 서버 화면 전환을 중단했습니다.');
+  /* 받은 자료의 '마지막 본 현장'은 다른 기기 것 — 이 기기가 보던 현장을 그대로 둬야 열린 창 저장이 다른 현장으로 가지 않는다 */
+  const keep=DB&&DB.active;
   DB=row.data;lastSyncedAt=row.updated_at;cloudState='loaded';cacheFault=false;
+  if(readOnly)stopKey=null;   /* 보기 전용 창: 받기 전에 고친 사본 칸은 그대로 두고 다음 편집은 새 칸에 — 같은 칸에 서버본+새 편집을 쓰면 앞 편집이 사라진다 */
+  if(keep&&DB.projects.some(p=>p.id===keep))DB.active=keep;
 }
 function save(){
   if(!session){localFailure();return Promise.resolve(false);}
   if(!syncReady)return Promise.resolve(false);
+  /* 보기 전용 창 — 보관함은 쓰는 창 것이라 건드리지 않는다. 여기서 고친 내용은 버리지 않고 사본 한 칸(같은 칸을 다시 씀)에 남기고, 닫을 때 묻는다 */
+  if(readOnly){roToast();roEdit=true;const d=JSON.stringify(DB),k=stopKey=stopKey||snapshotKey();return inChain(()=>writeChecked(k,d)).then(()=>false,()=>false);}   /* 칸은 지금 정한다 — 쓰기 전에 최신본을 받아도 이 편집은 받기 전 칸에 */
   editGeneration++;syncDirty=true;
-  const data=JSON.parse(JSON.stringify(DB)),uid=session.uid;
+  /* 저장에 들어간 글칸은 '아직 안 넣은 글자'로 보지 않는다 — 글자마다 저장되는 견적·발주 칸에 커서가 남아 있어도 최신본 받기를 미루지 않게 */
+  const a=document.activeElement;if(a&&/^(INPUT|TEXTAREA)$/.test(a.tagName))a.defaultValue=a.value;
+  const id=newSaveId(),data=JSON.parse(JSON.stringify(DB)),uid=session.uid;
   setSync('busy','기기에 저장 중 · 창을 닫지 마세요');
   localWrites=localWrites.then(async()=>{
     if(!session||session.uid!==uid)return false;
     try{
-      const id=newSaveId(),p={uid,id,base:lastSyncedAt,data};
+      if(!pendingSince)pendingSince=Date.now();
+      const p={uid,id,base:lastSyncedAt,data,since:pendingSince};
       await durablePending(pendingKey(),pendingId,JSON.stringify(p));
       pendingId=id;syncDirty=true;cacheFault=false;queueSync();return true;
     }catch(e){
-      if(e?.conflict){syncBlocked=true;try{await archiveData(data);}catch(x){localFailure();}conflictDialog();setSync('bad','다른 탭 미전송 자료 감지 · 전송 중지');}
+      if(e?.conflict){try{await archiveStop(data);}catch(x){localFailure();}stopSync('tab');}
       else localFailure();return false;
     }
   });
   return localWrites;
 }
 function queueSync(){
-  if(!session||!syncDirty||syncBlocked||cacheFault)return;
+  if(!session||readOnly||!syncDirty||syncBlocked||cacheFault)return;
   setSync('busy','이 기기에 보관 · 서버 전송 대기');clearTimeout(syncT);syncT=setTimeout(doSync,1200);
+}
+/* 보내기 직전에 '이 기준으로 보낸 저장 id와 내용 지문'을 작은 칸에 적는다(기준이 바뀌면 지움) — 응답을 잃은 뒤 서버 자료가 내가 보낸 그대로인지 확인하려고.
+   적기에 실패해도 보낸다 — 응답을 잃으면 그때 멈출 뿐이다(안전한 쪽) */
+async function noteSent(p){
+  try{const s=JSON.parse(await durableGet(sentKey())||'null'),h=s&&s.base===p.base?s.h:{};
+    if(!h[p.id]){h[p.id]=await sha(canon(p.data));await durableWrite(sentKey(),JSON.stringify({base:p.base,h}));}
+  }catch(e){}
+}
+/* 서버가 받은 뒤 뒷정리 — save()와 같은 순서 줄에서 한 트랜잭션으로: 보관함 비우기(그사이 편집이 있으면 새 판을 기준으로 다시 쓰기) + 캐시·판 표시.
+   응답 뒤 생긴 편집은 충돌이 아니라 새 판 위에 얹을 다음 전송분이다. 보관함이 이 창 것이 아니면(다른 창) 지금처럼 충돌 */
+async function ack(p,ver){
+  const ext=Object.assign(await cachePair(JSON.stringify(p.data),ver),{[sentKey()]:null});
+  return inChain(async()=>{
+    const gen=editGeneration,last=pendingId===p.id;
+    try{await durablePending(pendingKey(),pendingId,last?null:cur=>JSON.stringify(Object.assign(cur,{base:ver})),ext);}
+    catch(e){if(!e?.conflict)localFailure();throw e;}
+    if(last){pendingId=null;pendingSince=null;if(gen===editGeneration)syncDirty=false;}
+  });
+}
+/* 기준이 안 맞을 때(0행 응답·켤 때) 창을 띄우기 전에 서버 자료의 저장 id(_saves)로 가린다.
+   same·adopt: 내 마지막 저장이 이미 서버에 있다(응답만 잃음 — 그 뒤 다른 기기 저장이 있어도 내 것은 들어 있다) → 다시 올리지 않는다
+   rebase: 서버 최신 = 응답을 잃은 내 저장 그대로(보낸 지문으로 확인), 그 뒤 내 편집이 더 있다 → 기준만 서버 판으로 바꿔 이어서 보낸다
+   null: 그 밖 — 진짜 충돌(지금처럼 멈추고 양쪽 보관) */
+async function settle(row){
+  if(!row||!validData(row.data)||!row.updated_at)return null;
+  const S=Array.isArray(row.data._saves)?row.data._saves:[],L=S[S.length-1],c=canon(row.data),ext=await cachePair(JSON.stringify(row.data),row.updated_at);
+  return inChain(async()=>{
+    const cur=await readPending(),gen=editGeneration;
+    if(!cur||cur.id!==pendingId)throw {conflict:true,tab:true};
+    let how=null,s=null;
+    if(S.includes(cur.id))how=c===canon(withId(cur).data)?'same':'adopt';
+    else{try{s=JSON.parse(await durableGet(sentKey()));}catch(e){}
+      if(L&&s&&s.base===cur.base&&s.h&&s.h[L]&&s.h[L]===await sha(c))how='rebase';
+      /* 고친 게 없는 저장(보던 현장·저장 id만 다름)은 진짜 충돌이 아니다 — 기준 판 그대로인 캐시(판 표시+지문 확인)와 같으면 서버본을 받는다. 단 이 기준에서 보낸 내 저장(mine)이 서버에 들어가 있으면 아니다(응답만 잃은 그 저장을 되돌린 편집 — 받으면 되돌린 게 사라진다. 보낸 기록을 못 적은 드문 경우는 알아보지 못한다) */
+      else{const k=await readCache(),plain=d=>canon(Object.assign({},d,{active:0,_saves:0})),mine=s&&s.base===cur.base&&Object.keys(s.h||{}).some(id=>S.includes(id));
+        if(k.v&&k.v===cur.base&&!mine&&plain(JSON.parse(k.raw))===plain(cur.data))how='adopt';}}
+    if(!how)return null;
+    /* adopt는 다른 기기 내용까지 받아야 하므로 캐시는 adoptCloud가 쓴다 */
+    try{await durablePending(pendingKey(),cur.id,how==='rebase'?JSON.stringify(Object.assign(cur,{base:row.updated_at})):null,Object.assign(how==='adopt'?{}:ext,{[sentKey()]:null}));}
+    catch(e){if(!e?.conflict)localFailure();throw e;}
+    if(how!=='adopt'){lastSyncedAt=row.updated_at;cloudState='loaded';}
+    if(how!=='rebase'){pendingId=null;pendingSince=null;if(gen===editGeneration)syncDirty=false;}
+    return how;
+  });
 }
 async function doSync(){
   await localWrites;
-  if(!session||syncBusy||!syncDirty||syncBlocked||cacheFault)return;
-  const uid=session.uid, sentId=pendingId;
+  if(!session||readOnly||syncBusy||!syncDirty||syncBlocked||cacheFault)return;
+  const uid=session.uid;let wait=6000;
   syncBusy=true;
   try{
-    const p=await readPending();if(!p||p.id!==sentId)throw {conflict:true};
-    await sbUpsert(false,p);
+    const p0=await readPending();if(!p0||p0.id!==pendingId)throw {conflict:true,tab:true};
+    const p=withId(p0);DB._saves=p.data._saves;   /* 다음 저장도 이 id 목록을 이어 간다 */
+    let how='sent',ver=null,row=null;
+    try{ver=await sbUpsert(false,p);}
+    catch(e){if(!e?.conflict)throw e;
+      /* 0행 — 진짜 다른 기기 저장인지, 응답만 잃은 내 저장인지 서버 자료로 확인. 확인용 받기가 실패하면 아래에서 '서버 저장 미확인'으로 다시 시도(창 없음) */
+      row=e.row||await sbLoad();how=await settle(row);
+      if(!how)throw {conflict:true,base:p.base};}
     if(!session||session.uid!==uid)return;
-    await localWrites;const current=await readPending();
-    if(pendingId===sentId&&current&&current.id===sentId){
-      await writeChecked(KEY+'-cache-'+uid,JSON.stringify(p.data));await durablePending(pendingKey(),sentId,null);syncDirty=false;pendingId=null;
-      setSync('ok','서버 저장 확인 · '+new Date().toLocaleTimeString('ko-KR'));
-    }else{
-      if(current&&current.id!==pendingId)throw {conflict:true};
-      /* Edits made during the request now build on the acknowledged version. */
-      await persistPending();setSync('busy','이 기기에 보관 · 추가 변경 전송 대기');
-    }
+    if(how==='sent')await ack(p,ver);
+    /* 정리하는 그 사이에 고친 게 있으면 받지 않는다 — 그 편집은 옛 기준 위라 진짜 충돌처럼 멈추고 양쪽 보관(받으면 화면에서 조용히 사라졌다) */
+    if(how==='adopt'&&syncDirty)throw {conflict:true,base:p.base};
+    /* 다른 기기 저장까지 들어간 서버본을 쓴다 — 입력 창이 열려 있으면 화면 복귀 받기처럼 닫힌 뒤에 */
+    if(how==='adopt'){try{await adoptCloud(row,holdPull);render();}catch(e){if(!cacheFault)setTimeout(pullLatest,0);}}
+    wait=1200;
+    if(!cacheFault)setSync(syncDirty?'busy':'ok',syncDirty?'이 기기에 보관 · 추가 변경 전송 대기':'서버 저장 확인 · '+new Date().toLocaleTimeString('ko-KR'));
   }catch(e){
-    if(e&&e.conflict){await syncConflict(e.row);}
-    else{setSync('bad',cacheFault?'기기 저장 실패 · 백업 필요':'서버 저장 미확인 · 이 기기 자료 보관 중');}
-  }finally{syncBusy=false;if(syncDirty&&!syncBlocked&&!cacheFault){clearTimeout(syncT);syncT=setTimeout(doSync,6000);}}
+    if(e&&e.conflict){try{await archiveStop(DB);}catch(x){localFailure();}stopSync(e.tab?'tab':e.base?'server':'offline');}
+    else setSync('bad',cacheFault?'기기 저장 실패 · 백업 필요':'서버 저장 미확인 · 이 기기 자료 보관 중');
+  }finally{syncBusy=false;if(syncDirty&&!syncBlocked&&!cacheFault){clearTimeout(syncT);syncT=setTimeout(doSync,wait);}}
 }
-async function syncConflict(row){
-  clearTimeout(syncT);syncBlocked=true;syncDirty=true;syncForce=false;
-  /* Never replace local edits or automatically force a write, even for an empty row. */
-  try{await archiveData(DB);}catch(e){localFailure();}
-  setSync('bad','다른 기기 변경 감지 · 내 자료 보관 · 자동 전송 중지');
-  conflictDialog();
+/* 저장 멈춤 — 원인을 적고 빨간 칩으로 고정한다. 창은 처음 한 번만(닫은 뒤엔 칩을 누르거나 앱을 다시 켤 때).
+   원인: server 다른 기기 · tab 같은 컴퓨터 다른 창 · offline 서버 기준 모름 · local 기기 저장 공간 */
+function stopSync(cause){
+  clearTimeout(syncT);const first=!syncBlocked;syncBlocked=true;syncForce=false;
+  if(first)stopInfo={cause,at:Date.now()};
+  stopChip();if(first)conflictDialog();
 }
+function stopChip(){
+  const m=Math.max(0,Math.floor((Date.now()-(pendingSince||(stopInfo&&stopInfo.at)||Date.now()))/60000));
+  /* 고친 게 없으면(켤 때 멈춤 등) '안 올라간 내용'이라고 하지 않는다 */
+  setSync('stop',cacheFault?'저장 멈춤 · 기기 저장 실패 · 백업 파일을 받으세요':pendingSince||syncDirty?'저장 멈춤 · 안 올라간 내용 '+m+'분째':'저장 멈춤 · 눌러서 확인',true);
+}
+setInterval(()=>{if(syncBlocked)stopChip();},60000);
+let roT=0;
+/* 보기 전용 창에서 고치려 하면 저장되지 않는다고 알린다(몇 초에 한 번) */
+function roToast(){if(Date.now()-roT>4000){roT=Date.now();toast('보기 전용 창입니다 · 여기서 고친 내용은 서버에 저장되지 않고 이 기기 사본으로만 남습니다',3500);}}
 async function conflictKeys(){return (await durableKeys()).filter(k=>k.startsWith(KEY+'-conflict-')).sort();}
 function pruneConflicts(){} /* Unreviewed edits are never automatically discarded. */
+/* 멈춤 창 문구 — 원인별 쉬운 말 [제목, 본문, 즉시 저장 때 알릴 한 줄] */
+const STOP={
+  server:['다른 기기에서 먼저 저장했습니다','휴대폰·컴퓨터 중 다른 기기에서 그사이 저장한 내용이 있어, 그 내용을 덮어쓰지 않으려고 이 기기의 저장을 멈췄습니다. 지금 화면은 이 기기에서 고친 내용입니다.'],
+  tab:['같은 컴퓨터의 다른 창과 엇갈렸습니다','이 앱이 같은 컴퓨터의 다른 창(탭)에서도 열려 있어 저장이 엇갈렸습니다. 이 창에서 고친 내용은 이 기기에 따로 보관했습니다. 다른 창을 하나만 남기고 닫은 뒤 앱을 다시 켜 주세요.'],
+  offline:['서버 연결 문제','앱을 켤 때 서버에 연결하지 못해, 이 기기 자료가 서버의 어느 판인지 확인할 수 없습니다. 다른 기기 자료를 덮어쓰지 않으려고 저장을 멈췄습니다.','서버 연결 문제로 저장을 멈췄습니다 · 인터넷이 되는 곳에서 위쪽 빨간 표시를 눌러 주세요'],
+  local:['이 기기 저장 공간 문제','이 기기(브라우저) 저장 공간에 쓰지 못해 저장을 멈췄습니다. 창을 닫지 말고 「이 기기 작업 파일로 받기」로 파일을 받아 두세요.','이 기기 저장 공간 문제로 저장을 멈췄습니다 · 창을 닫지 말고 「백업」으로 파일을 받아 두세요']};
 function conflictDialog(){
   if(document.getElementById('safeConflict'))return;
+  const s=stopInfo||{cause:'server',at:Date.now()},[title,body]=STOP[s.cause]||STOP.server;
   const ov=document.createElement('div');ov.id='safeConflict';ov.className='overlay';
-  ov.innerHTML=`<div class="modal" style="width:min(500px,100%)"><h2>저장 충돌 · 내 작업을 보관했습니다</h2><div style="padding:20px;line-height:1.7">다른 기기 자료를 덮어쓰지 않도록 전송을 멈췄습니다. 현재 화면은 내 작업입니다. 먼저 파일을 받아 두세요. 서버 최신본을 불러와도 내 작업 사본은 남습니다.</div><div class="modal-foot"><button class="btn" id="cfExp">내 작업 파일 받기</button><button class="btn" id="cfServer">서버 최신본 불러오기</button><button class="btn" id="cfOk">닫기</button></div></div>`;
+  ov.innerHTML=`<div class="modal" style="width:min(520px,100%)"><h2>저장 멈춤 · ${title}</h2><div style="padding:20px;line-height:1.7">${body}
+    <div class="sub" style="margin-top:10px">멈춘 시각 ${new Date(s.at).toLocaleTimeString('ko-KR',{hour:'numeric',minute:'2-digit'})} · 먼저 이 기기 작업을 파일로 받아 두세요. 「서버 내용으로 바꾸기」를 누르면 서버 내용이 화면에 오고, 이 기기에서 고친 내용은 화면에서 빠져 복구 사본으로만 남습니다(백업 → 이전 버전 · 복구 도구).</div></div>
+    <div class="modal-foot" style="flex-wrap:wrap"><button class="btn" id="cfExp">이 기기 작업 파일로 받기</button><button class="btn" id="cfServer">서버 내용으로 바꾸기 (이 기기 작업은 사본으로)</button><button class="btn" id="cfOk">닫기 (멈춘 채로 두기)</button></div></div>`;
   document.body.appendChild(ov);ov.querySelector('#cfOk').onclick=()=>ov.remove();
   ov.querySelector('#cfExp').onclick=()=>exportBackup(false);
   ov.querySelector('#cfServer').onclick=async()=>{
+    /* 다른 입력 창이 열린 채 자료를 바꾸면 그 창이 옛 자료에 저장해 입력이 사라진다 */
+    if(document.querySelector('.overlay:not(#safeConflict)')){toast('열려 있는 입력 창을 먼저 저장하거나 닫아 주세요',3500);return;}
     const generation=editGeneration,uid=session&&session.uid;
     try{
       const row=await sbLoad();
       if(!session||session.uid!==uid||generation!==editGeneration||syncBusy)throw new Error('편집 상태가 바뀌었습니다. 다시 확인하세요.');
       if(!row||!validData(row.data))throw new Error('서버 자료가 없어 교체하지 않습니다.');
-      await archiveData(DB);await adoptCloud(row);
-      await durablePending(pendingKey(),pendingId,null);syncBlocked=false;syncDirty=false;pendingId=null;
-      render();ov.remove();setSync('ok','서버 최신본 확인 · 내 작업은 복구 사본에 보관');
-    }catch(e){toast(e.message||'최신본 확인 실패 · 내 작업을 유지합니다');}
+      await archiveStop(DB);
+      /* 보관함부터 비운다 — 같은 브라우저 다른 창 것이라 못 비우면 화면을 바꾸지 않는다(안내대로 내 작업 유지, 사본 칸도 덮이지 않음) */
+      await durablePending(pendingKey(),pendingId,null,{[sentKey()]:null});
+      pendingId=null;syncDirty=false;pendingSince=null;
+      await adoptCloud(row);
+      syncBlocked=false;stopInfo=null;stopKey=null;
+      render();ov.remove();setSync('ok','서버 내용으로 바꿈 · 이 기기 작업은 복구 사본에 보관');
+    }catch(e){toast(e&&e.conflict?'같은 컴퓨터의 다른 창에 안 올라간 내용이 있어 바꾸지 않았습니다 · 내 작업을 유지합니다':(e&&e.message)||'최신본 확인 실패 · 내 작업을 유지합니다',4000);}
   };
 }
-window.addEventListener('beforeunload',e=>{if(syncDirty||syncBusy||cacheFault||syncBlocked){e.preventDefault();e.returnValue='';}});
+/* 보기 전용 창에서 고친 게 있으면 닫을 때도 묻는다(그 내용은 서버에 없다) */
+window.addEventListener('beforeunload',e=>{if(syncDirty||syncBusy||cacheFault||syncBlocked||roEdit){e.preventDefault();e.returnValue='';}});
 window.addEventListener('storage',async e=>{
   if(!session||e.key!==pendingKey())return;
   /* Multiple tabs must not overwrite one another's durable outbox. */
-  if(syncDirty||syncBusy){
-    syncBlocked=true;
-    try{await archiveData(DB);}catch(e){localFailure();return;}
-    setSync('bad','다른 탭 변경 감지 · 내 작업 사본 보관 · 자동 전송 중지');
-  }
+  if(syncDirty||syncBusy){try{await archiveStop(DB);}catch(x){localFailure();return;}stopSync('tab');}
 });
+/* 같은 브라우저(같은 컴퓨터)에 앱 창이 둘 이상이면 하나만 '쓰는 창' — 보관함을 함께 쓰다 엇갈리고 글자마다 사본이 쌓이던 원인.
+   새로고침 때는 앞 화면이 잠금을 놓을 때까지 잠깐(2초) 기다린다. locks가 없는 브라우저는 지금처럼 */
+function writerLock(){
+  if(!navigator.locks)return Promise.resolve(true);
+  /* 2초가 지나 보기 전용으로 정한 뒤 늦게 받은 잠금은 바로 놓는다 — 보기 전용 창이 잠금을 쥐면 쓰는 창이 하나도 없게 된다 */
+  return new Promise(res=>{const ac=new AbortController();let late=false;
+    const t=setTimeout(()=>{late=true;ac.abort();res(false);},2000);
+    navigator.locks.request(KEY+'-writer',{signal:ac.signal},()=>{if(late)return;clearTimeout(t);res(true);return new Promise(()=>{});}).catch(()=>res(false));});
+}
 
 
 async function sbAuth(path,body){const r=await fetch(SB_URL+'/auth/v1/'+path,{method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json().catch(()=>({}));if(!r.ok)throw j;return j;}
@@ -1060,12 +1181,13 @@ async function sbUpsert(force,p){
   const headers=Object.assign(sbH(),{'X-TOFS-Client':'safe-1','X-TOFS-Base-Version':p.base||'new',Prefer:'return=representation'});
   const body=JSON.stringify({user_id:p.uid,data:p.data});
   const url=SB_URL+'/rest/v1/app_state?'+(p.base?'user_id=eq.'+p.uid+'&updated_at=eq.'+encodeURIComponent(p.base):'')+'&select=updated_at';
+  await noteSent(p);   /* 실제로 올리기 직전에만(연결이 안 될 때는 지문을 만들지 않는다) */
   const r=await fetch(url,{method:p.base?'PATCH':'POST',headers,body});
   if(r.status===409)throw {conflict:true,row:null};
   if(!r.ok)throw new Error('save '+r.status);
   const rows=await r.json();
   if(!Array.isArray(rows)||rows.length!==1||!rows[0].updated_at)throw {conflict:true,row:null};
-  lastSyncedAt=rows[0].updated_at;cloudState='loaded';
+  lastSyncedAt=rows[0].updated_at;cloudState='loaded';return lastSyncedAt;
 }
 
 
@@ -1104,31 +1226,48 @@ function showLogin(msg){
 
 async function enterApp(){
   setSync('busy','불러오는 중');syncReady=false;
-  let row=null,loadOk=false,pending=null;
+  let row=null,loadOk=false,pending=null,why=null;
   try{
-    const legacy=localStorage.getItem(pendingKey());
+    const legacy=readOnly?null:localStorage.getItem(pendingKey());
     if(legacy&&!await durableGet(pendingKey()))await durablePending(pendingKey(),null,legacy);
     pending=await readPending();
     if(legacy&&pending&&JSON.stringify(pending)===legacy)localStorage.removeItem(pendingKey());
-  }catch(e){localFailure();syncBlocked=true;}
+  }catch(e){localFailure();why='local';}
   try{row=await sbLoad();loadOk=true;}catch(e){}
-  if(pending){
-    DB=pending.data;lastSyncedAt=pending.base;pendingId=pending.id;syncDirty=true;
-    cloudState=loadOk?(row?'loaded':'empty'):'unknown';
+  cloudState=loadOk?(row?'loaded':'empty'):'unknown';
+  if(readOnly){
+    /* 보기 전용 창 — 다른 창의 보관함으로 충돌 판정·사본 만들기를 하지 않고 보기만 한다 */
+    DB=pending?pending.data:row?row.data:await cachedData()||seed();lastSyncedAt=pending?pending.base:row?row.updated_at:null;why=null;
+    setSync('bad','보기 전용 창 · 다른 창에서 편집 중',true);
+  }else if(pending){
+    DB=pending.data;lastSyncedAt=pending.base;pendingId=pending.id;pendingSince=pending.since||Date.now();syncDirty=true;
     if(loadOk&&((row?row.updated_at:null)!==pending.base)){
-      syncBlocked=true;setSync('bad','미전송 자료 보관 · 서버와 충돌 확인 필요');conflictDialog();
-    }else setSync('busy','이 기기 미전송 자료 복구 · 서버 전송 대기');
-  }else if(syncBlocked){
-    DB=await cachedData()||seed();setSync('bad','보관 자료 확인 실패 · 자동 저장 중지');
+      /* 켤 때 기준이 안 맞으면 먼저 '응답만 잃은 내 저장'(올린 뒤 정리 전에 꺼짐)인지 서버 자료로 가린다 — 맞으면 창 없이 이어 간다 */
+      let how=null;try{how=await settle(row);}catch(e){why=e?.conflict?'tab':'local';}
+      if(how==='adopt'){try{await adoptCloud(row);}catch(e){}}
+      if(how)setSync(syncDirty?'busy':'ok',syncDirty?'안 올라간 내용 이어서 올리는 중':'서버 저장 확인');
+      else if(!why)why=pending.base?'server':'offline';
+    }else setSync('busy','안 올라간 내용 이어서 올리는 중');
+  }else if(why){
+    DB=await cachedData()||seed();
   }else if(loadOk&&row){
     try{await adoptCloud(row);setSync('ok','서버 자료 확인');}
-    catch(e){DB=await cachedData()||seed();syncBlocked=true;}
+    catch(e){DB=await cachedData()||seed();why='local';}
   }else{
-    /* Keep legacy cache available for export. Never upload it without a known baseline. */
-    DB=await cachedData()||seed();lastSyncedAt=null;cloudState=loadOk?'empty':'unknown';
-    if(load()){syncBlocked=true;setSync('bad','서버 기준 미확인 · 기기 사본 보관 · 자동 저장 중지');}
-    else setSync('bad',loadOk?'새 계정 · 아직 서버에 저장하지 않음':'서버 연결 안 됨 · 저장 기준 확인 필요');
+    /* 서버를 못 읽고 시작 — 캐시와 판 표시를 함께 읽어 지문이 맞을 때만 그 판을 기준으로 쓴다(옛 사본이 있어도).
+       load()·seed() 대체에는 기준을 붙이지 않는다(null — 옛 사본이 있으면 멈춤). Never upload it without a known baseline. */
+    const c=loadOk?{}:await readCache().catch(()=>({}));
+    /* '연결되면 저장'이라고 약속하지 않는다 — 그사이 다른 기기가 저장했으면 연결 뒤 멈출 수 있다 */
+    if(c.v){DB=JSON.parse(c.raw);lastSyncedAt=c.v;setSync('bad','서버 연결 안 됨 · 이 기기 자료로 작업 중');}
+    else{
+      DB=await cachedData()||seed();lastSyncedAt=null;
+      if(load())why='offline';
+      else setSync('bad',loadOk?'새 계정 · 아직 서버에 저장하지 않음':'서버 연결 안 됨 · 서버와 맞춰 보지 못함');
+    }
   }
+  if(why)stopSync(why);   /* 앱을 켤 때마다 멈춤이면 창을 다시 띄운다 */
+  /* 보던 현장은 기기마다 기억한다 — 현장 고르기는 서버에 올리지 않는다(고르기만 해도 2~3MB를 올려 다른 기기 판을 낡게 하던 것) */
+  try{const a=localStorage.getItem(KEY+'-active');if(a&&DB.projects.some(p=>p.id===a))DB.active=a;}catch(e){}
 
 
   DB.trades=DB.trades||DEFAULT_TRADES.slice();
@@ -1155,16 +1294,17 @@ async function enterApp(){
   }
   DB.projects.forEach(pr=>{pr.estimates=pr.estimates||[];pr.contracts=pr.contracts||[];});
   if(!DB.projects.length){syncReady=true;setSync('bad','등록된 현장 없음 · 회사 공용 자료는 보존됨');return;}
-  if(!syncDirty&&!syncBlocked&&!cacheFault&&cloudState==='loaded'){syncReady=true;try{await rvtSyncOnLoad(true);}catch(e){}}
+  /* 레빗 반영·연결 확인은 쓰는 창에서만 — 보기 전용 창은 저장하지 못한다 */
+  if(!readOnly&&!syncDirty&&!syncBlocked&&!cacheFault&&cloudState==='loaded'){syncReady=true;try{await rvtSyncOnLoad(true);}catch(e){}}
   syncReady=true;queueSync();   /* 레빗에서 보낸 자료 반영 (표 없음·오프라인이면 조용히) */
   state.calMonth=(proj().info.start||todayStr()).slice(0,7);
   const lb=document.getElementById('logoutBtn');if(lb){lb.hidden=false;lb.onclick=()=>doLogout(false);}
   render();
-  {const pend=rvtPending(proj());if(pend)rvtLinkDialog(proj(),pend);}   /* 같은 이름의 레빗 자료가 있으면 처음 한 번 연결 확인 */
+  if(!readOnly){const pend=rvtPending(proj());if(pend)rvtLinkDialog(proj(),pend);}   /* 같은 이름의 레빗 자료가 있으면 처음 한 번 연결 확인 */
 }
 
 /* ===== 앱 버전 표시 + 새 버전 확인 ===== */
-const APP_VERSION='9.25.0';
+const APP_VERSION='9.26.0';
 let verCheckedAt=0, verNew=null;
 async function fetchAppVersion(){
   const r=await fetch(location.pathname+'?nocache='+Date.now(),{cache:'no-store'});
@@ -1188,17 +1328,68 @@ async function checkAppUpdate(manual){
 setTimeout(()=>checkAppUpdate(false),2500);
 
 /* 다른 기기에서 수정한 내용을 화면 복귀 시 자동 반영 (+10분 지나면 버전도 재확인) */
-document.addEventListener('visibilitychange',async()=>{
-  if(document.visibilityState!=='visible')return;
+/* 입력 창이 열려 있거나 글칸에 친 글자가 남아 있으면 받기를 미룬다 — 받으면 열린 창은 옛 자료를 붙들고, 다시 그린 글칸은 친 글자를 잃는다.
+   실측판(.ms-ov)은 저장 때 현장·실측 id로 다시 찾으므로 미루지 않는다. 충돌 창이 떠 있으면 어차피 받지 않는다 */
+const holdPull=()=>{const a=document.activeElement;
+  return !!document.querySelector('.overlay:not(#safeConflict)')||!!(a&&/^(INPUT|TEXTAREA)$/.test(a.tagName)&&a.value!==a.defaultValue);};
+/* pulled: 받았지만 입력 창이 열려 있어 아직 못 넣은 최신본 {row, from: 받을 때의 기준 판} · pulling: 지금 도는 받기 */
+let pullT=null,pulled=null,pulling=null,pullFails=0,rvtDue=false;
+/* 판 번호만 묻는다(수백 바이트) — 창 클릭·신호 복구·1분마다는 이것만 묻고, 바뀌었을 때만 2~3MB를 받는다 */
+async function sbVer(){await fresh();const r=await fetch(SB_URL+'/rest/v1/app_state?select=updated_at&user_id=eq.'+session.uid,{headers:sbH()});if(!r.ok)throw new Error('load '+r.status);const x=(await r.json())[0];return x?x.updated_at:null;}
+/* full: 앱을 다시 열 때(지금처럼 바로 받는다). 여러 곳에서 겹쳐 불려도 하나만 돈다.
+   그때의 레빗 자료 확인(rvtDue)은 돌고 있는 받기가 이어서 한다 — Alt-Tab처럼 창 누름(focus) 받기가 먼저 돌아도 건너뛰지 않게 */
+function pullLatest(full){if(full)rvtDue=true;return pulling||(pulling=pull(full).finally(()=>{pulling=null;}));}
+async function pull(full){
+  clearTimeout(pullT);
+  if(document.visibilityState!=='visible'||!session||!DB||!syncReady||syncBusy||syncDirty||syncBlocked||cacheFault)return;   /* 켜는 중(enterApp)에는 받지 않는다 */
+  const generation=editGeneration,uid=session.uid,base=lastSyncedAt;
+  const moved=()=>!session||session.uid!==uid||generation!==editGeneration||syncDirty||syncBusy||syncBlocked||lastSyncedAt!==base;
+  if(pulled&&pulled.from!==base)pulled=null;   /* 그 사이 기준이 바뀌었으면 받아 둔 것은 낡았다 */
+  let shown=pullFails>0||cloudState!=='loaded';
+  try{
+    if(!(pulled&&holdPull()&&Date.now()-pulled.at<60000)){   /* 받아 둔 것이 있고 입력 창이 아직 열려 있으면 1분 동안은 다시 묻지 않는다 */
+      const v=full?null:await sbVer();if(moved())return;
+      if(full||v!==base){
+        let row=!full&&pulled&&pulled.row.updated_at===v?pulled.row:null;   /* 받아 둔 것이 아직 최신이면 다시 받지 않는다 */
+        if(!row){setSync('busy','최신 자료 받는 중');shown=true;row=await sbLoad();if(moved())return;}
+        pulled=row&&row.updated_at!==base?{row,from:base,at:Date.now()}:null;
+      }else pulled=null;
+    }
+    pullFails=0;
+    if(pulled){
+      /* 입력 창이 열려 있거나 친 글자가 남아 있으면 받아 둔 채 기다린다 — 그 창을 저장할 때(catchUp) 먼저 넣거나, 창이 닫히면 넣는다 */
+      if(holdPull()){setSync('busy','최신 자료 받음 · 입력 창을 닫으면 반영');pullT=setTimeout(pullLatest,1500);return;}
+      await adoptCloud(pulled.row,holdPull);pulled=null;render();shown=true;
+    }
+    if(shown)setSync('ok','서버 최신본 확인');
+    if(rvtDue&&!readOnly&&!holdPull()){rvtDue=false;if(await rvtSyncOnLoad(false))render();}
+  }catch(e){
+    if(cacheFault){setSync('bad','기기 보관 실패 · 기존 화면 유지');return;}
+    if(moved())return;
+    if(pulled&&holdPull()){pulled.at=Date.now();pullT=setTimeout(pullLatest,1500);return;}   /* 받아 둔 채 넣다가 창이 열림(또는 1분 뒤 다시 묻기가 실패) — 닫히면 넣는다. 다시 묻기는 1분 뒤에(실패할 때마다 1.5초 만에 다시 묻거나 2~3MB를 다시 받지 않게) */
+    /* 받기에 실패하면(약한 신호) 조금 뒤 다시 받는다 — 그대로 두면 옛 자료 위에 고치다 엇갈린다 */
+    setSync('bad','최신 자료 못 받음 · 다시 시도 중');pullT=setTimeout(pullLatest,Math.min(60000,3000*2**pullFails++));
+  }
+}
+/* 입력 창 저장 직전 — 창이 열려 있어 받아만 둔 최신본이 있고 이 기기에 안 올라간 내용이 없으면 먼저 넣는다(옛 기준으로 올려 멈추지 않게).
+   ok(받은 자료): 이 창이 고치는 항목을 다른 기기가 그대로 두었는지 — 고쳤으면 넣지 않는다(지금처럼 멈추고 양쪽 보관) */
+async function catchUp(ok){
+  /* 받는 중이어도 기다리지 않는다 — 기다리는 동안 입력이 아무 데도 저장되지 않아(창 닫기·화면 끄기에 사라짐, 그사이 고친 글자도 버려짐) 9.25.0처럼 바로 저장한다(엇갈리면 멈추고 양쪽 보관) */
+  const r=pulled&&pulled.from===lastSyncedAt?pulled.row:null;
+  if(!r||readOnly||syncDirty||syncBusy||syncBlocked||cacheFault||!ok(r.data))return;
+  try{await adoptCloud(r);pulled=null;}catch(e){}
+}
+let memoFlush=null;   /* 홈 메모의 기다리는 저장(0.6초)을 바로 하는 함수 */
+document.addEventListener('visibilitychange',()=>{
+  /* 화면이 꺼지거나 다른 앱으로 가면 기다리지 않고 바로 올린다 — 휴대폰은 숨겨진 동안 타이머를 멈춰, 그대로 두면 다음에 켤 때까지 이 기기에만 남는다 */
+  if(document.visibilityState!=='visible'){if(memoFlush)memoFlush();if(syncDirty){clearTimeout(syncT);doSync();}return;}
   if(Date.now()-verCheckedAt>600000)checkAppUpdate(false);
-  if(!session||!DB||syncBusy||syncDirty||syncBlocked||cacheFault)return;
-  const generation=editGeneration,uid=session.uid;
-  try{const row=await sbLoad();
-    if(!session||session.uid!==uid||generation!==editGeneration||syncDirty||syncBusy||syncBlocked)return;
-    if(row&&row.updated_at!==lastSyncedAt){await adoptCloud(row);render();setSync('ok','서버 최신본 확인');}
-    if(await rvtSyncOnLoad(false))render();
-  }catch(e){if(cacheFault)setSync('bad','기기 보관 실패 · 기존 화면 유지');}
+  pullLatest(true);
 });
+/* 켜 둔 컴퓨터 창을 누를 때·신호가 돌아올 때·화면이 보이는 동안 1분마다 판 번호를 물어 최신본을 받아 둔다(앱을 다시 열 때만 받던 것) */
+addEventListener('focus',()=>pullLatest());
+addEventListener('online',()=>{if(syncDirty){clearTimeout(syncT);doSync();}else pullLatest();});
+setInterval(()=>pullLatest(),60000);
 
 /* ===== helpers ===== */
 /* iOS 홈화면(설치형) 앱에서 자동 포커스가 키보드를 막는 버그가 있어 터치 기기는 자동 포커스 안 함 */
@@ -1208,6 +1399,8 @@ const won=n=>'₩'+(Number(n)||0).toLocaleString('ko-KR');
 const wonp=n=>(Number(n)||0).toLocaleString('ko-KR')+'원';
 const numf=n=>(Number(n)||0).toLocaleString('ko-KR',{maximumFractionDigits:2});
 const proj=()=>DB.projects.find(p=>p.id===DB.active)||DB.projects[0];
+/* 보던 현장은 이 기기에만 기억한다 — 현장을 고르기만 하면 저장(업로드)하지 않는다. 고르기만 해도 2~3MB를 올려 판 번호가 바뀌고 다른 기기가 엇갈리던 원인 */
+const seeProj=id=>{DB.active=id;try{localStorage.setItem(KEY+'-active',id);}catch(e){}};
 const dkey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const todayStr=()=>dkey(new Date());
 const fdate=d=>{if(!d)return'—';const[y,m,day]=String(d).split('T')[0].split('-');return`${m}.${day}`;};
@@ -1303,7 +1496,7 @@ function renderProjSelect(){const s=document.getElementById('projSelect');
   s.innerHTML=
     (act.length?`<optgroup label="진행 중인 현장">${act.map(opt).join('')}</optgroup>`:'')+
     (arch.length?`<optgroup label="완료 · 보관 (${arch.length})">${arch.map(opt).join('')}</optgroup>`:'');
-  s.onchange=()=>{DB.active=s.value;state.calMonth=(proj().info.start||'2026-07').slice(0,7);save();render();};}
+  s.onchange=()=>{seeProj(s.value);state.calMonth=(proj().info.start||'2026-07').slice(0,7);render();};}
 function renderTabs(){const t=document.getElementById('tabs');
   t.innerHTML=TABS.map(x=>`<button data-tab="${x.id}" class="${state.tab===x.id?'active':''}">${x.label}${x.badge?`<span class="badge ${x.gray?'gray':''}">${x.badge}</span>`:''}</button>`).join('');
   t.querySelectorAll('button').forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;render();});}
@@ -1727,7 +1920,7 @@ function wireCalChips(c){
 }
 /* ── 달력 날짜 클릭 → 빠른 공정 추가. 기본 공정은 원터치, 직접 입력도 가능 ── */
 function openQuickPhase(dateK){
-  const p=proj();
+  let p=proj(),db0=DB;
   const ov=document.createElement('div');ov.className='overlay';
   const chipsHtml=()=>(DB.trades||DEFAULT_TRADES).map(t=>{const col=tradeColor(t);
     return`<button type="button" data-qp="${esc(t)}" style="padding:7px 13px;border-radius:100px;border:1.5px solid ${mix(col,.55)};color:${col};background:${mix(col,.08)};font-size:13px;font-weight:700;cursor:pointer">${esc(t)}</button>`;}).join('');
@@ -1749,7 +1942,11 @@ function openQuickPhase(dateK){
   const log=ov.querySelector('#qpLog');const added=[];
   const addPhase=name=>{name=(name||'').trim();if(!name)return;
     const end=ov.querySelector('#qpEnd').value;
+    /* 누를 때마다 창을 연 현장을 id로 다시 찾는다 — 열린 사이 받은 최신본이면 p는 옛 자료, 지워졌으면 이 공정은 사본으로 */
+    const cur=DB.projects.find(x=>x.id===p.id);
+    if(cur&&cur!==p){p=cur;db0=DB;}
     p.schedule.push({id:uid(),phase:name,start:dateK,end:(end&&end>=dateK)?end:dateK,status:'예정',note:''});
+    if(!cur){keepLostInput(db0);close();render();return;}
     addTrade(name);added.push(name);
     log.textContent='✓ 추가됨: '+added.join(', ');
     save();render();};
@@ -2148,7 +2345,7 @@ function openSpecCopy(hereId){
     b.disabled=true;close();
     const n=res.added+res.merged;
     if(!n){toast(res.skipped?`새로 더할 품목이 없습니다 — ${res.skipped}개 모두 「${nm(to)}」 스펙북에 이미 있습니다.`:'복사할 품목이 없습니다.',4500);return;}
-    if(mode==='send'){DB.active=to.id;state.calMonth=(to.info.start||'2026-07').slice(0,7);}
+    if(mode==='send'){seeProj(to.id);state.calMonth=(to.info.start||'2026-07').slice(0,7);}
     const saved=await save();render();
     toast((mode==='send'?`「${nm(to)}」 스펙북에 ${n}개를 보냈습니다`:`「${nm(from)}」에서 ${n}개를 가져왔습니다`)
       +(res.skipped?` · 이미 있는 ${res.skipped}개는 건너뜀`:'')+(saved?'':' · 저장 오류 — 저장을 다시 눌러 주세요'),4500);
@@ -2181,7 +2378,7 @@ function vOrders(c,inSite){
         <button class="btn sm no-print" data-openord="${pr.id}">열기</button></div>
       <div class="tbl-wrap"><table><thead><tr><th>발주번호</th><th>공급처</th><th>발주일</th><th>납기일</th><th class="r">품목</th><th class="r">금액</th><th>상태</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;}).join('')||`<div class="card">${emptyB('아직 발주서가 없습니다.','')}</div>`}`;
     c.querySelectorAll('[data-oscope]').forEach(b=>b.onclick=()=>{state.ordScope=b.dataset.oscope;render();});
-    c.querySelectorAll('[data-openord]').forEach(b=>b.onclick=()=>{DB.active=b.dataset.openord;state.ordScope='one';save();render();});
+    c.querySelectorAll('[data-openord]').forEach(b=>b.onclick=()=>{seeProj(b.dataset.openord);state.ordScope='one';render();});
     return;
   }
   const pos=[...new Set(p.orders.map(o=>o.po))];
@@ -3392,7 +3589,7 @@ function upsertWorkerDB(w){
   ['trade','labor','ssn','phone','bank','account','address'].forEach(f=>{if(w[f])r[f]=w[f];});
 }
 function openWorkerCheck(date){
-  const p=proj();p.workers=p.workers||[];
+  let p=proj(),db0=DB;p.workers=p.workers||[];
   const ov=document.createElement('div');ov.className='overlay';
   /* 작업자 명부(회사 공용) + 이 현장 기록을 합쳐 이름별 최신 정보 구성 */
   const uniq=()=>{const m={};
@@ -3418,11 +3615,15 @@ function openWorkerCheck(date){
   ov.querySelector('#wcNew').onclick=()=>{ov.remove();openForm('workers',null,{date});};
   const wireList=()=>ov.querySelectorAll('[data-wname]').forEach(b=>b.onclick=()=>{
     const nm=b.dataset.wname;
+    /* 누를 때마다 창을 연 현장을 id로 다시 찾는다 — 열린 사이 받은 최신본이면 p는 옛 자료, 지워졌으면 이 체크는 사본으로 */
+    const cur=DB.projects.find(x=>x.id===p.id);
+    if(cur&&cur!==p){p=cur;db0=DB;p.workers=p.workers||[];}
     const ex=p.workers.find(w=>w.date===date&&w.name===nm);
     if(ex)p.workers=p.workers.filter(w=>w.id!==ex.id);
     else{const u=uniq().find(x=>x.name===nm)||{};
       const nw={id:uid(),date,name:nm,trade:u.trade||'',labor:u.labor||'',expense:'',ssn:u.ssn||'',phone:u.phone||'',bank:u.bank||'',account:u.account||'',address:u.address||'',memo:''};
-      p.workers.push(nw);upsertWorkerDB(nw);}
+      p.workers.push(nw);if(cur)upsertWorkerDB(nw);}
+    if(!cur){keepLostInput(db0);close();return;}
     save();ov.querySelector('#wcList').innerHTML=build();wireList();
   });
   wireList();
@@ -3612,7 +3813,7 @@ function vLaborCo(c){
   c.querySelector('#lcNext').onclick=()=>{state.laborPer=shiftPer(per,1);render();};
   c.querySelectorAll('[data-lcper]').forEach(b=>b.onclick=()=>{state.laborPer=b.dataset.lcper;render();});
   c.querySelectorAll('[data-wdays]').forEach(b=>b.onclick=()=>{const o=people.find(x=>x.name===b.dataset.wdays);if(o)openWorkerDaysCal(o.name,o.dates);});
-  c.querySelectorAll('[data-gosite]').forEach(tr=>tr.onclick=()=>{DB.active=tr.dataset.gosite;state.tab='schedule';state.siteSub='labor';save();render();});
+  c.querySelectorAll('[data-gosite]').forEach(tr=>tr.onclick=()=>{seeProj(tr.dataset.gosite);state.tab='schedule';state.siteSub='labor';render();});
   c.querySelectorAll('[data-wdb-e]').forEach(b=>b.onclick=()=>{const it=DB.workersDB.find(x=>x.id===b.dataset.wdbE);openForm('workerdb',it);});
   c.querySelectorAll('[data-wdb-d]').forEach(b=>b.onclick=()=>{if(confirm('명부에서 삭제할까요? (현장 출력 기록은 남습니다)')){DB.workersDB=DB.workersDB.filter(x=>x.id!==b.dataset.wdbD);save();render();}});
   c.querySelector('#lcXls').onclick=()=>exportLaborCoXlsx(unit,per,perLabel(per),rows,people,sites,tot);
@@ -3961,7 +4162,7 @@ async function noticeFitSheet(d){
   return noticeSheet(Object.assign({},d,{fontScale:k}));
 }
 function openNotice(){
-  const p=proj(); const d=noticeData(p);
+  const p=proj(),db0=DB; const d=noticeData(p);
   const ov=document.createElement('div');ov.className='overlay';
   ov.innerHTML=`<div class="modal" style="width:min(660px,100%)"><h2>아파트 공사 안내문</h2>
     <div class="msub">엘리베이터·1층 현관에 게시할 A4 안내문을 만듭니다. 공사 시작 <b>최소 7일 전</b> 게시를 권장합니다.</div>
@@ -4018,19 +4219,22 @@ function openNotice(){
   };
   const collect=()=>{
     const v=id=>ov.querySelector(id).value;
-    p.notice={unit:v('#ntUnit').trim(),manager:v('#ntMgr').trim(),start:v('#ntStart'),end:v('#ntEnd'),
+    const n={unit:v('#ntUnit').trim(),manager:v('#ntMgr').trim(),start:v('#ntStart'),end:v('#ntEnd'),
       hours:v('#ntHours').trim(),works:v('#ntWorks').trim(),greet:v('#ntGreet').trim(),
       noisy:v('#ntNoisy').trim(),close:v('#ntClose').trim(),contact:v('#ntContact').trim(),
       logo:v('#ntLogo'),logoW:+v('#ntLogoW')||140,logoPos:v('#ntLogoPos'),fontScale:+v('#ntFont')||100,fontAuto:ntAuto.checked};
-    save();
+    /* 창을 연 현장을 id로 다시 찾아 넣는다 — 열린 사이 받은 최신본이면 p는 옛 자료, 지워졌으면 입력은 사본으로 */
+    const cur=DB.projects.find(x=>x.id===p.id);
+    if(cur){cur.notice=n;save();}else{p.notice=n;keepLostInput(db0);}
+    return n;
   };
   ov.querySelector('#ntWord').onclick=()=>{
-    collect();
-    downloadWordDoc(`공사안내문_${safeName(p.info.name||'현장')}_${todayStr()}.doc`,noticeWordHtml(p.notice));
+    const n=collect();
+    downloadWordDoc(`공사안내문_${safeName(p.info.name||'현장')}_${todayStr()}.doc`,noticeWordHtml(n));
   };
   ov.querySelector('#ntPrev').onclick=async()=>{
-    collect(); close();
-    showPreview('공사 안내문',await noticeFitSheet(p.notice),false); /* 한 장 맞춤 배율로 — 미리보기·인쇄·이미지 공통 */
+    const n=collect(); close();
+    showPreview('공사 안내문',await noticeFitSheet(n),false); /* 한 장 맞춤 배율로 — 미리보기·인쇄·이미지 공통 */
   };
 }
 
@@ -4236,7 +4440,7 @@ function vExpenses(c){
     : `<div class="card"><div class="card-h"><span class="ct">지출 상세</span><span class="cs">${all.length}건</span></div>
         <div class="tbl-wrap">${all.length?expTable(all,true):emptyB('등록된 지출이 없습니다.',addBtn('expenses','지출 추가'))}</div></div>`}`;
   c.querySelectorAll('[data-scope]').forEach(b=>b.onclick=()=>{state.expScope=b.dataset.scope;render();});
-  c.querySelectorAll('[data-openproj]').forEach(b=>b.onclick=()=>{DB.active=b.dataset.openproj;state.expScope='one';save();render();});
+  c.querySelectorAll('[data-openproj]').forEach(b=>b.onclick=()=>{seeProj(b.dataset.openproj);state.expScope='one';render();});
   c.querySelector('#bankImportBtn').onclick=openBankImport;
   c.querySelectorAll('[data-addco]').forEach(b=>b.onclick=()=>openForm('coexp'));
   c.querySelectorAll('[data-coe]').forEach(b=>b.onclick=()=>openForm('coexp',DB.coExpenses.find(x=>x.id===b.dataset.coe)));
@@ -4318,7 +4522,7 @@ function vSettle(c){
   <div class="card"><div class="pad" style="display:flex;justify-content:space-between;align-items:center">
     <div><div class="k" style="font-size:12px;color:var(--muted)">최종 손익</div><div class="num" style="font-size:26px;font-weight:700;color:${profit<0?'var(--bad)':'var(--good)'}">${won(profit)}</div></div>
     <div style="text-align:right" class="sub">계약 ${won(contract)} − 지출 ${won(spent)}<br>이익률 ${margin}%</div></div></div>`;
-  c.querySelectorAll('[data-openproj]').forEach(b=>b.onclick=()=>{DB.active=b.dataset.openproj;save();render();});
+  c.querySelectorAll('[data-openproj]').forEach(b=>b.onclick=()=>{seeProj(b.dataset.openproj);render();});
 }
 
 /* ===== 견적 (estimates) ===== */
@@ -4377,7 +4581,7 @@ function openEstCopy(sourceId,estId){
     if(!syncReady||syncBlocked){toast('저장 상태를 먼저 확인해 주세요. 복사를 진행하지 않았습니다.',3500);return;}
     button.disabled=true;
     let copy;
-    try{const targetId=ov.querySelector('#estCopyTarget').value;copy=copyEstimateToProject(sourceId,estId,targetId);DB.active=targetId;state.estOpen=copy.id;}
+    try{const targetId=ov.querySelector('#estCopyTarget').value;copy=copyEstimateToProject(sourceId,estId,targetId);seeProj(targetId);state.estOpen=copy.id;}
     catch(error){button.disabled=false;toast(error.message,3500);return;}
     close();const saved=await save();render();
     toast(saved?'복사본을 기기에 저장했습니다. 서버 저장 상태를 확인해 주세요.':'복사본은 화면에 남아 있습니다. 저장 오류를 확인하고 저장을 다시 눌러 주세요.',4500);
@@ -5080,10 +5284,12 @@ function vHome(c){
       </div></div>
   </div>
   ${cards||`<div class="card">${emptyB('진행 중인 현장이 없습니다.','')}</div>`}`;
-  c.querySelectorAll('[data-goproj]').forEach(cd=>cd.onclick=()=>{DB.active=cd.dataset.goproj;state.tab='schedule';save();render();});
+  c.querySelectorAll('[data-goproj]').forEach(cd=>cd.onclick=()=>{seeProj(cd.dataset.goproj);state.tab='schedule';render();});
   /* 날짜별 메모 — 입력 자동저장, 날짜 이동 시 해당 날짜 메모 로드 */
   const hm=document.getElementById('homeMemo');let hmT=null;
-  hm.oninput=()=>{const v=hm.value;if(v)DB.homeMemos[mdate]=v;else delete DB.homeMemos[mdate];clearTimeout(hmT);hmT=setTimeout(save,600);};
+  /* 칸을 떠나거나 화면이 숨겨지면 기다리던 저장을 바로 한다 — 그사이 최신본을 받으면 친 메모가 사라지던 틈 */
+  const flush=()=>{if(hmT){clearTimeout(hmT);hmT=null;save();}};hm.onblur=memoFlush=flush;
+  hm.oninput=()=>{const v=hm.value;if(v)DB.homeMemos[mdate]=v;else delete DB.homeMemos[mdate];clearTimeout(hmT);hmT=setTimeout(flush,600);};
   const md=document.getElementById('memoDate');
   md.onchange=()=>{if(md.value){state.memoDate=md.value;render();}};
   c.querySelectorAll('[data-mdate]').forEach(b=>b.onclick=()=>{state.memoDate=b.dataset.mdate;render();});
@@ -5092,7 +5298,7 @@ function vHome(c){
     const pr=DB.projects.find(x=>x.id===pid);const t=pr&&(pr.todos||[]).find(x=>x.id===tid);
     if(t){t.done=!t.done;save();render();}
   });
-  c.querySelectorAll('[data-goproj2]').forEach(b=>b.onclick=e=>{e.stopPropagation();DB.active=b.dataset.goproj2;state.tab='schedule';save();render();});
+  c.querySelectorAll('[data-goproj2]').forEach(b=>b.onclick=e=>{e.stopPropagation();seeProj(b.dataset.goproj2);state.tab='schedule';render();});
 }
 
 /* ===== 삼방향 동기화 — 견적서 내역 ↔ 마감재 내역 ↔ 스펙북 =====
@@ -5962,6 +6168,8 @@ let overlayEl=null;
 function openForm(type,existing,preset){
   /* preset: 새 항목의 기본값 미리 채움 (예: 일지 날짜칸에서 지출·작업자 추가) */
   const cfg=FORMS[type],editing=!!existing,data=existing||preset||{};
+  /* 창을 연 현장을 id로 잡아 둔다 — 열린 사이 최신본을 받으면 proj()·existing은 다른 현장이나 옛 자료를 가리킨다 */
+  const pid=proj()?.id,db0=DB;
   const fh=cfg.fields.map(f=>{const val=data[f.k]!=null?data[f.k]:(f.t==='date'&&!editing&&(f.k==='date')?todayStr():'');
     let input;
     if(f.t==='select')input=`<select name="${f.k}">${f.opt.map(o=>`<option ${String(val)===o?'selected':''}>${o}</option>`).join('')}</select>`;
@@ -6011,7 +6219,8 @@ function openForm(type,existing,preset){
     h.innerHTML='<b>R 레빗 연동 품목</b> — 품명·브랜드·규격·세부내역·단위·수량은 레빗에서 고치고 <b>앱으로 보내기</b>를 다시 누르세요. 단가·사진·상태·비고는 여기서 관리합니다.';
     overlayEl.querySelector('#entForm').before(h);
   }
-  const close=()=>{overlayEl.remove();overlayEl=null;};
+  /* 이 창만 닫는다 — 저장이 최신본을 넣느라 잠깐 기다리는 사이 닫히거나, 남은 Esc 리스너가 다음 창을 닫지 않게 */
+  const me=overlayEl,close=()=>{me.remove();if(overlayEl===me)overlayEl=null;};
   overlayEl.addEventListener('mousedown',e=>{if(e.target===overlayEl)close();});
   document.addEventListener('keydown',function k(e){if(e.key==='Escape'){close();document.removeEventListener('keydown',k);}});
   overlayEl.querySelector('#cancelBtn').onclick=close;
@@ -6072,31 +6281,46 @@ function openForm(type,existing,preset){
   const del=overlayEl.querySelector('#delBtn');
   if(del)del.onclick=()=>{if(confirm('삭제할까요?')){
     if(DB_FORM_TARGET[type])DB[DB_FORM_TARGET[type]]=DB[DB_FORM_TARGET[type]].filter(x=>x.id!==existing.id);
-    else{const p=proj();
-      if(type==='materials'&&existing.estId)matNoAuto(p).push(existing.estId);   /* 지운 연동 행은 다시 안 만든다 */
-      p[type]=p[type].filter(x=>x.id!==existing.id);}
+    else{const p=DB.projects.find(x=>x.id===pid);   /* 창을 연 현장 — 다른 기기에서 지웠으면 지울 것도 없다 */
+      if(p){if(type==='materials'&&existing.estId)matNoAuto(p).push(existing.estId);   /* 지운 연동 행은 다시 안 만든다 */
+      p[type]=p[type].filter(x=>x.id!==existing.id);}}
     save();close();render();}};
   const delP=overlayEl.querySelector('#delProjBtn');
   if(delP)delP.onclick=()=>{
     if(DB.projects.length<=1){alert('마지막 남은 프로젝트는 삭제할 수 없습니다.');return;}
-    const cur=proj();
+    const cur=DB.projects.find(x=>x.id===pid);   /* 창을 연 현장 — proj()는 그 사이 받은 자료의 다른 현장일 수 있다 */
+    if(!cur){alert('다른 기기에서 이미 지운 현장입니다.');close();render();return;}
     if(!confirm(`'${cur.info.name}' 프로젝트를 삭제할까요?\n일정·지출·사진 등 모든 데이터가 함께 삭제되며 되돌릴 수 없습니다.`))return;
     if(!confirm('정말 삭제합니다. 계속할까요?'))return;
     DB.projects=DB.projects.filter(x=>x.id!==cur.id);
-    DB.active=DB.projects[0].id;
+    seeProj(DB.projects[0].id);
     save();close();render();toast('프로젝트가 삭제되었습니다');
   };
-  overlayEl.querySelector('#entForm').onsubmit=e=>{e.preventDefault();
-    const fd=new FormData(e.target),obj={};
+  overlayEl.querySelector('#entForm').onsubmit=async e=>{e.preventDefault();
+    const fm=e.target;if(fm.dataset.busy)return;   /* 최신본을 넣는 사이 두 번 눌러 두 번 들어가지 않게 */
+    const fd=new FormData(fm),obj={};
     cfg.fields.forEach(f=>{let v=fd.get(f.k);if(f.t==='number')v=v===''?'':Number(v);if(f.t==='images'){try{v=JSON.parse(v||'[]');}catch(err){v=[];}}obj[f.k]=v;});
     for(const f of cfg.fields)if(f.req&&(obj[f.k]===''||obj[f.k]==null)){alert(`'${f.l}' 항목을 입력해 주세요.`);return;}
+    /* 창이 열린 사이 받아 둔 최신본이 있으면 먼저 넣고 그 위에 저장한다(옛 기준으로 올려 멈추지 않게) — 고치는 항목을 다른 기기가 그대로 두었을 때만 */
+    const T=DB_FORM_TARGET[type],q=x=>x?canon(x):'';
+    fm.dataset.busy=1;
+    await catchUp(d=>{if(!editing)return true;const P=d.projects.find(x=>x.id===pid);
+      return q(existing)===q(type==='info'?P&&P.info:type==='company'?d.company:((T?d[T]:P&&P[type])||[]).find(x=>existing.id&&x.id===existing.id));});
+    delete fm.dataset.busy;
     cfg.fields.forEach(f=>{if(f.dl==='trades'&&obj[f.k])addTrade(obj[f.k]);});
-    if(type==='info')Object.assign(proj().info,obj);
-    else if(DB_FORM_TARGET[type]&&!editing){obj.id=uid();(DB[DB_FORM_TARGET[type]]=DB[DB_FORM_TARGET[type]]||[]).push(obj);}
-    else if(editing)Object.assign(existing,obj);
-    else{const p=proj();obj.id=uid();(p[type]=p[type]||[]).push(obj);}
-    if(type==='workers')upsertWorkerDB(editing?existing:obj); /* 현장 출력 기록 → 작업자 명부 자동 반영 */
-    if(type==='materials')syncMaterialToEst(proj(),editing?existing:obj); /* 마감재 수정 → 연동된 견적서 품목에 역반영 */
+    /* 창을 연 현장·항목을 지금 자료에서 id로 다시 찾아 넣는다 — 그 사이 받은 최신본에서 지워졌으면 입력을 사본으로 남긴다 */
+    const p=DB.projects.find(x=>x.id===pid);
+    const tgt=type==='company'?DB.company:type==='info'?p&&p.info
+      :editing?((T?DB[T]:p&&p[type])||[]).find(x=>x===existing||(existing.id&&x.id===existing.id))
+      :T?DB:p;
+    if(!tgt){
+      if(editing)Object.assign(existing,obj);else{obj.id=uid();const p0=db0.projects.find(x=>x.id===pid);if(p0)(p0[type]=p0[type]||[]).push(obj);}
+      keepLostInput(db0).then(ok=>{if(ok){close();render();}});return;
+    }
+    if(type==='info'||type==='company'||editing)Object.assign(tgt,obj);
+    else{obj.id=uid();(tgt[T||type]=tgt[T||type]||[]).push(obj);}
+    if(type==='workers')upsertWorkerDB(editing?tgt:obj); /* 현장 출력 기록 → 작업자 명부 자동 반영 */
+    if(type==='materials')syncMaterialToEst(p,editing?tgt:obj); /* 마감재 수정 → 연동된 견적서 품목에 역반영 */
     save();close();render();
   };
   if(!IS_TOUCH)setTimeout(()=>{const el=overlayEl?.querySelector('input,select,textarea');el&&el.focus();},30);
@@ -6105,15 +6329,20 @@ function openForm(type,existing,preset){
 /* ===== new project ===== */
 function newProject(){const id=uid();
   DB.projects.push({id,info:{name:'새 프로젝트',client:'',contact:'',address:'',area:'',siteInfo:'',manager:'',entryNo:'',amount:0,vat:'별도',start:'',end:'',status:'진행중',statusMemo:'',memo:''},todos:[],schedule:[],payments:[],materials:[],orders:[],logs:[],photos:[],expenses:[],workers:[],as:[],files:[]});
-  DB.active=id;state.tab='schedule';save();render();openForm('info',proj().info);}
+  seeProj(id);state.tab='schedule';save();render();openForm('info',proj().info);}
 
 /* ===== 저장 · 백업 =====
    자동 저장(1.2초 지연)은 그대로 두고, 즉시 올리는 수단과
    파일 백업을 따로 둔다. 클라우드는 행 하나를 덮어쓰는 구조라
    이력이 없다 — 파일 백업이 유일한 되돌리기 수단이다. */
 async function saveNow(){
-  if(!await save()){toast('기기 저장을 확인하지 못했습니다. 창을 닫지 말고 백업 파일을 받으세요.');return;}
-  if(syncBlocked){conflictDialog();return;}
+  if(readOnly){roToast();return;}
+  /* 안 올라간 내용이 없으면 새로 올리지 않고 서버 최신본만 확인한다 — 고친 게 없는데 판 번호만 올려 다른 기기와 엇갈리던 것 */
+  if(syncReady&&!syncDirty&&!syncBusy&&!syncBlocked&&!cacheFault){await pullLatest();toast(pullFails?'서버를 확인하지 못했습니다 · 이 기기 자료는 그대로입니다':'서버 저장을 확인했습니다');return;}
+  const ok=await save();
+  /* 멈춤이면 — 진짜 충돌(다른 기기·다른 창)은 같은 창을 다시, 그 밖의 멈춤(서버 연결·기기 저장 공간)은 실제 이유를 알린다 */
+  if(syncBlocked){const c=stopInfo&&stopInfo.cause;if(c==='server'||c==='tab')conflictDialog();else toast((STOP[c]||STOP.offline)[2],5000);return;}
+  if(!ok){toast('기기 저장을 확인하지 못했습니다. 창을 닫지 말고 백업 파일을 받으세요.');return;}
   clearTimeout(syncT);await doSync();
   toast(syncDirty?'서버 저장 미확인 · 이 기기에 보관 중':'서버 저장을 확인했습니다');
 }
@@ -6176,10 +6405,18 @@ function initTheme(){let t=null;try{t=localStorage.getItem(KEY+'-theme');}catch(
 document.getElementById('newProjBtn').onclick=newProject;
 document.getElementById('saveNowBtn').onclick=saveNow;
 document.getElementById('backupBtn').onclick=openBackup;
+/* 빨간 멈춤 칩을 누르면(또는 Enter) 멈춤 창이 다시 열린다 */
+{const sc=document.getElementById('syncChip');sc.onclick=()=>{if(syncBlocked)conflictDialog();};sc.onkeydown=e=>{if(e.key==='Enter')sc.onclick();};}
 /* PWA — 홈 화면 설치형 앱 (https에서만 동작, 로컬 파일은 무시) */
 if('serviceWorker' in navigator&&location.protocol==='https:'){addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});}
 initTheme();
 (async function boot(){
+  readOnly=!await writerLock();
+  if(readOnly){const b=document.createElement('div');b.id='roBand';b.className='roband';
+    b.innerHTML='다른 창에서 편집 중 — 이 창은 보기 전용입니다 (여기서 고친 내용은 저장되지 않습니다) <button class="btn sm">다른 창을 닫았으면 새로고침</button>';
+    b.querySelector('button').onclick=()=>location.reload();document.querySelector('.appbar').after(b);}
+  /* 저장 공간이 모자랄 때 브라우저가 이 앱 자료(미전송 보관함 포함)를 지우지 않게 한 번 요청 */
+  try{navigator.storage.persisted().then(p=>p||navigator.storage.persist()).catch(()=>{});}catch(e){}
   try{const s=JSON.parse(localStorage.getItem(SES_KEY)||'null');if(s&&s.refresh_token)session=s;}catch(e){}
   if(session){
     try{
